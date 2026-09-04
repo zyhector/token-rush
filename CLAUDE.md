@@ -25,6 +25,8 @@ headroom.
 | With fused speculative decoding | 220–280 tok/s effective |
 | vs llama.cpp + MTP | 2x or more |
 | vs SGLang + DSpark | +20–40% |
+| Context | **256k usable**, not merely loadable — the model's native maximum |
+| Decode at 200k | hold **≥75% of the wall** (llama.cpp holds 49.6%) |
 
 **% of the memory-bandwidth roofline** is the primary metric — unlike a margin over
 a rival, it does not move as rivals mature.
@@ -51,7 +53,8 @@ of 27.78B in the repo. Weight bytes are computed against 26.90B, not 27B.
 
 - weights at 4.0–4.5 bpw: 13.5–15.1 GB
 - KV cache: only the 16 attention layers produce it — 64 KB/token FP16,
-  32 KB/token FP8, so 32k context is ~1 GB
+  32 KB/token FP8, so 32k is ~1 GB and **256k is ~8.4 GB**. At 4.0 bpw the full
+  256k window costs 13.45 + 8.4 = **21.9 GB**, comfortable on 31.4 GB
 - GDN recurrent state: ~75 MB for the whole model, ~151 MB stored FP32,
   independent of context length
 - draft model (MTP head or 4-bit DSpark): ~1 GB
@@ -72,8 +75,16 @@ Raw decode headroom equals the distance rivals sit from this wall.
 **The only way through the wall is speculative decoding** — and at bs=1 the 5090's
 tensor cores are idle, so verification FLOPs are free budget.
 
-Be honest about long context: within 64k, FP8 KV costs ~1 ms per step. At 262k the
-16 attention layers' KV reads dominate. That is physics, not an engineering defect.
+Long context is a **target, not a caveat**. Growing KV reads do lower the ceiling —
+at 200k they add 3.6 GB/token, pulling the 4.0 bpw wall from 120 to 81 tok/s. That
+part is physics. But the ceiling already prices that in, so an engine holding a
+constant fraction of the wall would degrade only that much, and llama.cpp does not:
+it falls from 76.7% of the wall at short context to **49.6% at 200k**
+(`docs/baselines.md`). Most of the observed slowdown is slack, not physics.
+
+The hybrid architecture is why this is winnable. **48 of 64 layers are GDN, whose
+recurrent state is constant-size regardless of context** — only the 16 attention
+layers pay for length. An engine that exploits that should barely degrade.
 
 ## Where the headroom comes from
 
@@ -102,6 +113,13 @@ Be honest about long context: within 64k, FP8 KV costs ~1 ms per step. At 262k t
    engine. And consumer cards are second-class citizens to vLLM/SGLang, whose main
    theater is H100/B200 — cuBLAS still dispatches Ampere-lineage
    `cutlass_80_tensorop_*` kernels for bf16 matmul on this card.
+
+5. **Long-context decode is the widest gap of all.** Rivals are tuned and
+   benchmarked at short context; the fraction of the wall they hold collapses as
+   the KV cache grows — llama.cpp goes 76.7% -> 49.6% between short context and
+   200k. Since 48 of 64 layers carry constant-size recurrent state, only 16 pay
+   for length, so this is not a hard limit. Attention-decode kernels that keep
+   memory-level parallelism up as KV grows are the lever.
 
 **But not from GEMV.** An untuned Triton bf16 GEMV already reaches 1569 GB/s,
 97.8% of the wall. Dense weight streaming is close to solved before we start; the

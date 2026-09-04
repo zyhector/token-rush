@@ -79,6 +79,27 @@ M=/workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
 Stop any local server before measuring (`pkill -f llama-server`) — a resident
 model competes for the bandwidth being measured.
 
+### Decode vs. context length
+
+Speculation off, `q8_0` KV, flash attention on. Bytes/token is weights (16.102
+GB) plus the KV actually re-read each step (32 KB per token of context, over the
+16 attention layers). The ceiling therefore already prices in the longer cache —
+an engine holding a constant fraction of the wall would track it.
+
+| Context | decode | bytes/token | ceiling | % of wall |
+|---|---|---|---|---|
+| ~0 | 77.0 tok/s | 16.10 GB | 100.3 | **76.7%** |
+| 22k | 70.5 tok/s | 16.82 GB | 96.0 | 73.4% |
+| 90k | 54.1 tok/s | 18.35 GB | 88.0 | 61.5% |
+| 200k | 40.6 tok/s | 19.72 GB | 81.9 | **49.6%** |
+
+llama.cpp does not track it — it gives up 27 points of roofline between short
+context and 200k. Physics accounts for the ceiling falling 100 -> 82; it does not
+account for the engine falling 77% -> 50% of that ceiling. At 200k more than half
+the available bandwidth goes unused.
+
+Prompt processing over the same range: 2974 tok/s at 22k, 1833 tok/s at 90k.
+
 ## What these numbers change
 
 **llama.cpp is a harder baseline than the plan assumed.** At 80.6% of the wall it
@@ -94,6 +115,12 @@ its own MTP head to +17% at bs=1 is direct evidence for headroom argument #2:
 speculation tuned for a batched design point is not tuned for this one. Against
 91 tok/s, the 220–280 tok/s effective target is 2.4–3.1x — a wider margin than
 the raw-decode target has.
+
+**Long context is where the gap is widest.** The roofline fraction llama.cpp
+holds collapses as the KV cache grows, and only 16 of 64 layers even produce KV —
+the other 48 carry constant-size recurrent state. An engine whose attention decode
+keeps memory-level parallelism up as KV grows should degrade far less. This is a
+larger and better-defended margin than the short-context raw-decode target.
 
 **Quantization parity has to be handled explicitly.** llama.cpp runs at 4.79 bpw;
 our target is 4.0. Comparing raw tok/s across that gap hands us ~20% for free and
