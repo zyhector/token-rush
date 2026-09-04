@@ -51,13 +51,17 @@ The base image ships no Python ML stack. What this project needed:
 ```bash
 uv pip install torch --torch-backend=cu128     # Blackwell needs CUDA >= 12.8
 uv pip install numpy transformers flash-linear-attention
-apt-get install -y nsight-systems-2025.1.3     # repo default is pre-Blackwell
+apt-get install -y nsight-systems-2025.1.3     # optional; see note below
 ```
 
-Two traps worth remembering:
+One trap worth remembering:
 
-- The `nsys` in the CUDA 12.8 apt repo is 2024.6.2, which predates Blackwell and
-  records an **empty trace** on `sm_120` rather than failing loudly.
 - Never name a probe script after a stdlib module (`nt.py`, `os.py`). The script
   directory goes on `sys.path` first, the interpreter dies before CUDA init, and
-  the result looks exactly like a profiler permission failure.
+  `nsys` faithfully records a trace containing no GPU work. An empty trace looks
+  identical to a profiler failure, so check the target program actually ran
+  before blaming the profiler.
+
+On `nsys` versions: the CUDA 12.8 apt repo ships 2024.6.2, and it captures
+`sm_120` kernel timelines correctly — verified against 2025.1.3, identical
+output. Either works; `check_env.sh` picks the newest installed.

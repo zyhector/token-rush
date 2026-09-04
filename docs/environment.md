@@ -104,7 +104,7 @@ decode shape with FP32 recurrent state.
 
 | Tool | State |
 |---|---|
-| **nsys** (timeline, kernel trace) | **Works** — needs 2025.1.3+ |
+| **nsys** (timeline, kernel trace) | **Works** |
 | **ncu** (per-kernel HW counters) | **Blocked** — `ERR_NVGPUCTRPERM` |
 
 The container has no `CAP_SYS_ADMIN` / `CAP_PERFMON` (`CapEff a80405fb`), and
@@ -112,9 +112,9 @@ The container has no `CAP_SYS_ADMIN` / `CAP_PERFMON` (`CapEff a80405fb`), and
 cannot be fixed from inside the container.**
 
 What still works: full kernel timelines, so the Phase 0 per-token timeline slice
-and all wall-clock work are unaffected. Note that the `nsys` in the CUDA 12.8
-apt repo is 2024.6.2, which predates Blackwell and records an *empty* trace on
-`sm_120` instead of erroring — install `nsight-systems-2025.1.3`.
+and all wall-clock work are unaffected. Both the 2024.6.2 shipped by the CUDA
+12.8 apt repo and 2025.1.3 capture `sm_120` kernel timelines correctly, with
+identical output.
 
 What is lost: per-kernel DRAM throughput, achieved occupancy, memory-level
 parallelism, warp stall reasons — the instruments for tuning the last few

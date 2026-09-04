@@ -73,8 +73,8 @@ if command -v capsh >/dev/null; then
 fi
 
 hdr "NSYS"
-# The nsys shipped with the CUDA 12.8 repo is 2024.6.2, which predates Blackwell
-# and silently records an empty trace on sm_120. Prefer 2025.1.3+.
+# Pick the newest installed nsys. Both 2024.6.2 (CUDA 12.8 repo) and 2025.1.3
+# trace sm_120 kernels correctly; either is fine.
 NSYS=$(ls -d /opt/nvidia/nsight-systems/*/target-linux-x64/nsys 2>/dev/null | sort -V | tail -1)
 NSYS=${NSYS:-$(command -v nsys || true)}
 if [ -z "$NSYS" ]; then
@@ -89,13 +89,14 @@ for _ in range(10):
 torch.cuda.synchronize()
 PY
   # NB: never name a probe script after a stdlib module (nt.py, os.py, ...) —
-  # the script dir goes on sys.path first and the interpreter dies before CUDA init,
-  # producing an empty trace that looks like a profiler permission failure.
+  # the script dir goes on sys.path first, the interpreter dies before CUDA init,
+  # and nsys records a trace with no GPU work in it. An empty trace means "the
+  # target never ran" at least as often as it means "the profiler failed".
   "$NSYS" profile -t cuda -o "$TMP/trace" --force-overwrite true \
       python "$TMP/gpu_probe.py" >/dev/null 2>&1
   if "$NSYS" stats --report cuda_gpu_kern_sum --force-export true "$TMP/trace.nsys-rep" 2>&1 |
        grep -q "SKIPPED"; then
-    echo "RESULT: no kernel data captured — check nsys version supports sm_120"
+    echo "RESULT: no kernel data captured — check the probe program actually ran"
   else
     echo "RESULT: kernel timeline captured OK"
   fi
