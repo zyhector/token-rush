@@ -1,11 +1,11 @@
 # env_check
 
-Throwaway "is this box usable?" checks. Run once when a new GPU instance is
-rented, then forget about them.
+"Is this box usable?" — run once on a newly rented GPU instance, then get on
+with the project.
 
-These are deliberately **not** in `bench/`. `bench/` is for measuring the engine
-— tok/s, acceptance rate, time-to-first-token — against the real model. Nothing
-here measures Token Rush; it only establishes that the machine can host it.
+These are deliberately **not** in `bench/`. `bench/` measures the engine — tok/s,
+acceptance rate, time-to-first-token — against the real model. Nothing here
+measures Token Rush; it only establishes that the machine can host it.
 
 | Script | Answers |
 |---|---|
@@ -18,50 +18,40 @@ scripts/env_check/check_env.sh
 scripts/env_check/check_bandwidth.py
 ```
 
-## Why these two survive
+Record the output in `docs/environment.md`.
 
-**`check_env.sh`** records the vast machine/host id (benchmarks must name the
-machine they ran on) and checks `nsys` and `ncu`. The `ncu` result is a rental
-accept/reject criterion: GPU counter access is a per-host kernel-module setting,
-so an otherwise identical 5090 may or may not allow kernel-level profiling.
+## What each one is for
 
-**`check_bandwidth.py`** re-anchors the roofline. Every speed target in
-`CLAUDE.md` is a percentage of measured read bandwidth, not of the 1792 GB/s
-spec sheet — and the measured figure varies by card. Re-run it before quoting
-any "% of wall" number from a new instance.
+**`check_env.sh`** records the vast machine/host id — benchmarks must name the
+machine they ran on — and checks `nsys` and `ncu`. Treat the `ncu` line as a
+rental accept/reject criterion: GPU counter access is a per-host kernel-module
+setting, so an otherwise identical 5090 may or may not allow kernel-level
+profiling.
 
-## Deliberately not kept
+**`check_bandwidth.py`** anchors the roofline. Every speed target in `CLAUDE.md`
+is a percentage of measured read bandwidth, not of the 1792 GB/s spec sheet, and
+the measured figure varies by card. Run it before quoting any "% of wall" number
+from a new instance.
 
-Two one-shot probes were used to validate the plan and then deleted, having
-answered their question:
+## Provisioning a fresh instance
 
-- A naive Triton GEMV, to confirm `sm_120` codegen works and to see how close
-  an unoptimised kernel lands to the bandwidth ceiling (it landed at ~98%).
-- A 48-layer Gated DeltaNet chain run eager vs. captured in one CUDA graph, to
-  size the launch-dispatch tax (~4.2 ms/token).
-
-Both numbers are recorded in `docs/environment.md`. When they need re-measuring
-it will be against the real model inside the engine, which makes them `bench/`
-material, not environment checks.
-
-## Setup notes
-
-The base image ships no Python ML stack. What this project needed:
+The vast base image ships no Python ML stack:
 
 ```bash
-uv pip install torch --torch-backend=cu128     # Blackwell needs CUDA >= 12.8
+uv pip install torch --torch-backend=cu128     # Blackwell requires CUDA >= 12.8
 uv pip install numpy transformers flash-linear-attention
-apt-get install -y nsight-systems-2025.1.3     # optional; see note below
 ```
 
-One trap worth remembering:
+An older torch build (`cu124`) installs cleanly and then fails at the first GPU
+op with *no kernel image is available*.
 
-- Never name a probe script after a stdlib module (`nt.py`, `os.py`). The script
-  directory goes on `sys.path` first, the interpreter dies before CUDA init, and
-  `nsys` faithfully records a trace containing no GPU work. An empty trace looks
-  identical to a profiler failure, so check the target program actually ran
-  before blaming the profiler.
+`nsys` comes from the CUDA apt repo (`cuda-nsight-systems-12-8`); `check_env.sh`
+uses the newest version installed. `ncu` is already present.
 
-On `nsys` versions: the CUDA 12.8 apt repo ships 2024.6.2, and it captures
-`sm_120` kernel timelines correctly — verified against 2025.1.3, identical
-output. Either works; `check_env.sh` picks the newest installed.
+## One trap
+
+Never name a probe script after a stdlib module (`nt.py`, `os.py`). The script
+directory goes on `sys.path` first, the interpreter dies before CUDA init, and
+`nsys` faithfully records a trace containing no GPU work. An empty trace looks
+identical to a profiler permission failure — confirm the target program actually
+ran before blaming the profiler.

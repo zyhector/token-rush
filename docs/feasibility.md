@@ -26,19 +26,20 @@ the correct shape for a mini project.
 
 - llama.cpp on 5090 mobile (896 GB/s), Qwen3.8-27B Q4_K_M: **36.7 tok/s raw**,
   **50.9 with MTP** (+39%, acceptance 0.76–0.82). On a 3090: 31 → 41.3.
-  36.7 tok/s at 896 GB/s is roughly **65% of the wall** — more room left than the
-  75–85% estimated in the earlier 4070S-era plan.
+  36.7 tok/s at 896 GB/s is roughly **65% of the wall** — that 35% gap is the
+  headroom this project takes.
 - SGLang + DSpark (RadixArk, 1.86B draft): bs=1 GSM8K **3.16x**, mean accepted
   length 3.43. Falls to 2.48x at concurrency 8.
 - 24 GB Blackwell card at 262k context: 50 → 12.6 tok/s. Long context is real.
 
 ## Resources are in hand
 
-5090 rental starts under $1/hr; a few hundred hours is $100–200 total. Every
-dependency is open: Qwen3.8-27B ships its own MTP head, RadixArk published the
-DSpark draft, GDN prefill can borrow flash-linear-attention's Triton kernels (only
-the decode single-step needs to be written), gpt-fast provides the skeleton, and
-FlashInfer/Marlin-class kernels exist to compare against.
+The 5090 is rented at $0.428/hr (`docs/environment.md`), so a few hundred hours
+is $85–170 total. Every dependency is open: Qwen3.8-27B ships its own MTP head,
+RadixArk published the DSpark draft, GDN prefill can borrow
+flash-linear-attention's Triton kernels (only the decode single-step needs to be
+written), gpt-fast provides the skeleton, and FlashInfer/Marlin-class kernels
+exist to compare against.
 
 ## Risks and honest boundaries
 

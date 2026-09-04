@@ -111,10 +111,8 @@ The container has no `CAP_SYS_ADMIN` / `CAP_PERFMON` (`CapEff a80405fb`), and
 `NVreg_RestrictProfilingToAdminUsers` is a host kernel-module parameter. **This
 cannot be fixed from inside the container.**
 
-What still works: full kernel timelines, so the Phase 0 per-token timeline slice
-and all wall-clock work are unaffected. Both the 2024.6.2 shipped by the CUDA
-12.8 apt repo and 2025.1.3 capture `sm_120` kernel timelines correctly, with
-identical output.
+What still works: full kernel timelines on `sm_120`, so the Phase 0 per-token
+timeline slice and all wall-clock work are unaffected.
 
 What is lost: per-kernel DRAM throughput, achieved occupancy, memory-level
 parallelism, warp stall reasons — the instruments for tuning the last few
@@ -133,13 +131,12 @@ suffers, and `feasibility.md` already says not to start by chasing the last 5%.
 
 ## Model availability
 
-`Qwen/Qwen3.8-27B` is **public and ungated**. Config verified against the
-architecture assumed in `CLAUDE.md` — all of it matches: 64 layers as 48
-`linear_attention` + 16 `full_attention` (`full_attention_interval: 4`), hidden
-5120, FFN 17408, attention 24 Q / 4 KV heads at head dim 256, GDN 48 V / 16 QK
-heads at head dim 128, conv kernel 4, vocab 248320.
+`Qwen/Qwen3.8-27B` is **public and ungated**. Its `config.json` gives 64 layers
+as 48 `linear_attention` + 16 `full_attention` (`full_attention_interval: 4`),
+hidden 5120, FFN 17408, attention 24 Q / 4 KV heads at head dim 256, GDN 48 V /
+16 QK heads at head dim 128, conv kernel 4, vocab 248320.
 
-Exact parameter split, read from the safetensors headers:
+Parameter split, read from the safetensors headers:
 
 | Component | Params |
 |---|---|
@@ -160,10 +157,10 @@ Rival and comparison artifacts all exist on the Hub: GGUF (`unsloth`), NVFP4
 (`unsloth`, `QUASAR-QAT`), EXL3 (`turboderp`, for the ExLlamaV3 comparison),
 official FP8 (`Qwen`), and the DSpark draft (`RadixArk`).
 
-## One-shot findings
+## What this machine implies for the plan
 
-Measured once to validate the plan, recorded here rather than kept as scripts.
-Both are `bench/` material when they need re-measuring against the real engine.
+Two measurements that set where Phase 2 effort belongs. Both are `bench/`
+material when they need re-measuring against the real engine.
 
 **A naive Triton GEMV already saturates GDDR7.** A textbook bf16 GEMV, no
 tuning, reached 1569 GB/s — 97.8% of the 1605 GB/s wall. The dense
