@@ -31,7 +31,7 @@ a rival, it does not move as rivals mature.
 
 ## The physics
 
-**RTX 5090**: 32 GB GDDR7, 1792 GB/s on the spec sheet but **1605 GB/s of
+**RTX 5090**: 32 GB GDDR7, 1792 GB/s on the spec sheet but **1615 GB/s of
 measured read bandwidth** — that measured figure is the wall, and every "% of
 roofline" number in this project is a fraction of it. 170 SMs, SM120 (consumer
 Blackwell — `mma.sync` lineage, no Hopper `wgmma`, no datacenter-Blackwell
@@ -56,12 +56,12 @@ of 27.78B in the repo. Weight bytes are computed against 26.90B, not 27B.
   independent of context length
 - draft model (MTP head or 4-bit DSpark): ~1 GB
 
-**The bandwidth wall**: single-stream decode tok/s ~= 1605 / bytes-read-per-token.
+**The bandwidth wall**: single-stream decode tok/s ~= 1615 / bytes-read-per-token.
 
 | bpw | weights | ceiling, empty KV | at 32k FP8 KV | 85–90% of wall |
 |---|---|---|---|---|
-| 4.0 | 13.45 GB | 119 tok/s | ~112 | **95–101** |
-| 4.5 | 15.13 GB | 106 tok/s | ~100 | 85–90 |
+| 4.0 | 13.45 GB | 120 tok/s | ~113 | **96–102** |
+| 4.5 | 15.13 GB | 107 tok/s | ~100 | 85–90 |
 | 5.0 | 16.81 GB | 96 tok/s | ~90 | 77–81 |
 
 Quantization is therefore the single largest lever on the headline number — it
@@ -97,7 +97,7 @@ Be honest about long context: within 64k, FP8 KV costs ~1 ms per step. At 262k t
    **Measured, and this is the biggest single item**: a 48-layer GDN chain costs
    4.39 ms/token launched eagerly and 0.15 ms/token replayed from one graph. The
    4.2 ms of pure launch tax is ~42% of the entire 10 ms budget for 100 tok/s.
-4. **Nobody feeds Blackwell's bandwidth.** 1605 GB/s needs far more memory-level
+4. **Nobody feeds Blackwell's bandwidth.** 1615 GB/s needs far more memory-level
    parallelism than Ada-era kernels were tuned for. GDN kernels are young in every
    engine. And consumer cards are second-class citizens to vLLM/SGLang, whose main
    theater is H100/B200 — cuBLAS still dispatches Ampere-lineage

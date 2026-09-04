@@ -51,12 +51,17 @@ The number the whole project is anchored to.
 
 | | Measured | % of 1792 GB/s spec |
 |---|---|---|
-| **Read-only (reduction)** | **1605–1610 GB/s** | **~89.6%** |
-| Copy (read + write) | 1519–1520 GB/s | ~84.8% |
+| **Read-only (reduction)** | **1615 GB/s** | **~90.1%** |
+| Copy (read + write) | 1519 GB/s | ~84.8% |
 
-Weight streaming at bs=1 is a pure read, so **1605 GB/s is the wall**, not 1792.
-Reproducible to within 0.3% across runs. (vast's own advertised figure for this
+Weight streaming at bs=1 is a pure read, so **1615 GB/s is the wall**, not 1792.
+Reproducible to within 0.1% across runs. (vast's own advertised figure for this
 machine is a more conservative 1451 GB/s.)
+
+`check_bandwidth.py` reports the fastest of several timed blocks rather than the
+mean. The card idles at 810 MHz memory clock and boosts to 14001 MHz, so a block
+overlapping the ramp reads low by up to 30%; a slow block is always clock
+contamination, never the card beating physics.
 
 ## CPU / memory / storage
 
@@ -163,7 +168,7 @@ Two measurements that set where Phase 2 effort belongs. Both are `bench/`
 material when they need re-measuring against the real engine.
 
 **A naive Triton GEMV already saturates GDDR7.** A textbook bf16 GEMV, no
-tuning, reached 1569 GB/s — 97.8% of the 1605 GB/s wall. The dense
+tuning, reached 1569 GB/s — 97% of the 1615 GB/s wall. The dense
 weight-streaming path needs no hand-written kernel.
 
 **The launch-dispatch tax is large.** A 48-layer Gated DeltaNet chain, eager vs.

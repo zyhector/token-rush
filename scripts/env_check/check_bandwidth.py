@@ -12,15 +12,27 @@ SPEC_GBS = 1792.0          # RTX 5090 datasheet
 TEXT_PARAMS = 26.896e9     # Qwen3.8-27B text path incl. lm_head, excl. vision+mtp
 
 
-def timed(fn, iters=30, warmup=5):
+def best_time(fn, reps=5, iters=20, warmup=30):
+    """Fastest per-iteration time over `reps` timed blocks.
+
+    Take the best, not the mean. This card idles at 810 MHz memory clock and
+    ramps to 14001 MHz under load, so a block that overlaps the ramp reports a
+    number that is low by up to 30%. A slow block is always clock contamination;
+    none of them can be faster than the hardware. The long warmup exists to get
+    the ramp over with before the first measurement.
+    """
     for _ in range(warmup):
         fn()
     torch.cuda.synchronize()
-    t = time.perf_counter()
-    for _ in range(iters):
-        fn()
-    torch.cuda.synchronize()
-    return (time.perf_counter() - t) / iters
+
+    best = float("inf")
+    for _ in range(reps):
+        t = time.perf_counter()
+        for _ in range(iters):
+            fn()
+        torch.cuda.synchronize()
+        best = min(best, (time.perf_counter() - t) / iters)
+    return best
 
 
 def main():
@@ -33,8 +45,8 @@ def main():
     b = torch.empty_like(a)
     nbytes = a.numel() * a.element_size()
 
-    read = nbytes / timed(a.sum) / 1e9
-    copy = 2 * nbytes / timed(lambda: b.copy_(a)) / 1e9
+    read = nbytes / best_time(a.sum) / 1e9
+    copy = 2 * nbytes / best_time(lambda: b.copy_(a)) / 1e9
 
     print(f"{'read-only (reduction)':<24} {read:7.0f} GB/s   {read / SPEC_GBS * 100:5.1f}% of spec")
     print(f"{'copy (read+write)':<24} {copy:7.0f} GB/s   {copy / SPEC_GBS * 100:5.1f}% of spec")
