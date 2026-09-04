@@ -1,0 +1,2 @@
+FROM /workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
+PARAMETER num_ctx 4096

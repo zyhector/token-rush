@@ -1,0 +1,9 @@
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 32768 --max-num-seqs 1 --gpu-memory-utilization 0.9 --port 8000 --speculative-config '{"method":"mtp","num_speculative_tokens":1}' > server_mtp1.log 2>&1 < /dev/null
+VLLM MTP HEALTHY
+essay     63.0 tok/s
+code      63.0 tok/s
+math      62.6 tok/s
+(APIServer pid=42413) INFO 09-04 16:34:25 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.84, Accepted throughput: 11.87 tokens/s, Drafted throughput: 14.15 tokens/s, Accepted: 333 tokens, Drafted: 397 tokens, Per-position acceptance
+(APIServer pid=42413) INFO 09-04 16:34:35 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.87, Accepted throughput: 51.50 tokens/s, Drafted throughput: 59.00 tokens/s, Accepted: 515 tokens, Drafted: 590 tokens, Per-position acceptance
+
+[exited with code 0]

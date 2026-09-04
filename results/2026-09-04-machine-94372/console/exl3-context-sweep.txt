@@ -1,0 +1,19 @@
+ok
+Traceback (most recent call last):
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 99, in <module>
+    main()
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 84, in main
+    rate = run(gen, ids, args.n, args.reps)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 57, in run
+    for r in gen.iterate():
+             ^^^^^^^^^^^^^
+  File "/workspace/venvs/exl3/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/exl3/lib/python3.12/site-packages/exllamav3/generator/generator.py", line 401, in iterate
+    assert self.draft_cache is None or self.draft_cache.initialized, \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Draft cache tensors were never allocated. Construct the draft Cache BEFORE calling draft_model.load()
+
+[exited with code 0]

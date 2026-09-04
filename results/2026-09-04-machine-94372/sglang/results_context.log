@@ -1,0 +1,3 @@
+context       0:    63.3 tok/s   (prompt 1 tok)
+context   22000:   112.7 tok/s   (prompt 22000 tok)
+context   90000:    56.4 tok/s   (prompt 90000 tok)

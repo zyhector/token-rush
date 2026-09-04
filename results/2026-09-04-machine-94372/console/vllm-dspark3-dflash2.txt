@@ -1,0 +1,20 @@
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+5
+20G	/workspace/models/Qwen3.8-27B-NVFP4
+overlay         100G   97G  3.1G  97% /
+===== vLLM DSpark (Qwen3DSparkModel) =====
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 8192 --max-num-seqs 1 --gpu-memory-utilization 0.92 --port 8000 "$@" > server_$name.log 2>&1 < /dev/null
+VLLM dspark3 HEALTHY
+essay     51.4 tok/s
+code      52.0 tok/s
+math      52.2 tok/s
+(APIServer pid=64820) INFO 09-04 18:34:45 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 3.59, Accepted throughput: 124.10 tokens/s, Drafted throughput: 335.29 tokens/s, Accepted: 1241 tokens, Drafted: 3353 tokens, Per-position acceptance rate: 0.749, 0.528, 0.434, 0.305, 0.236, 0.19
+===== vLLM DFlash2 8k =====
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 8192 --max-num-seqs 1 --gpu-memory-utilization 0.92 --port 8000 "$@" > server_$name.log 2>&1 < /dev/null
+VLLM dflash2 HEALTHY
+essay     51.9 tok/s
+code      51.8 tok/s
+math      51.6 tok/s
+(APIServer pid=67363) INFO 09-04 18:38:50 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 3.69, Accepted throughput: 40.96 tokens/s, Drafted throughput: 121.88 tokens/s, Accepted: 1097 tokens, Drafted: 3264 tokens, Per-position acceptance rate: 0.811, 0.598, 0.409, 0.311, 0.213, 0.169
+
+[exited with code 0]

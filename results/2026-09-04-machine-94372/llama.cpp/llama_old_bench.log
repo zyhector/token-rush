@@ -1,0 +1,11 @@
+| model                          |       size |     params | backend    | ngl |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           pp512 |     3854.91 ± 273.60 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           tg128 |         83.11 ± 0.19 |
+build: 6703d7894 (10795)
+raw 1: [ Prompt: 302.9 t/s | Generation: 80.6 t/s ]
+raw 2: [ Prompt: 302.1 t/s | Generation: 80.8 t/s ]
+raw 3: [ Prompt: 306.1 t/s | Generation: 80.8 t/s ]
+mtp 1: [ Prompt: 261.5 t/s | Generation: 129.5 t/s ]
+mtp 2: [ Prompt: 259.6 t/s | Generation: 129.8 t/s ]
+mtp 3: [ Prompt: 250.6 t/s | Generation: 125.1 t/s ]

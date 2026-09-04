@@ -1,0 +1,12 @@
+rewritten
+=== raw ===
+essay     63.2 tok/s   (prompt 26 tok)
+code      63.1 tok/s   (prompt 19 tok)
+math      63.1 tok/s   (prompt 49 tok)
+=== context ===
+context       0:    63.1 tok/s   (prompt 1 tok)
+context   22000:    60.9 tok/s   (prompt 22000 tok)
+context   90000:    56.2 tok/s   (prompt 90000 tok)
+context  200000:    49.9 tok/s   (prompt 200000 tok)
+
+[exited with code 0]

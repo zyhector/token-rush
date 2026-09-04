@@ -1,0 +1,10 @@
+=== mtp 1 ===
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 20.7 GB allocated
+essay    113.8 tok/s   accepted draft tokens 112/254 -> 1.79 per step
+code     119.8 tok/s   accepted draft tokens 118/254 -> 1.87 per step
+math     124.5 tok/s   accepted draft tokens 123/254 -> 1.94 per step
+=== mtp 2 ===
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 23.2 GB allocated
+essay    126.7 tok/s   accepted draft tokens 140/253 -> 2.24 per step
+code     142.1 tok/s   accepted draft tokens 146/253 -> 2.36 per step
+math     160.3 tok/s   accepted draft tokens 163/253 -> 2.81 per step

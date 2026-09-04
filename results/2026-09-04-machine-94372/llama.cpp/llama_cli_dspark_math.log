@@ -1,0 +1,39 @@
+
+
+Loading model... |-\|/-\|/0.00.977.134 E llama_init_from_model: failed to initialize the context: dflash requires ctx_other to be set (this warning is normal during memory fitting)
+-\|/-\|/-\|/-\|/-\|/-\|/-\|/ 
+
+▄▄ ▄▄
+██ ██
+██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄
+██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██
+██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀
+                                    ██    ██
+                                    ▀▀    ▀▀
+
+build      : b10802-24f5bf8a4
+model      : /workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
+ftype      : Q4_K - Medium
+modalities : text
+
+available commands:
+  /exit or Ctrl+C     stop or exit
+  /regen              regenerate the last response
+  /clear              clear the chat history
+  /read <file>        add a text file
+  /glob <pattern>     add text files using globbing pattern
+
+
+
+> Solve step by step: A train leaves city A at 60 km/h and another leaves city B, 450 km away, at 90 km/h toward it one hour later. When and where do they meet?
+
+[Start thinking]
+
+We need answer user: "Solve step by step: A train leaves city A at 60 km/h and another leaves city B, 450 km away, at 90 km/h toward it one hour later. When and where do they meet?"
+
+Need solve step by step. Need be careful about timing. Let's parse: Train 1 leaves city A at 60 km/h. Another leaves city B, 450 km away, at 90 km/h toward it one hour later. Need when and where do they meet. Ambiguity: "one hour later" relative to what? Likely the second train leaves one hour after the first. So first leaves at time 0 (say 6:00? It says leaves city A at 60 km/h, not time? Actually "A train leaves city A at 60 km/h and another leaves city B, 450 km away, at 9
+
+[ Prompt: 194.9 t/s | Generation: 131.7 t/s ]
+
+
+Exiting...

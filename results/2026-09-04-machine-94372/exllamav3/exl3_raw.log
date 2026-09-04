@@ -1,0 +1,14 @@
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 18.0 GB allocated
+Traceback (most recent call last):
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 77, in <module>
+    main()
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 68, in main
+    print(f"{name:6s} {run(gen, tokenizer, ids, args.n, args.reps):7.1f} tok/s")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 44, in run
+    res = gen.generate(prompt=ids, max_new_tokens=n, min_new_tokens=n,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/exl3/lib/python3.12/site-packages/exllamav3/generator/generator.py", line 1409, in generate
+    assert False, "Unexpected type in prompt"
+           ^^^^^
+AssertionError: Unexpected type in prompt

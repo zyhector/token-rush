@@ -1,0 +1,6 @@
+essay dspark: Loading model... |-\|/-\|/-0.01.079.936 E llama_init_from_model: failed to initialize the context: dflash requires ctx_other to be set (this warning is normal during memory fitt
+essay dspark: [ Prompt: 130.1 t/s | Generation: 93.6 t/s ]
+code dspark: Loading model... |-\|/-\|/-\0.01.083.899 E llama_init_from_model: failed to initialize the context: dflash requires ctx_other to be set (this warning is normal during memory fit
+code dspark: [ Prompt: 118.1 t/s | Generation: 92.0 t/s ]
+math dspark: Loading model... |-\|/-\|/0.00.972.591 E llama_init_from_model: failed to initialize the context: dflash requires ctx_other to be set (this warning is normal during memory fitting
+math dspark: [ Prompt: 189.6 t/s | Generation: 131.6 t/s ]

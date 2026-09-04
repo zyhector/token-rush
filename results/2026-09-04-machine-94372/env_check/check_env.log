@@ -1,0 +1,99 @@
+
+=== VAST INSTANCE ===
+id                     49832910
+machine_id             94372
+host_id                71705
+geolocation            North Carolina, US
+mobo_name              S8056GME
+dph_total              0.5908148148148148
+gpu_name               RTX 5090
+gpu_ram                32607
+gpu_mem_bw             1455.8
+pcie_bw                27.0
+cpu_name               AMD EPYC 9B14 96-Core Processor
+cpu_cores              192
+cpu_cores_effective    24.0
+cpu_ram                515689
+disk_space             99.99999999999991
+disk_bw                6663.900000000001
+inet_down              3181.3
+inet_up                1493.0
+driver_version         610.43.02
+cuda_max_good          13.3
+compute_cap            1200
+image_uuid             vastai/base-image:cuda-12.8.1-auto
+reliability2           0.987237
+
+=== GPU ===
+name	NVIDIA GeForce RTX 5090
+uuid	GPU-3a108a21-07b6-4d16-67f2-23a26c597e8b
+vbios	98.02.2E.80.4A
+pci_bus	00000000:83:00.0
+pcie_gen	5
+pcie_width	16
+vram	32607 MiB
+sm_clock_max	3120 MHz
+mem_clock_max	14001 MHz
+power_limit	600.00 W
+compute_cap	12.0
+driver	610.43.02
+
+=== GPU THROTTLE STATE ===
+        Idle                                           : Not Active
+        Applications Clocks Setting                    : Not Active
+        SW Power Cap                                   : Not Active
+        HW Slowdown                                    : Not Active
+            HW Thermal Slowdown                        : Not Active
+            HW Power Brake Slowdown                    : Not Active
+        Sync Boost                                     : Not Active
+        SW Thermal Slowdown                            : Not Active
+
+=== CPU ===
+Architecture: x86_64
+CPU(s): 192
+Model name: AMD EPYC 9B14 96-Core Processor
+Thread(s) per core: 2
+Core(s) per socket: 96
+Socket(s): 1
+CPU(s) scaling MHz: 48%
+CPU max MHz: 3703.3760
+L3 cache: 384 MiB (12 instances)
+NUMA node(s): 4
+
+=== MEMORY ===
+               total        used        free      shared  buff/cache   available
+Mem:             503         359          74          96         207         143
+
+=== STORAGE ===
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         100G   98G  2.8G  98% /
+overlay         100G   98G  2.8G  98% /
+workspace_is_volume: False
+
+=== TOOLCHAIN ===
+nvcc             Build cuda_13.3.r13.3/compiler.38244171_0
+gcc              gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+cmake            cmake version 3.28.3
+torch            2.14.0+cu130
+triton           3.8.0
+transformers     5.16.1
+flash-linear-attention 0.6.0
+safetensors      0.8.0
+huggingface-hub  1.29.0
+numpy            2.5.2
+einops           0.8.2
+accelerate       -
+
+=== CAPABILITIES ===
+CapEff:	00000000a80405fb
+(no cap_sys_admin / cap_perfmon)
+
+=== NSYS ===
+/opt/nvidia/nsight-systems/2026.1.3/target-linux-x64/nsys
+NVIDIA Nsight Systems version 2026.1.3.425-261338342291v0
+RESULT: kernel timeline captured OK (4 kernels)
+
+=== NCU ===
+NVIDIA (R) Nsight Compute Command Line Profiler
+RESULT: BLOCKED — ERR_NVGPUCTRPERM (host must set
+        NVreg_RestrictProfilingToAdminUsers=0; not fixable in-container)

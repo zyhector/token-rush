@@ -1,0 +1,36 @@
+
+
+Loading model... |-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\ 
+
+▄▄ ▄▄
+██ ██
+██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄
+██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██
+██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀
+                                    ██    ██
+                                    ▀▀    ▀▀
+
+build      : b10802-24f5bf8a4
+model      : /workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
+ftype      : Q4_K - Medium
+modalities : text
+
+available commands:
+  /exit or Ctrl+C     stop or exit
+  /regen              regenerate the last response
+  /clear              clear the chat history
+  /read <file>        add a text file
+  /glob <pattern>     add text files using globbing pattern
+
+
+
+> Write a Python implementation of a thread-safe LRU cache with TTL expiry, including unit tests.
+
+[Start thinking]
+
+We need answer user: "Write a Python implementation of a thread-safe LRU cache with TTL expiry, including unit tests." Need provide code. Need think thoroughly. Need likely include implementation using OrderedDict or custom doubly linked list, threading.Lock, TTL expiry. Unit tests using unittest or pytest. Need maybe discuss usage. Need ensure thread-safe. Need handle TTL per item, max size, get/put/delete/clear, maybe stats. Need tests for LRU eviction, TTL expiry, thread safety maybe concurrent stress. Need be careful with time mocking? Could use time.monotonic. For tests, can monkeypatch time or use small TTL and sleep. Better design allows clock injection for deterministic tests. Implement class LRUCache with max_size, default_ttl, clock=time.monotonic. Methods: get(key, default=None), set(key, value, ttl=None), delete(key), clear(), __len__, __contains__, maybe peek? Need thread-safe: single RLock? Use lock for all
+
+[ Prompt: 228.9 t/s | Generation: 127.1 t/s ]
+
+
+Exiting...

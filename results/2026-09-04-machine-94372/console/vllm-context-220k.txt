@@ -1,0 +1,10 @@
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 220000 --max-num-seqs 1 --max-num-batched-tokens 8192 --gpu-memory-utilization 0.92 --port 8000 > server.log 2>&1 < /dev/null
+VLLM HEALTHY
+(EngineCore pid=40706) INFO 09-04 08:28:05 [gpu_worker.py:593] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9200 is equivalent to --gpu-memory
+(EngineCore pid=40706) INFO 09-04 08:28:05 [kv_cache_utils.py:1869] GPU KV cache size: 228,979 tokens, Maximum concurrency for 220,000 tokens per request: 1.04x
+context       0:    79.7 tok/s
+context   22000:    77.7 tok/s
+context   90000:    70.6 tok/s
+context  200000:    61.0 tok/s
+
+[exited with code 0]

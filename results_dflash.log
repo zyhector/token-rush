@@ -1,0 +1,18 @@
+essay     51.4 tok/s
+code      51.7 tok/s
+Traceback (most recent call last):
+  File "/workspace/token-rush/scripts/rivals/vllm_bench.py", line 72, in <module>
+    main()
+  File "/workspace/token-rush/scripts/rivals/vllm_bench.py", line 61, in main
+    print(f"{name:6s} {best_rate(args.url, model, text, args.n, args.reps):7.1f} tok/s")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/vllm_bench.py", line 46, in best_rate
+    return max(stream_rate(url, model, prompt, n) for _ in range(reps))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/vllm_bench.py", line 46, in <genexpr>
+    return max(stream_rate(url, model, prompt, n) for _ in range(reps))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/vllm_bench.py", line 42, in stream_rate
+    return count / (t_last - t_first)
+                    ~~~~~~~^~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'NoneType' and 'NoneType'

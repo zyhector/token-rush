@@ -1,0 +1,14 @@
+[1]+  Done                    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True SGLANG_RAGGED_VERIFY_MODE=static setsid nohup /workspace/venvs/sglang/bin/python -m sglang.launch_server --model-path /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8_e4m3 --mamba-ssm-dtype float32 --context-length 262144 --chunked-prefill-size 4096 --max-prefill-tokens 4096 --mem-fraction-static 0.92 --max-total-tokens 30000 --max-running-requests 1 --max-mamba-cache-size 8 --mamba-radix-cache-strategy extra_buffer --cuda-graph-max-bs 1 --disable-prefill-cuda-graph --speculative-algorithm DSPARK --speculative-draft-model-path /workspace/models/Qwen3.8-27B-DSpark --speculative-draft-model-quantization unquant --speculative-draft-attention-backend flashinfer --speculative-dspark-block-size 7 --speculative-num-steps 1 --speculative-eagle-topk 1 --host 127.0.0.1 --port 30000 > server_spec.log 2>&1 < /dev/null
+SGLANG DSPARK HEALTHY
+[2026-09-04 08:13:54] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 30000, K size: 0.46 GB, V size: 0.46 GB
+[2026-09-04 08:13:54] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 30000, K size: 0.14 GB, V size: 0.14 GB
+[2026-09-04 08:13:57] Capture target verify CUDA graph end. elapsed=2.98 s, mem usage=0.13 GB, avail mem=3.26 GB.
+[2026-09-04 08:14:19] Capture draft verify CUDA graph end. elapsed=21.47 s, mem usage=0.07 GB, avail mem=3.19 GB.
+essay    104.4 tok/s   1024 tokens in  429 verify steps   mean accepted length 2.39
+code     137.4 tok/s   1024 tokens in  329 verify steps   mean accepted length 3.11
+math     205.2 tok/s   1024 tokens in  219 verify steps   mean accepted length 4.68
+[2026-09-04 08:14:48] Decode batch, #running-req: 1, #full token: 584, full token usage: 0.02, mamba num: 3, mamba usage: 0.38, accept len: 4.33, accept rate: 0.47, cuda graph: True, gen throughput (t
+[2026-09-04 08:14:49] Decode batch, #running-req: 1, #full token: 762, full token usage: 0.03, mamba num: 3, mamba usage: 0.38, accept len: 4.58, accept rate: 0.51, cuda graph: True, gen throughput (t
+[2026-09-04 08:14:50] Decode batch, #running-req: 1, #full token: 952, full token usage: 0.03, mamba num: 3, mamba usage: 0.38, accept len: 4.80, accept rate: 0.54, cuda graph: True, gen throughput (t
+
+[exited with code 0]

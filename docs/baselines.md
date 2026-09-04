@@ -4,7 +4,8 @@ Rival measurements on our own hardware. Every number here is first-party — run
 on vast machine 94372 (RTX 5090), described in `docs/environment.md`.
 
 Re-measure and re-date whenever a rival version changes. Rivals improve; a
-baseline with no date and no commit hash is not evidence.
+baseline with no date and no commit hash is not evidence. The raw logs behind
+every table here are in `results/2026-09-04-machine-94372/`.
 
 ## Method
 
@@ -57,6 +58,8 @@ The conversion already drops the vision tower — 0 vision tensors in the file.
 | same, code prompt | 128.4 | |
 | same, math prompt | 162.2 | |
 | `llama-cli` + `--spec-type draft-dspark`, essay / code / math | 93.6 / 92.0 / 131.6 | draft `erlidev/Qwen3.8-27B-DSpark-GGUF` BF16 (2.7 GB), `-ngld 999` |
+| `llama-cli` + `--spec-type draft-dflash`, essay / code / math | 110.7 / 111.4 / 146.6 | draft `z-lab/Qwen3.8-27B-DFlash2-GGUF` BF16 (3.9 GB) |
+| `llama-cli` + `draft-mtp --spec-draft-n-max 4`, essay / code / math | 116.3 / 107.4 / 165.8 | the chained-MTP setting ollama uses |
 
 ```
 ceiling  = 1701 GB/s / 16.102 GB = 105.6 tok/s
@@ -64,9 +67,10 @@ llama.cpp raw = 82.84 tok/s      =  78.4% of the wall
 MTP gain      = 129.6 / 80.6     =  +61%  (essay; +59% code, +101% math)
 ```
 
-The DSpark draft (RadixArk's 1.86B model, as a GGUF sidecar) is *worse* than
-the built-in one-token MTP head inside llama.cpp: +16% on prose against +60%,
-+63% on math against +100%. The same draft gives SGLang 1.65x / 3.25x, so
+Both external drafts are *worse* than the built-in one-token MTP head inside
+llama.cpp: DSpark (RadixArk's 1.86B model, as a GGUF sidecar) gets +16% on
+prose against +60% and +63% on math against +100%; DFlash2 (z-lab's 5-layer
+block draft) gets +37% and +82%. The same draft gives SGLang 1.65x / 3.25x, so
 this is llama.cpp's DSpark integration, not the draft — a fresh
 `--spec-type` that has not had the tuning the MTP path has. Within one engine
 the comparison holds everything else constant, and it says the draft model is
@@ -268,13 +272,14 @@ defaults (startup takes about five minutes of compilation).
 
 ### Results
 
-Raw decode, three short prompts, streamed, best of 3:
+Raw decode, three short prompts, streamed, best of 3
+(`results/.../vllm/results_raw.log`):
 
 | Prompt | tok/s | % of wall |
 |---|---|---|
-| essay | 80.0 | 88.4% |
-| code | 80.1 | 88.5% |
-| math | 79.9 | 88.3% |
+| essay | 79.4 | 87.7% |
+| code | 79.5 | 87.8% |
+| math | 79.4 | 87.7% |
 
 ### Decode vs. context length
 
@@ -306,7 +311,31 @@ otherwise. FULL decode CUDA graphs are still captured.
 
 Mean acceptance length 1.84–1.93 per step (draft acceptance 87–93%), and it
 is still **slower than not speculating**: a draft-plus-verify step costs about
-30 ms against 12.5 ms for a raw decode step. Nearly-free verification is
+30 ms against 12.5 ms for a raw decode step.
+
+### DSpark and DFlash2 drafts
+
+`--speculative-config '{"method":"dspark","model":<RadixArk draft>,"num_speculative_tokens":7}'`
+at `--max-model-len 8192` (the bf16 draft costs 3.6 GB of KV budget). Two
+things had to be patched into a copy of the draft's `config.json` to get it
+to load: `architectures` set to `Qwen3DSparkModel` (vLLM maps the
+checkpoint's `DSparkDraftModel` to its DeepSeek-V4 class and fails on
+`hc_mult`), and a no-op `compressed-tensors` `quantization_config` (vLLM
+inherits the target's quantization for the draft and then cannot find a
+quant config in a bf16 checkpoint).
+
+| Draft | Prompt | tok/s | mean accepted / step | vs. raw 80.0 |
+|---|---|---|---|---|
+| DSpark, gamma 7 | essay / code / math | 51.4 / 52.0 / 52.2 | 3.59 (server mean) | **0.65x** |
+| DFlash2, block 8 | essay / code / math | 51.9 / 51.8 / 51.6 | 3.69 (server mean) | **0.65x** |
+
+Both drafts accept 3.6–3.7 tokens per step in vLLM — DSpark is the same
+draft SGLang runs, at a similar acceptance — and both land at the same 52
+tok/s, *35% slower than raw*: a step costs about 70 ms whichever draft is
+used, so the cost is the speculative path, not the draft model. The draft model, the verify and the bookkeeping between them run
+outside the decode graph. This is the strongest raw engine measured, losing
+to its own raw decode with a draft that accepts three and a half tokens at a
+time. Nearly-free verification is
 exactly what a bs=1 engine gets from idle tensor cores, and vLLM's speculative
 path does not get it — the EAGLE-style draft loop runs eager Triton kernels
 between the graphs. This is headroom argument #2 in `CLAUDE.md` measured on
@@ -414,6 +443,35 @@ hf download turboderp/Qwen3.8-27B-exl3 --revision 4.00bpw --local-dir /workspace
 /workspace/venvs/exl3/bin/python scripts/rivals/exl3_bench.py /workspace/models/Qwen3.8-27B-exl3-4.0 mtp --draft-tokens 1
 ```
 
+## ollama
+
+Measured 2026-09-04. ollama **0.33.3**, `ollama pull qwen3.8:27b` — ollama's
+own Q4_K_M conversion (16.80 GB of tensors, Q4_K body with Q6_K/Q5_K in a few
+layers, the MTP head as `blk.64.*`, plus a 0.93 GB vision projector loaded
+alongside). ollama runs its bundled `llama-server` with `--spec-type
+draft-mtp --spec-draft-n-max 4 --spec-draft-backend-sampling`, 32k context,
+all 66 layers on the GPU — so its number is llama.cpp with a 4-token chained
+MTP draft on by default, and there is no switch to turn speculation off.
+
+Bytes per raw step by the same convention as llama.cpp (tensors minus MTP):
+16.54 GB, ceiling 102.9 tok/s.
+
+| Prompt | tok/s | % of raw ceiling | notes |
+|---|---|---|---|
+| essay | 66.9 | 65% | `eval_count / eval_duration` from the API, 256 tokens |
+| code | 68.3 | 66% | |
+| math | 82.0 | 80% | |
+
+With speculation on, ollama is *slower* than a plain `llama-cli` raw decode
+(80.6) on prose and code. The draft depth is not the reason: `llama-cli` with
+the same `--spec-draft-n-max 4` gets 116 / 107 / 166 tok/s (a little below
+its 1-token MTP on prose and code, a little above on math). The remaining
+gap — 116 vs 67 on the same weights family, engine and head — is ollama's
+serving path: `llama-server` with backend sampling, `-b 1024 -ub 1024`, the
+vision projector loaded, and its own request handling. ollama is the sanity
+floor it was listed as: what a user gets by default, not what the engine can
+do.
+
 ## What these numbers change
 
 **The general-engine tax at bs=1 is engine-specific, and vLLM has mostly paid
@@ -444,7 +502,8 @@ would give. That, plus the ~30% raw tax, is the effective-throughput margin.
 
 
 **Speculation is where every rival is weak, each in its own way.** vLLM's MTP
-path is slower than its raw decode. llama.cpp's DSpark integration gets a
+path is slower than its raw decode, and so are DSpark and DFlash2 in vLLM at
+3.6–3.7 accepted tokens per step (52 tok/s against 80 raw). llama.cpp's DSpark integration gets a
 quarter of what the same draft gives SGLang. SGLang's verify step costs 1.45x
 a raw step. ExLlamaV3 chains the MTP head well (2.8 tokens per step on math)
 but on a 60%-of-wall raw decode. Nobody has both a raw decode near the wall
@@ -477,8 +536,14 @@ bpw; our target is 4.0. Comparing raw tok/s across that gap hands us ~20% for
 free and a reviewer will say so. Report % of roofline as the headline, and
 produce a matched-bpw GGUF with `llama-quantize` for a supporting comparison.
 
-## Still to measure
+## Not yet measured
 
-- vLLM with a DFlash/DSpark draft (`method: dflash` / `dspark`) — only the
-  built-in MTP head is measured; a Qwen DSpark draft model class does not
-  exist in vLLM 0.28 (only `gemma4_dspark`)
+Every rival in the table has a raw, a long-context and a speculative number.
+What is still missing is second-order:
+
+- speculation *at long context* for any rival (all speculative runs are at
+  short context; on this card the drafts and the KV pool compete for memory)
+- ExLlamaV3 with a quantized cache, and llama.cpp at a matched 4.0 bpw
+  (`llama-quantize`) for the fair-comparison row
+- vLLM's long-context decode with FP16 rather than FP8 KV, to separate the
+  attention kernel from the cache format

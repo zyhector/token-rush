@@ -1,0 +1,3 @@
+essay    104.4 tok/s   1024 tokens in  429 verify steps   mean accepted length 2.39
+code     137.4 tok/s   1024 tokens in  329 verify steps   mean accepted length 3.11
+math     205.2 tok/s   1024 tokens in  219 verify steps   mean accepted length 4.68

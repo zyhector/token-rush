@@ -1,0 +1,38 @@
+===== vLLM DFlash2 =====
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 32768 --max-num-seqs 1 --gpu-memory-utilization 0.9 --port 8000 "$@" > server_$name.log 2>&1 < /dev/null
+VLLM dflash FAILED
+106:(EngineCore pid=55184) ERROR 09-04 18:20:10 [core.py:1346] ValueError: To serve at least one request with the model's max seq len (32768), (2.91 GiB KV cache is needed, which is larger than the available KV cache memory (2.55 GiB). Based on the available memory, the estimated maximum model lengt
+135:(EngineCore pid=55184)     raise ValueError(
+136:(EngineCore pid=55184) ValueError: To serve at least one request with the model's max seq len (32768), (2.91 GiB KV cache is needed, which is larger than the available KV cache memory (2.55 GiB). Based on the available memory, the estimated maximum model length is 23072. Try increasing `gpu_memo
+===== vLLM DSpark (ct draft dir) =====
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 32768 --max-num-seqs 1 --gpu-memory-utilization 0.9 --port 8000 "$@" > server_$name.log 2>&1 < /dev/null
+VLLM dspark2 FAILED
+105:(EngineCore pid=57107) ERROR 09-04 18:20:46 [core.py:1346] AttributeError: 'Qwen3Config' object has no attribute 'hc_mult'
+172:(EngineCore pid=57107) AttributeError: 'Qwen3Config' object has no attribute 'hc_mult'
+===== llama.cpp draft-dflash =====
+essay dflash: [ Prompt: 152.8 t/s | Generation: 110.7 t/s ]
+code dflash: [ Prompt: 132.7 t/s | Generation: 111.4 t/s ]
+math dflash: [ Prompt: 197.4 t/s | Generation: 146.6 t/s ]
+===== ollama =====
+overlay         100G   78G   23G  78% /
+writing manifest [K
+success [K[?25h[?2026l
+NAME           ID              SIZE     MODIFIED               
+qwen3.8:27b    22130167c4c2    17 GB    Less than a second ago    
+  Model
+    architecture        qwen35     
+    parameters          27.3B      
+    context length      262144     
+    embedding length    5120       
+    quantization        Q4_K_M     
+    requires            0.32.12    
+
+  Capabilities
+    completion    
+    vision        
+    tools         
+essay     66.9 tok/s   (256 tokens)
+code      68.3 tok/s   (256 tokens)
+math      82.0 tok/s   (256 tokens)
+
+[exited with code 0]

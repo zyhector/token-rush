@@ -30,7 +30,14 @@ Each of these cost real time. Do not rediscover them.
   the command line you are running — including a `kill-then-relaunch` one-liner
   whose relaunch half contains the very string being killed. Anchor the pattern
   to the executable (`pkill -f "^/workspace/venvs/vllm/bin/vllm"`), use
-  `pkill -x <name>`, or kill in a separate step. Paid for three times.
+  `pkill -x <name>`, kill by PID, or kill in a separate step. The `[x]`
+  bracket trick does not help when the same word also appears elsewhere in
+  the command line (a shell function named after the thing being killed).
+  Paid for four times.
+- **ollama keeps its model resident for `keep_alive` (10 min by default)**
+  after the last request, holding ~20 GB of VRAM; the next engine's startup
+  fails with "free memory less than desired utilization". `ollama stop
+  <model>` or kill the runner before launching anything else.
 
 ## Serving rivals on 32 GB
 

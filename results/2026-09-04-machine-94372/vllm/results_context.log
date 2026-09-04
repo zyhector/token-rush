@@ -1,0 +1,4 @@
+context       0:    79.7 tok/s
+context   22000:    77.7 tok/s
+context   90000:    70.6 tok/s
+context  200000:    61.0 tok/s

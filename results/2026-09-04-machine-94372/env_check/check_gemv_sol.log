@@ -1,0 +1,9 @@
+63 GEMVs over 12 layers, 9.13 GB bf16 weights
+  eager      5.58 ms     1638 GB/s    96.3% of 1701 GB/s wall
+  graphed    5.56 ms     1642 GB/s    96.6% of 1701 GB/s wall
+USDT:2026-09-04 18:40:00 70599:70599 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-09-04 18:40:00 70599:70599 SyncActivityProfilerHandler.cpp:46] profiler_stop
+
+cuBLAS kernels dispatched for these shapes:
+   57x  std::enable_if<!(false), void>::type internal::gemvx::kernel<int, int, __nv_bfloat16, __nv_bfloat16, __nv_bflo
+    6x  std::enable_if<!(false), void>::type internal::gemvx::kernel<int, int, __nv_bfloat16, __nv_bfloat16, __nv_bflo

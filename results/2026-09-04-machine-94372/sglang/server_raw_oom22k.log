@@ -1,0 +1,308 @@
+/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/launch_server.py:57: UserWarning: 'python -m sglang.launch_server' is still supported, but 'sglang serve' is the recommended entrypoint.
+  Example: sglang serve --model-path <model> [options]
+  warnings.warn(
+[1;33m'--cuda-graph-max-bs' is deprecated and will be removed in a future release. Use '--cuda-graph-max-bs-decode' instead.[0m
+[2026-09-04 07:59:07] Attention backend not specified. Use flashinfer backend by default.
+[2026-09-04 07:59:08] Compiled-kernel caches now live under SGLANG_CACHE_DIR (/root/.cache/sglang). These older directories are no longer used by sglang, but may still be used by other frameworks on this machine, so they were left alone: /root/.triton, /root/.cache/flashinfer. Remove them yourself if nothing else needs them.
+[2026-09-04 07:59:08] server_args=ServerArgs(model_path='/workspace/models/Qwen3.8-27B-NVFP4', tokenizer_path='/workspace/models/Qwen3.8-27B-NVFP4', tokenizer_mode='auto', tokenizer_backend='huggingface', tokenizer_worker_num=1, detokenizer_worker_num=1, skip_tokenizer_init=False, load_format='auto', model_loader_extra_config='{}', trust_remote_code=True, context_length=262144, is_embedding=False, enable_multimodal=None, revision=None, model_impl='auto', model_config_parser='auto', json_model_override_args='{}', dtype='auto', quantization=None, quantization_param_path=None, kv_cache_dtype='fp8_e4m3', enable_fp32_lm_head=False, modelopt_quant=None, modelopt_checkpoint_restore_path=None, modelopt_checkpoint_save_path=None, modelopt_export_path=None, quantize_and_serve=False, rl_quant_profile=None, enable_tf32_matmul=False, mem_fraction_static=0.88, max_running_requests=1, max_queued_requests=None, max_total_tokens=None, chunked_prefill_size=16384, enable_dynamic_chunking=False, max_prefill_tokens=16384, prefill_max_requests=None, schedule_policy='fcfs', enable_priority_scheduling=False, disable_priority_preemption=False, default_priority_value=None, abort_on_priority_when_disabled=False, schedule_low_priority_values_first=False, priority_scheduling_preemption_threshold=10, retraction_policy='length', schedule_conservativeness=1.0, page_size=1, c128_page_size=16, swa_full_tokens_ratio=0.8, disable_hybrid_swa_memory=False, radix_eviction_policy='lru', prefill_only_disable_kv_cache=False, disable_radix_cache=False, enable_page_major_kv_layout=False, enable_unified_memory=False, disable_chunked_prefix_cache=False, disable_overlap_schedule=False, num_continuous_decode_steps=1, scheduler_recv_interval=1, enable_mixed_chunk=False, nccl_port=None, dist_timeout=None, dist_init_addr=None, nnodes=1, node_rank=0, tp_size=1, dcp_size=1, pp_size=1, pp_max_micro_batch_size=None, pp_async_batch_depth=0, dp_size=1, load_balance_method='round_robin', attn_cp_size=1, moe_dp_size=1, dwdp_size=1, dcp_comm_backend='ag_rs', dcp_replicate_q_proj=None, enable_prefill_cp=False, cp_strategy=None, enable_dsa_cache_layer_split=False, enable_dsa_prefill_context_parallel=False, dsa_prefill_cp_mode='round-robin-split', enable_prefill_context_parallel=False, prefill_cp_mode='in-seq-split', enable_cp_decode_attn_tp=False, enable_dp_attention=False, enable_dp_attention_local_control_broadcast=False, enable_dp_lm_head=False, enable_tp_lm_head_all_to_all=False, enable_attn_tp_input_scattered=False, disable_attn_tp_gather=False, enable_p2p_check=False, device='cuda', base_gpu_id=0, gpu_id_step=1, random_seed=852456385, mlx_enable_sampling=False, watchdog_timeout=300, soft_watchdog_timeout=None, sleep_on_idle=False, use_ray=False, custom_sigquit_handler=None, numa_node=None, gc_threshold=None, host='127.0.0.1', port=30000, fastapi_root_path='', smg_grpc_mode=False, grpc_mode=False, grpc_port=None, sidecar=None, sidecar_args=None, skip_server_warmup=False, warmups=None, enable_http2=False, http2_max_concurrent_streams=200, ssl_keyfile=None, ssl_certfile=None, ssl_ca_certs=None, ssl_keyfile_password=None, enable_ssl_refresh=False, api_key=None, admin_api_key=None, served_model_name='/workspace/models/Qwen3.8-27B-NVFP4', weight_version='default', chat_template=None, hf_chat_template_name=None, completion_template=None, file_storage_path='sglang_storage', enable_cache_report=False, reasoning_parser=None, default_chat_template_kwargs=None, strip_thinking_cache=False, enable_strict_thinking=False, tool_call_parser=None, tool_server=None, sampling_defaults='model', asr_max_buffer_seconds=60, asr_max_concurrent_sessions=32, preferred_sampling_params=None, allow_auto_truncate=False, stream_interval=1, batch_notify_size=16, stream_response_default_include_usage=False, incremental_streaming_output=False, enable_streaming_session=False, enable_session_radix_cache=False, log_level='info', log_level_http=None, log_requests=False, log_requests_level=2, log_requests_format='text', log_requests_target=None, uvicorn_access_log_exclude_prefixes=[], crash_dump_folder=None, show_time_cost=False, enable_metrics=False, smg_http_sidecar_port=None, enable_mfu_metrics=False, enable_metrics_for_all_schedulers=False, load_snapshot_publish_interval=15, tokenizer_metrics_custom_labels_header='x-custom-labels', tokenizer_metrics_allowed_custom_labels=None, extra_metric_labels=None, bucket_time_to_first_token=None, bucket_inter_token_latency=None, bucket_e2e_request_latency=None, prompt_tokens_buckets=None, generation_tokens_buckets=None, gc_warning_threshold_secs=0.0, decode_log_interval=40, enable_request_time_stats_logging=False, kv_events_config=None, enable_forward_pass_metrics=False, forward_pass_metrics_worker_id='', forward_pass_metrics_ipc_name=None, enable_trace=False, trace_modules='request', otlp_traces_endpoint='localhost:4317', export_metrics_to_file=False, export_metrics_to_file_dir=None, stat_loggers=None, constrained_json_whitespace_pattern=None, constrained_json_disable_any_whitespace=False, attention_backend='flashinfer', decode_attention_backend=None, prefill_attention_backend=None, sampling_backend='flashinfer', grammar_backend='xgrammar', radix_cache_backend=None, mm_attention_backend=None, fp8_gemm_runner_backend='auto', fp4_gemm_runner_backend='auto', bf16_gemm_backend='auto', dsa_prefill_backend=None, dsa_decode_backend=None, dsa_paged_mqa_logits_backend='auto', dsa_topk_backend='sgl-kernel', disable_flashinfer_autotune=False, flashinfer_autotune_skip_ops=None, mamba_backend='triton', cuda_graph_config=CudaGraphConfig(decode=PhaseConfig(backend='full', max_bs=1, bs=[1], tc_compiler='eager', full_prefill_max_req=None, full_prefill_prefix_chunk_tokens=None), prefill=PhaseConfig(backend='disabled', max_bs=16384, bs=[4, 8, 12, 16, 20, 24, 28, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 832, 896, 960, 1024, 1280, 1536, 1792, 2048, 2304, 2560, 2816, 3072, 3328, 3584, 3840, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192, 8704, 9216, 9728, 10240, 10752, 11264, 11776, 12288, 12800, 13312, 13824, 14336, 14848, 15360, 15872, 16384], tc_compiler='eager', full_prefill_max_req=None, full_prefill_prefix_chunk_tokens=None)), cuda_graph_backend_decode=None, cuda_graph_backend_prefill=None, cuda_graph_max_bs_decode=1, cuda_graph_max_bs_prefill=None, cuda_graph_bs_decode=None, cuda_graph_bs_prefill=None, cuda_graph_tc_compiler=None, disable_prefill_cuda_graph=True, disable_decode_cuda_graph=False, disable_cuda_graph=False, disable_cuda_graph_padding=False, enable_profile_cuda_graph=False, enable_cudagraph_gc=False, debug_cuda_graph=False, enable_layerwise_nvtx_marker=False, enable_nccl_nvls=False, enable_symm_mem=False, triton_attention_reduce_in_fp32=False, triton_attention_num_kv_splits=8, triton_attention_split_tile_size=None, flashinfer_mla_disable_ragged=False, enable_fused_qk_norm_rope=False, enable_precise_embedding_interpolation=False, enable_fused_moe_sum_all_reduce=False, enable_deepseek_v4_fp4_indexer=False, disable_custom_all_reduce=False, enable_mscclpp=False, enable_torch_symm_mem=False, enable_scattered_sconv=False, pre_warm_nccl=False, enable_quant_communications=False, enable_flashinfer_allreduce_fusion=False, enforce_disable_flashinfer_allreduce_fusion=False, flashinfer_allreduce_fusion_backend=None, enable_aiter_allreduce_fusion=False, enable_torch_compile=False, enable_torch_compile_debug_mode=False, torch_compile_max_bs=32, speculative_algorithm=None, speculative_draft_model_path=None, speculative_draft_model_revision=None, speculative_draft_load_format=None, speculative_num_steps=None, speculative_eagle_topk=None, speculative_num_draft_tokens=None, speculative_dflash_block_size=None, speculative_dspark_block_size=None, speculative_dspark_sps_table_path=None, speculative_dspark_confidence_sts_path=None, speculative_dspark_align_verify_tokens_to_graph_tier=False, speculative_accept_threshold_single=1.0, speculative_accept_threshold_acc=1.0, speculative_use_rejection_sampling=False, speculative_token_map=None, speculative_attention_mode='prefill', speculative_draft_attention_backend=None, speculative_draft_kv_cache_dtype=None, speculative_draft_window_size=None, speculative_moe_runner_backend='auto', speculative_moe_a2a_backend=None, speculative_draft_model_quantization=None, _speculative_draft_quantization_explicitly_set=False, speculative_skip_dp_mlp_sync=False, enable_multi_layer_eagle=False, speculative_adaptive=False, speculative_adaptive_config=None, decoupled_spec_bind_endpoint=None, decoupled_spec_connect_endpoints=None, decoupled_spec_rank=None, decoupled_spec_role='null', spec_trace_dir=None, speculative_ngram_min_bfs_breadth=1, speculative_ngram_max_bfs_breadth=10, speculative_ngram_match_type='BFS', speculative_ngram_max_trie_depth=18, speculative_ngram_capacity=10000000, speculative_ngram_external_corpus_path=None, speculative_ngram_external_sam_budget=0, speculative_ngram_external_corpus_max_tokens=10000000, ep_size=1, moe_a2a_backend='none', moe_runner_backend='auto', flashinfer_mxfp4_moe_precision='default', deepep_mode='auto', fuseep_mode=2, deepep_dispatcher_output_dtype='auto', ep_num_redundant_experts=0, ep_dispatch_algorithm=None, init_expert_location='trivial', enable_eplb=False, eplb_algorithm='auto', eplb_rebalance_num_iterations=1000, eplb_rebalance_layers_per_chunk=None, eplb_min_rebalancing_utilization_threshold=1.0, expert_distribution_recorder_mode=None, expert_distribution_recorder_buffer_size=1000, expert_balancedness_report_mode='off', deepep_config=None, moe_dense_tp_size=None, elastic_ep_backend=None, enable_elastic_expert_backup=False, mooncake_ib_device=None, enable_waterfill=False, ep_join_mode=None, ep_join_rank_offset=0, elastic_ep_initial_size=None, max_ep_size=None, elastic_ep_scale_timeout=600, elastic_ep_rejoin=False, disable_flashinfer_cutlass_moe_fp4_allgather=False, disable_shared_experts_fusion=False, enforce_shared_experts_fusion=False, max_mamba_cache_size=6, mamba_ssm_dtype='float32', mamba_max_states_per_path=-1, enable_mamba_cache_stochastic_rounding=False, mamba_cache_philox_rounds=0, mamba_full_memory_ratio=0.9, mamba_radix_cache_strategy='extra_buffer', uses_mamba_radix_cache=True, mamba_track_interval=256, enable_int8_mamba_checkpoint=False, int8_mamba_ckpt_size=None, linear_attn_backend='triton', linear_attn_decode_backend=None, linear_attn_prefill_backend=None, linear_attn_verify_backend=None, enable_linear_replayssm=False, linear_replayssm_cache_len=16, enable_linear_replayssm_spec=False, enable_hierarchical_cache=False, hicache_ratio=2.0, hicache_size=0, hicache_write_policy='write_through', hicache_io_backend='kernel', hicache_mem_layout='page_first', hicache_storage_backend=None, hicache_storage_prefetch_policy='timeout', hicache_storage_backend_extra_config=None, enable_hisparse=False, hisparse_config=None, enable_broadcast_mm_inputs_process=False, enable_prefix_mm_cache=False, mm_enable_dp_encoder=False, mm_process_config={}, mm_processor_worker_num=0, mm_io_worker_num=0, allowed_media_domains=[], media_url_max_file_size_mb=64, mm_preprocess_cache_size_mb=None, trust_mm_content_hashes=False, limit_mm_data_per_request=None, enable_mm_global_cache=False, image_processor_backend='auto', mm_global_cache_backend='mooncake', disable_fast_image_processor=False, mm_feature_transport='cpu', keep_mm_feature_on_device=False, enable_lora=None, enable_lora_overlap_loading=None, max_lora_rank=None, lora_target_modules=None, lora_paths=None, max_loaded_loras=None, max_loras_per_batch=8, lora_eviction_policy='lru', lora_backend='csgmv', max_lora_chunk_size=16, experts_shared_outer_loras=None, lora_use_virtual_experts=False, lora_strict_loading=False, lora_drain_wait_threshold=0.0, enable_two_batch_overlap=False, enable_single_batch_overlap=False, tbo_token_distribution_threshold=0.48, cpu_offload_gb=0, offload_group_size=-1, offload_num_in_group=1, offload_prefetch_step=1, offload_mode='cpu', enable_lmcache=False, lmcache_config_file=None, enable_flexkv=False, flexkv_config_file=None, kt_weight_path=None, kt_method='AMXINT4', kt_cpuinfer=None, kt_threadpool_count=2, kt_num_gpu_experts=None, kt_max_deferred_experts_per_token=None, dllm_algorithm=None, dllm_algorithm_config=None, dllm_fdfo=True, disaggregation_mode='null', disaggregation_transfer_backend='mooncake', disaggregation_bootstrap_port=8998, disaggregation_ib_device=None, disaggregation_decode_enable_radix_cache=False, disaggregation_decode_enable_offload_kvcache=False, disaggregation_decode_retraction_backup=None, num_reserved_decode_tokens=512, disaggregation_decode_extra_slots=None, disaggregation_decode_polling_interval=1, optimistic_prefill_attempts=0, encoder_only=False, language_only=False, language_model_only=False, encoder_transfer_backend='zmq_to_scheduler', encoder_urls=[], encoder_bootstrap_port=8997, encoder_register_urls=[], enable_adaptive_dispatch_to_encoder=False, enable_pdmux=False, pdmux_config_path=None, sm_group_num=8, startup_weight_load_mode='serial', custom_weight_loader=[], weight_loader_disable_mmap=False, weight_loader_prefetch_checkpoints=False, weight_loader_prefetch_num_threads=4, weight_loader_drop_cache_after_load=False, remote_instance_weight_loader_seed_instance_ip=None, remote_instance_weight_loader_seed_instance_service_port=None, remote_instance_weight_loader_send_weights_group_ports=None, remote_instance_weight_loader_backend='nccl', remote_instance_weight_loader_start_seed_via_transfer_engine=False, engine_info_bootstrap_port=6789, modelexpress_config=None, download_dir=None, model_checksum=None, delete_ckpt_after_loading=False, decrypted_config_file=None, decrypted_draft_config_file=None, checkpoint_engine_wait_weights_before_ready=False, enable_prefill_delayer=False, prefill_delayer_max_delay_passes=30, prefill_delayer_token_usage_low_watermark=None, prefill_delayer_forward_passes_buckets=None, prefill_delayer_wait_seconds_buckets=None, prefill_delayer_queue_min_ratio=None, prefill_delayer_max_delay_ms=None, min_free_slots_delay=None, enable_deterministic_inference=False, rl_on_policy_target=None, kv_canary='none', kv_canary_real_data='none', kv_canary_sweep_interval=0, enable_dynamic_batch_tokenizer=False, dynamic_batch_tokenizer_batch_size=32, dynamic_batch_tokenizer_batch_timeout=0.002, enable_tokenizer_batch_encode=False, disable_tokenizer_batch_decode=False, debug_tensor_dump_output_folder=None, debug_tensor_dump_layers=None, debug_tensor_dump_input_file=None, enable_memory_saver=False, enable_weights_cpu_backup=False, enable_draft_weights_cpu_backup=False, enable_custom_logit_processor=False, enable_return_hidden_states=False, return_hidden_states_mode=None, enable_return_routed_experts=False, enable_return_indexer_topk=False, disable_outlines_disk_cache=False, enable_mis=False, weight_cache_mode='off', weight_cache_socket=None, weight_cache_timeout=1800, forward_hooks=None, msprobe_dump_config=None)
+[2026-09-04 07:59:08] Ignore import error when loading sglang.srt.multimodal.processors.sarashina2_vision: cannot import name 'MultimodalDataItem' from 'sglang.srt.managers.mm_utils' (/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/mm_utils.py)
+[2026-09-04 07:59:09] Ignore import error when loading sglang.srt.models.sarashina2_vision: cannot import name 'MultimodalDataItem' from 'sglang.srt.managers.mm_utils' (/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/mm_utils.py)
+[2026-09-04 07:59:09] Multimodal data loading enabled with 16 worker threads (auto).
+[2026-09-04 07:59:11] Multimodal processor concurrency enabled with 2 isolated worker threads (auto).
+[2026-09-04 07:59:11] Using default HuggingFace chat template with detected content format: openai
+[2026-09-04 07:59:12] Auto-detected template features: reasoning_config=ReasoningToggleConfig(toggle_param='enable_thinking', default_enabled=True, special_case=None, effort_kwarg=None), reasoning_parser=qwen3, tool_call_parser=qwen3_coder
+[2026-09-04 07:59:16] Ignore import error when loading sglang.srt.multimodal.processors.sarashina2_vision: cannot import name 'MultimodalDataItem' from 'sglang.srt.managers.mm_utils' (/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/mm_utils.py)
+[2026-09-04 07:59:16] Multimodal data loading enabled with 16 worker threads (auto).
+[2026-09-04 07:59:16] Init torch distributed begin.
+[2026-09-04 07:59:16] Init torch distributed ends. elapsed=0.04 s, mem usage=0.11 GB
+[2026-09-04 07:59:16] Ignore import error when loading sglang.srt.models.sarashina2_vision: cannot import name 'MultimodalDataItem' from 'sglang.srt.managers.mm_utils' (/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/mm_utils.py)
+[2026-09-04 07:59:16] Load weight begin. avail mem=30.72 GB
+[2026-09-04 07:59:16] Multimodal attention backend not set. Use triton_attn.
+[2026-09-04 07:59:16] Using triton_attn as multimodal attention backend.
+[2026-09-04 07:59:16] using attn output gate!
+Multi-thread loading shards:   0% Completed | 0/5 [00:00<?, ?it/s]Multi-thread loading shards:  20% Completed | 1/5 [00:00<00:01,  3.47it/s]Multi-thread loading shards:  40% Completed | 2/5 [00:00<00:01,  2.05it/s]Multi-thread loading shards:  60% Completed | 3/5 [00:01<00:01,  1.85it/s]Multi-thread loading shards:  80% Completed | 4/5 [00:02<00:00,  1.87it/s]Multi-thread loading shards: 100% Completed | 5/5 [00:02<00:00,  2.13it/s]Multi-thread loading shards: 100% Completed | 5/5 [00:02<00:00,  2.08it/s]
+[2026-09-04 07:59:22] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-04 07:59:22] Load weight end. elapsed=5.78 s, type=Qwen3_5ForConditionalGeneration, quant=compressed-tensors, avail mem=12.25 GB, mem usage=18.48 GB.
+[2026-09-04 07:59:23] Reserving 0.10 GB of the KV budget for post-sizing multimodal allocations (feature-transport pools + embedding cache).
+[2026-09-04 07:59:23] Mamba Cache is allocated. max_mamba_cache_size: 6, conv_state size: 0.02GB, ssm_state size: 0.98GB 
+[2026-09-04 07:59:23] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 242172, K size: 3.70 GB, V size: 3.70 GB
+[2026-09-04 07:59:23] Memory pool end. avail mem=3.83 GB
+[2026-09-04 07:59:23] Linear attention kernel backend: decode=triton, prefill=triton, verify=triton
+[2026-09-04 07:59:23] Using hybrid linear attention backend for hybrid GDN models.
+[2026-09-04 07:59:23] GDN kernel dispatcher: decode=TritonGDNKernel, extend=TritonGDNKernel, verify=TritonGDNKernel packed_decode=True
+[2026-09-04 07:59:23] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-04 07:59:23] Capture target decode CUDA graph begin. backend=full, num_tokens_per_req=1, bs=[1], avail mem=3.39 GB
+  0%|          | 0/1 [00:00<?, ?it/s]Capturing batches (bs=1 avail_mem=3.39 GB):   0%|          | 0/1 [00:00<?, ?it/s]Capturing batches (bs=1 avail_mem=3.39 GB): 100%|██████████| 1/1 [00:14<00:00, 14.42s/it]Capturing batches (bs=1 avail_mem=3.39 GB): 100%|██████████| 1/1 [00:14<00:00, 14.42s/it]
+[2026-09-04 07:59:38] Capture target decode CUDA graph end. elapsed=15.03 s, mem usage=0.09 GB, avail mem=3.30 GB.
+[2026-09-04 07:59:38] max_total_num_tokens=242172, chunked_prefill_size=16384, max_prefill_tokens=16384, max_running_requests=1, context_len=262144, available_gpu_mem=3.30 GB
+[2026-09-04 07:59:38] Init Unified Radix Cache. Components: (<ComponentType.FULL: 0>, <ComponentType.MAMBA: 2>). Tree Core: UnifiedTreeCore
+[2026-09-04 07:59:38] Tree cache initialized: source=default impl=UnifiedRadixCache hybrid_swa=False hybrid_ssm=True hicache_attached=False streaming_wrapped=False
+[2026-09-04 07:59:38] Engine startup timings (s): load_weight=5.78, kv_cache_allocation=0.04, scheduler_e2e=24.10, cuda_graph={prefill=0.00, decode=15.03, target_verify=0.00, draft_prefill=0.00, draft_decode=0.00, draft_extend=0.00}, tokenizer_e2e=30.86
+[2026-09-04 07:59:38] INFO:     Started server process [32314]
+[2026-09-04 07:59:38] INFO:     Waiting for application startup.
+[2026-09-04 07:59:38] Using default chat sampling params from model generation config: {'temperature': 1.0, 'top_k': 20, 'top_p': 0.95}
+[2026-09-04 07:59:38] INFO:     Application startup complete.
+[2026-09-04 07:59:38] INFO:     Uvicorn running on http://127.0.0.1:30000 (Press CTRL+C to quit)
+[2026-09-04 07:59:40] INFO:     127.0.0.1:45472 - "GET /model_info HTTP/1.1" 200 OK
+[2026-09-04 07:59:44] Triton kernel '_fwd_kernel' took 1.45 s to compile after serving started. Serving-time compilation can stall the engine; pre-compile it during engine init.
+/workspace/venvs/sglang/lib/python3.12/site-packages/triton/language/core.py:2284: UserWarning: tl.make_block_ptr is deprecated. Use TensorDescriptor or tl.make_tensor_descriptor instead.
+  warn("tl.make_block_ptr is deprecated. Use TensorDescriptor or tl.make_tensor_descriptor instead.")
+[2026-09-04 07:59:48] Triton kernel 'chunk_gated_delta_rule_fwd_kkt_solve_kernel' took 1.03 s to compile after serving started. Serving-time compilation can stall the engine; pre-compile it during engine init.
+[2026-09-04 07:59:49] Triton kernel 'chunk_gated_delta_rule_fwd_kkt_solve_kernel' took 1.01 s to compile after serving started. Serving-time compilation can stall the engine; pre-compile it during engine init.
+[2026-09-04 07:59:51] Triton kernel 'chunk_gated_delta_rule_fwd_kkt_solve_kernel' took 1.02 s to compile after serving started. Serving-time compilation can stall the engine; pre-compile it during engine init.
+[2026-09-04 07:59:57] Prefill batch, #new-seq: 1, #new-token: 122, #cached-token: 0, full token usage: 0.00, mamba usage: 0.67, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 6.31
+[2026-09-04 07:59:57] INFO:     127.0.0.1:45486 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+[2026-09-04 07:59:57] Freezing GC in Scheduler process. gen0: 69->0, gen1: 580->0, gen2: 1100354->0
+[2026-09-04 07:59:57] Freezing GC in Tokenizer Manager process. gen0: 443->0, gen1: 1399->0, gen2: 992277->0
+[2026-09-04 07:59:57] INFO:     127.0.0.1:39268 - "POST /freeze_gc HTTP/1.1" 200 OK
+[2026-09-04 07:59:57] The server is fired up and ready to roll!
+[2026-09-04 07:59:57] Freezing GC in Detokenizer Manager process. gen0: 368->0, gen1: 0->0, gen2: 825788->0
+/workspace/venvs/sglang/lib/python3.12/site-packages/triton/language/core.py:2284: UserWarning: tl.make_block_ptr is deprecated. Use TensorDescriptor or tl.make_tensor_descriptor instead.
+  warn("tl.make_block_ptr is deprecated. Use TensorDescriptor or tl.make_tensor_descriptor instead.")
+[2026-09-04 08:00:13] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.06
+[2026-09-04 08:00:14] INFO:     127.0.0.1:60576 - "GET /health HTTP/1.1" 200 OK
+[2026-09-04 08:00:14] Prefill batch, #new-seq: 1, #new-token: 26, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 28.67
+[2026-09-04 08:00:14] INFO:     127.0.0.1:60584 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:14] Prefill batch, #new-seq: 1, #new-token: 26, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 201.84
+[2026-09-04 08:00:15] Decode batch, #running-req: 1, #full token: 57, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 1.08, #queue-req: 0
+[2026-09-04 08:00:15] Decode batch, #running-req: 1, #full token: 97, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.33, #queue-req: 0
+[2026-09-04 08:00:16] Decode batch, #running-req: 1, #full token: 137, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.30, #queue-req: 0
+[2026-09-04 08:00:17] Decode batch, #running-req: 1, #full token: 177, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:17] Decode batch, #running-req: 1, #full token: 217, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:18] Decode batch, #running-req: 1, #full token: 257, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.23, #queue-req: 0
+[2026-09-04 08:00:18] INFO:     127.0.0.1:60588 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:18] Prefill batch, #new-seq: 1, #new-token: 26, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 6.24
+[2026-09-04 08:00:18] INFO:     127.0.0.1:57678 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:19] Prefill batch, #new-seq: 1, #new-token: 26, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 198.78
+[2026-09-04 08:00:19] Decode batch, #running-req: 1, #full token: 40, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 45.98, #queue-req: 0
+[2026-09-04 08:00:19] Decode batch, #running-req: 1, #full token: 80, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.37, #queue-req: 0
+[2026-09-04 08:00:20] Decode batch, #running-req: 1, #full token: 120, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.31, #queue-req: 0
+[2026-09-04 08:00:21] Decode batch, #running-req: 1, #full token: 160, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:21] Decode batch, #running-req: 1, #full token: 200, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.26, #queue-req: 0
+[2026-09-04 08:00:22] Decode batch, #running-req: 1, #full token: 240, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.26, #queue-req: 0
+[2026-09-04 08:00:23] Decode batch, #running-req: 1, #full token: 280, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.23, #queue-req: 0
+[2026-09-04 08:00:23] INFO:     127.0.0.1:57684 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:23] Prefill batch, #new-seq: 1, #new-token: 26, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 6.24
+[2026-09-04 08:00:23] INFO:     127.0.0.1:57694 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:23] Prefill batch, #new-seq: 1, #new-token: 26, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 202.07
+[2026-09-04 08:00:23] Decode batch, #running-req: 1, #full token: 63, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 46.12, #queue-req: 0
+[2026-09-04 08:00:24] Decode batch, #running-req: 1, #full token: 103, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.32, #queue-req: 0
+[2026-09-04 08:00:25] Decode batch, #running-req: 1, #full token: 143, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.30, #queue-req: 0
+[2026-09-04 08:00:25] Decode batch, #running-req: 1, #full token: 183, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:26] Decode batch, #running-req: 1, #full token: 223, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:27] Decode batch, #running-req: 1, #full token: 263, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.23, #queue-req: 0
+[2026-09-04 08:00:27] INFO:     127.0.0.1:57706 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:27] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 4.56
+[2026-09-04 08:00:27] INFO:     127.0.0.1:43366 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:27] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 146.56
+[2026-09-04 08:00:27] Decode batch, #running-req: 1, #full token: 39, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 46.14, #queue-req: 0
+[2026-09-04 08:00:28] Decode batch, #running-req: 1, #full token: 79, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.36, #queue-req: 0
+[2026-09-04 08:00:29] Decode batch, #running-req: 1, #full token: 119, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.30, #queue-req: 0
+[2026-09-04 08:00:29] Decode batch, #running-req: 1, #full token: 159, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.29, #queue-req: 0
+[2026-09-04 08:00:30] Decode batch, #running-req: 1, #full token: 199, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.28, #queue-req: 0
+[2026-09-04 08:00:31] Decode batch, #running-req: 1, #full token: 239, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.28, #queue-req: 0
+[2026-09-04 08:00:31] INFO:     127.0.0.1:43380 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:31] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 4.56
+[2026-09-04 08:00:31] INFO:     127.0.0.1:43392 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:31] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 144.94
+[2026-09-04 08:00:31] Decode batch, #running-req: 1, #full token: 22, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 46.15, #queue-req: 0
+[2026-09-04 08:00:32] Decode batch, #running-req: 1, #full token: 62, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.40, #queue-req: 0
+[2026-09-04 08:00:33] Decode batch, #running-req: 1, #full token: 102, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.31, #queue-req: 0
+[2026-09-04 08:00:33] Decode batch, #running-req: 1, #full token: 142, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.28, #queue-req: 0
+[2026-09-04 08:00:34] Decode batch, #running-req: 1, #full token: 182, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:35] Decode batch, #running-req: 1, #full token: 222, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:35] Decode batch, #running-req: 1, #full token: 262, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.23, #queue-req: 0
+[2026-09-04 08:00:35] INFO:     127.0.0.1:43408 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:36] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 4.56
+[2026-09-04 08:00:36] INFO:     127.0.0.1:43416 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:36] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 147.58
+[2026-09-04 08:00:36] Decode batch, #running-req: 1, #full token: 45, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 46.31, #queue-req: 0
+[2026-09-04 08:00:37] Decode batch, #running-req: 1, #full token: 85, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.35, #queue-req: 0
+[2026-09-04 08:00:37] Decode batch, #running-req: 1, #full token: 125, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.30, #queue-req: 0
+[2026-09-04 08:00:38] Decode batch, #running-req: 1, #full token: 165, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:39] Decode batch, #running-req: 1, #full token: 205, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.28, #queue-req: 0
+[2026-09-04 08:00:39] Decode batch, #running-req: 1, #full token: 245, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.27, #queue-req: 0
+[2026-09-04 08:00:40] INFO:     127.0.0.1:43430 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:40] Prefill batch, #new-seq: 1, #new-token: 49, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 11.77
+[2026-09-04 08:00:40] INFO:     127.0.0.1:36318 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:40] Prefill batch, #new-seq: 1, #new-token: 49, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 374.17
+[2026-09-04 08:00:40] Decode batch, #running-req: 1, #full token: 58, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 46.23, #queue-req: 0
+[2026-09-04 08:00:41] Decode batch, #running-req: 1, #full token: 98, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.32, #queue-req: 0
+[2026-09-04 08:00:41] Decode batch, #running-req: 1, #full token: 138, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.28, #queue-req: 0
+[2026-09-04 08:00:42] Decode batch, #running-req: 1, #full token: 178, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.21, #queue-req: 0
+[2026-09-04 08:00:43] Decode batch, #running-req: 1, #full token: 218, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.21, #queue-req: 0
+[2026-09-04 08:00:43] Decode batch, #running-req: 1, #full token: 258, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.16, #queue-req: 0
+[2026-09-04 08:00:44] Decode batch, #running-req: 1, #full token: 298, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.20, #queue-req: 0
+[2026-09-04 08:00:44] INFO:     127.0.0.1:36334 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:44] Prefill batch, #new-seq: 1, #new-token: 49, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 11.74
+[2026-09-04 08:00:44] INFO:     127.0.0.1:36350 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:44] Prefill batch, #new-seq: 1, #new-token: 49, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 357.33
+[2026-09-04 08:00:45] Decode batch, #running-req: 1, #full token: 81, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 45.56, #queue-req: 0
+[2026-09-04 08:00:45] Decode batch, #running-req: 1, #full token: 121, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.23, #queue-req: 0
+[2026-09-04 08:00:46] Decode batch, #running-req: 1, #full token: 161, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.21, #queue-req: 0
+[2026-09-04 08:00:47] Decode batch, #running-req: 1, #full token: 201, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.20, #queue-req: 0
+[2026-09-04 08:00:47] Decode batch, #running-req: 1, #full token: 241, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.20, #queue-req: 0
+[2026-09-04 08:00:48] Decode batch, #running-req: 1, #full token: 281, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.14, #queue-req: 0
+[2026-09-04 08:00:48] INFO:     127.0.0.1:36360 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:49] Prefill batch, #new-seq: 1, #new-token: 49, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 11.75
+[2026-09-04 08:00:49] INFO:     127.0.0.1:59016 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:49] Prefill batch, #new-seq: 1, #new-token: 49, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 373.36
+[2026-09-04 08:00:49] Decode batch, #running-req: 1, #full token: 64, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 46.13, #queue-req: 0
+[2026-09-04 08:00:49] Decode batch, #running-req: 1, #full token: 104, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.26, #queue-req: 0
+[2026-09-04 08:00:50] Decode batch, #running-req: 1, #full token: 144, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.23, #queue-req: 0
+[2026-09-04 08:00:51] Decode batch, #running-req: 1, #full token: 184, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.19, #queue-req: 0
+[2026-09-04 08:00:51] Decode batch, #running-req: 1, #full token: 224, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.20, #queue-req: 0
+[2026-09-04 08:00:52] Decode batch, #running-req: 1, #full token: 264, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.14, #queue-req: 0
+[2026-09-04 08:00:53] Decode batch, #running-req: 1, #full token: 304, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.19, #queue-req: 0
+[2026-09-04 08:00:53] INFO:     127.0.0.1:59028 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:53] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.24
+[2026-09-04 08:00:53] INFO:     127.0.0.1:59032 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:53] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 7.86
+[2026-09-04 08:00:54] Decode batch, #running-req: 1, #full token: 39, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 43.95, #queue-req: 0
+[2026-09-04 08:00:54] Decode batch, #running-req: 1, #full token: 79, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.30, #queue-req: 0
+[2026-09-04 08:00:55] Decode batch, #running-req: 1, #full token: 119, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.23, #queue-req: 0
+[2026-09-04 08:00:55] Decode batch, #running-req: 1, #full token: 159, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.21, #queue-req: 0
+[2026-09-04 08:00:56] Decode batch, #running-req: 1, #full token: 199, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.20, #queue-req: 0
+[2026-09-04 08:00:57] Decode batch, #running-req: 1, #full token: 239, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.20, #queue-req: 0
+[2026-09-04 08:00:57] INFO:     127.0.0.1:59042 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:57] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.24
+[2026-09-04 08:00:57] INFO:     127.0.0.1:34376 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:00:57] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.50, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 7.67
+[2026-09-04 08:00:58] Decode batch, #running-req: 1, #full token: 22, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 46.16, #queue-req: 0
+[2026-09-04 08:00:58] Decode batch, #running-req: 1, #full token: 62, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.33, #queue-req: 0
+[2026-09-04 08:00:59] Decode batch, #running-req: 1, #full token: 102, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.25, #queue-req: 0
+[2026-09-04 08:00:59] Decode batch, #running-req: 1, #full token: 142, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.21, #queue-req: 0
+[2026-09-04 08:01:00] Decode batch, #running-req: 1, #full token: 182, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.20, #queue-req: 0
+[2026-09-04 08:01:01] Decode batch, #running-req: 1, #full token: 222, full token usage: 0.00, mamba num: 3, mamba usage: 0.50, cuda graph: True, gen throughput (token/s): 63.19, #queue-req: 0
+[2026-09-04 08:01:01] INFO:     127.0.0.1:34392 - "POST /generate HTTP/1.1" 200 OK
+[2026-09-04 08:01:02] Triton kernel '_causal_conv1d_fwd_kernel' device-loaded after serving started (free device mem: 0.99 GiB). Pre-load it during engine init to avoid CUDA OOM.
+[rank0]:[W904 08:01:02.553799288 CUDACachingAllocator.cpp:508] expandable_segments: memory mapping failed with OOM on device 0 while trying to map 20971520 bytes (free: 10223616, total: 33711521792).
+[rank0]:[W904 08:01:02.554413525 CUDACachingAllocator.cpp:508] expandable_segments: memory mapping failed with OOM on device 0 while trying to map 20971520 bytes (free: 14417920, total: 33711521792).
+[2026-09-04 08:01:02] Scheduler hit an exception: Traceback (most recent call last):
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/scheduler.py", line 5064, in run_scheduler_process
+    scheduler.run_event_loop()
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/scheduler.py", line 1703, in run_event_loop
+    dispatch_event_loop(self)
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/scheduler.py", line 4913, in dispatch_event_loop
+    scheduler.event_loop_overlap()
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/scheduler.py", line 1801, in event_loop_overlap
+    batch_result = self.run_batch(batch)
+                   ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/utils/nvtx_utils.py", line 109, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/scheduler.py", line 3694, in run_batch
+    batch_result = self.model_worker.forward_batch_generation(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/tp_worker.py", line 609, in forward_batch_generation
+    out = self.model_runner.forward(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/model_executor/model_runner.py", line 1542, in forward
+    output = self._forward_raw(
+             ^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/model_executor/model_runner.py", line 1729, in _forward_raw
+    ret = self.eager_runner.execute(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/model_executor/runner/eager_runner.py", line 213, in execute
+    return self._execute_extend(forward_batch, pp_proxy_tensors)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/model_executor/runner/eager_runner.py", line 348, in _execute_extend
+    ret = model_runner.model.forward(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/models/qwen3_vl.py", line 1452, in forward
+    hidden_states = general_mm_embed_routine(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/managers/mm_utils.py", line 730, in general_mm_embed_routine
+    hidden_states = language_model(
+                    ^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/models/qwen3_5.py", line 1440, in forward
+    hidden_states, residual = layer(
+                              ^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/models/qwen3_5.py", line 807, in forward
+    hidden_states = self.linear_attn(
+                    ^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/models/qwen3_5.py", line 676, in forward
+    core_attn_out = self.attn(
+                    ^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/layers/radix_linear_attention.py", line 115, in forward
+    return get_attn_backend().forward(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/layers/attention/hybrid_linear_attn_backend.py", line 1185, in forward
+    return self.forward_extend(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/layers/attention/hybrid_linear_attn_backend.py", line 1137, in forward_extend
+    return self.linear_attn_backend.forward_extend(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/layers/attention/linear/gdn_backend.py", line 689, in forward_extend
+    core_attn_out, last_recurrent_state, h = self.kernel_dispatcher.extend(
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/layers/attention/linear/gdn_backend.py", line 296, in extend
+    return self.extend_kernel.extend(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/srt/layers/attention/linear/kernels/gdn_triton.py", line 188, in extend
+    return chunk_gated_delta_rule(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1446, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/kernels/ops/attention/fla/chunk.py", line 248, in chunk_gated_delta_rule
+    o, h = ChunkGatedDeltaRuleFunction.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/autograd/function.py", line 625, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/kernels/ops/attention/fla/utils.py", line 177, in wrapper
+    return fn(*contiguous_args, **contiguous_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/torch/amp/autocast_mode.py", line 481, in decorate_fwd
+    return fwd(*args, **kwargs)  # pyrefly: ignore [not-callable]
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/kernels/ops/attention/fla/chunk.py", line 117, in forward
+    g, o, A, w, h, v_new = chunk_gated_delta_rule_fwd(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/kernels/ops/attention/fla/chunk.py", line 62, in chunk_gated_delta_rule_fwd
+    h, v_new = chunk_gated_delta_rule_fwd_h(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/sglang/lib/python3.12/site-packages/sglang/kernels/ops/attention/fla/chunk_delta_h.py", line 349, in chunk_gated_delta_rule_fwd_h
+    h = k.new_empty(B, NT, H, V, K)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 384.00 MiB. GPU 0 has a total capacity of 31.40 GiB of which 93.75 MiB is free. Process 32314 has 634.00 MiB memory in use. Including non-PyTorch memory, this process has 30.67 GiB memory in use. Of the allocated memory 29.77 GiB is allocated by PyTorch, with 4.00 MiB allocated in private pools (e.g., CUDA Graphs), and 91.89 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+[2026-09-04 08:01:02] SIGQUIT received. signum=None, frame=None. It usually means one child failed.
+[2026-09-04 08:01:02] Sleeping 5 seconds before crash diagnostics to let GPU activity settle.
+[rank0]:[W904 08:01:02.352223726 ProcessGroupNCCL.cpp:1624] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[2026-09-04 08:01:07] No live scheduler processes found; skipping py-spy and CUDA coredump.
+[2026-09-04 08:01:07] kill_process_tree called: parent_pid=32314, include_parent=True, pid=32314

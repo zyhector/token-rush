@@ -1,0 +1,19 @@
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 18.0 GB allocated
+essay     76.8 tok/s
+code      77.0 tok/s
+math      76.9 tok/s
+Traceback (most recent call last):
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 82, in <module>
+    main()
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 67, in main
+    model, cache, tokenizer, gen = load(args.model_dir, max_tokens)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/exl3_bench.py", line 34, in load
+    cache = Cache(model, max_num_tokens=max_tokens)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/exl3/lib/python3.12/site-packages/exllamav3/cache/cache.py", line 158, in __init__
+    layer_type(self.config, attn, id(self), self.max_num_tokens, **layer_kwargs)
+  File "/workspace/venvs/exl3/lib/python3.12/site-packages/exllamav3/cache/fp16.py", line 24, in __init__
+    assert max_num_tokens % PAGE_SIZE == 0, \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: max_num_tokens must be a multiple of 256.

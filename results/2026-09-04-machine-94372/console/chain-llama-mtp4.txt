@@ -1,0 +1,20 @@
+0 MiB
+overlay         100G   81G   20G  81% /
+===== vLLM DSpark (Qwen3DSparkModel) =====
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 8192 --max-num-seqs 1 --gpu-memory-utilization 0.92 --port 8000 "$@" > server_$name.log 2>&1 < /dev/null
+VLLM dspark3 FAILED
+101:(EngineCore pid=62464) ERROR 09-04 18:28:00 [core.py:1346] FileNotFoundError: Weight files referenced in index but missing: {'/workspace/models/Qwen3.8-27B-NVFP4/model-00004-of-00005.safetensors', '/workspace/models/Qwen3.8-27B-NVFP4/model-00005-of-00005.safetensors', '/workspace/models/Qwen3.8-
+178:(EngineCore pid=62464)     raise FileNotFoundError(
+179:(EngineCore pid=62464) FileNotFoundError: Weight files referenced in index but missing: {'/workspace/models/Qwen3.8-27B-NVFP4/model-00004-of-00005.safetensors', '/workspace/models/Qwen3.8-27B-NVFP4/model-00005-of-00005.safetensors', '/workspace/models/Qwen3.8-27B-NVFP4/model-00002-of-00005.safet
+===== vLLM DFlash2 8k =====
+[1]+  Done                    setsid nohup /workspace/venvs/vllm/bin/vllm serve /workspace/models/Qwen3.8-27B-NVFP4 --trust-remote-code --kv-cache-dtype fp8 --max-model-len 8192 --max-num-seqs 1 --gpu-memory-utilization 0.92 --port 8000 "$@" > server_$name.log 2>&1 < /dev/null
+VLLM dflash2 FAILED
+179:(EngineCore pid=63314) FileNotFoundError: Weight files referenced in index but missing: {'/workspace/models/Qwen3.8-27B-NVFP4/model-00004-of-00005.safetensors', '/workspace/models/Qwen3.8-27B-NVFP4/model-00005-of-00005.safetensors', '/workspace/models/Qwen3.8-27B-NVFP4/model-00002-of-00005.safet
+245:(APIServer pid=62927)     raise RuntimeError(
+246:(APIServer pid=62927) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+===== llama-cli MTP n-max 4 =====
+essay mtp4: [ Prompt: 261.1 t/s | Generation: 116.3 t/s ]
+code mtp4: [ Prompt: 240.6 t/s | Generation: 107.4 t/s ]
+math mtp4: [ Prompt: 329.1 t/s | Generation: 165.8 t/s ]
+
+[exited with code 0]

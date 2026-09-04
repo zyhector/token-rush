@@ -1,0 +1,36 @@
+
+
+Loading model... |-\|/-\|/-\|/-\|/-\|/-\|/-\ 
+
+▄▄ ▄▄
+██ ██
+██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄
+██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██
+██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀
+                                    ██    ██
+                                    ▀▀    ▀▀
+
+build      : b10802-24f5bf8a4
+model      : /workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
+ftype      : Q4_K - Medium
+modalities : text
+
+available commands:
+  /exit or Ctrl+C     stop or exit
+  /regen              regenerate the last response
+  /clear              clear the chat history
+  /read <file>        add a text file
+  /glob <pattern>     add text files using globbing pattern
+
+
+
+> Write a Python implementation of a thread-safe LRU cache with TTL expiry, including unit tests.
+
+[Start thinking]
+
+We need answer user: "Write a Python implementation of a thread-safe LRU cache with TTL expiry, including unit tests." Need provide code. Need think thoroughly. Need likely produce final with implementation and tests. Need ensure thread-safe, LRU, TTL expiry. Could use OrderedDict or custom doubly linked list. Need include unit tests using unittest or pytest. Need discuss usage. Need maybe handle clock injection for tests. Need thread safety with RLock. TTL expiry: per-entry expiration timestamp. On get, if expired remove and return None/miss. On set, store value and expiry. Need max size. Need maybe support default ttl, per-item ttl. Need thread-safe eviction. Need maybe lazy expiry plus optional cleanup? For LRU with TTL, expired entries should not count? Could remove on access. But if many expired entries fill cache, set may need evict expired first. We can implement _purge_expired_locked maybe on get/set/len/clear? But purging all on
+
+[ Prompt: 259.0 t/s | Generation: 80.5 t/s ]
+
+
+Exiting...
