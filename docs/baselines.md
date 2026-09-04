@@ -127,10 +127,35 @@ our target is 4.0. Comparing raw tok/s across that gap hands us ~20% for free an
 a reviewer will say so. Report % of roofline as the headline, and produce a
 matched-bpw GGUF with `llama-quantize` for a supporting comparison.
 
+## SGLang + DSpark — prepared, not yet measured
+
+Cannot run on this machine: DSpark exists only in SGLang 0.5.16+, and every
+SGLang from 0.5.11 onward requires `cuda-python>=13.0` while torch cu128 requires
+`cuda-bindings<13`. The last CUDA-12-compatible release, 0.5.10, has no DSpark.
+See `docs/handoff.md`.
+
+The checkpoint is chosen and its bytes are already accounted for.
+`QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4` is genuine `nvfp4-pack-quantized` — 4-bit,
+group 16, FP8 scales. (`unsloth/Qwen3.8-27B-NVFP4` is **not** NVFP4 despite the
+name; its config is `float-quantized` at 8 bits.)
+
+| Component | Bytes |
+|---|---|
+| Text body | 16.245 GB |
+| `lm_head` (left at BF16) | 2.543 GB |
+| **Text path, read per decode step** | **18.788 GB** |
+| MTP head | 0.849 GB |
+| Vision tower | 0.921 GB |
+
+Ceiling at 1615 GB/s: **86.0 tok/s**, against llama.cpp's 100.3. This checkpoint
+reads *more* per token than Q4_K_M despite being "4-bit", because `lm_head` is
+unquantized. Raw tok/s will therefore flatter llama.cpp by roughly 15% on byte
+count alone — another reason % of roofline is the only honest headline.
+
 ## Still to measure
 
+- SGLang + DSpark — the real opponent; needs a CUDA 13 host
 - vLLM at bs=1 — general-engine tax reference
-- SGLang + DSpark — the real opponent
 - ExLlamaV3 — peer specialist
 
 Note that llama.cpp's `--spec-type` now also offers `draft-dspark` and
