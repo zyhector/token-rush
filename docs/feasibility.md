@@ -43,6 +43,76 @@ flash-linear-attention's Triton kernels (only the decode single-step needs to be
 written), gpt-fast provides the skeleton, and FlashInfer/Marlin-class kernels
 exist to compare against.
 
+## How fast can this actually go
+
+**Projection, not measurement.** The numbers below are extrapolated from
+component benchmarks on this machine. They are not the output of a working
+engine, and every one of them is contingent on the assumptions stated at the end.
+Measured rival figures live in `docs/baselines.md`; do not cite these as results.
+
+### The coefficient everything rests on
+
+What fraction of the 1615 GB/s wall can a decode step hold? Measured by building
+the real per-layer matmul shapes of Qwen3.8-27B, running them as bs=1 GEMVs
+inside one CUDA graph:
+
+```
+9 GDN + 3 attention layers, 93 GEMVs, 8.37 GB of weights
+eager   : 5.47 ms   1531 GB/s   94.8% of wall
+graphed : 5.30 ms   1579 GB/s   97.7% of wall
+```
+
+97.7% is the demonstrated ceiling for the dominant term. It is bf16 and
+weights-only, so it excludes 4-bit dequantization, GDN state updates, attention,
+and sampling. **88–95% is the realistic band; the table below uses 92%.**
+
+### What that yields
+
+| Scenario | Token Rush | llama.cpp | Gain |
+|---|---|---|---|
+| Raw decode, short context, 4.25 bpw | 104 tok/s | 80.9 | +29% |
+| Raw decode, short context, 4.0 bpw | 110 tok/s | 80.9 | +37% |
+| **Raw decode, matched 4.79 bpw** | **92 tok/s** | **80.9** | **+14%** |
+| Decode at 200k context | 71 tok/s | 40.6 | **+76%** |
+| Effective, with speculation (N≈2.5) | 245 tok/s | 91 | **2.7x** |
+
+Absolute optimistic ceiling — 4.0 bpw at 95% of the wall with mean accepted
+length 3.5 — is roughly 375 tok/s effective. The realistic good outcome is
+**105–110 tok/s raw and 240–290 tok/s effective**.
+
+### Which claims are safe, and which are not
+
+**A 50% margin is not available at short-context raw decode.** Reaching it would
+need 4.0 bpw *and* essentially 100% of the wall, above the 97.7% that a pure GEMV
+with no other work achieves. That target is physically out of reach.
+
+**The matched-bpw row is the weak point.** Held to llama.cpp's own 4.79 bpw, the
+short-context engine win is +14%. A reviewer will ask for exactly that comparison.
+Concede it early rather than be caught by it — and note it is a fair-comparison
+artifact, not the project's claim.
+
+**Long context and speculation are where 50%+ lives.** The 200k figure asks only
+that we hold 92% of the wall at long context, when llama.cpp fails to hold 77%
+even at *short* context. That is not a miracle; it is declining to collapse.
+Speculation is nearly free at bs=1 because the tensor cores are otherwise idle.
+
+The headline should therefore be long context and effective throughput, with
+short-context raw decode presented as evidence of competence rather than as the
+selling point.
+
+### What would falsify this
+
+- **4-bit GEMV underperforming.** The 97.7% is bf16. No 4-bit dequant GEMV exists
+  for `sm_120` yet, and NVFP4's real behaviour here is the single largest unknown
+  on the path. If it holds only 85%, multiply every number above by 0.92.
+- **Mean accepted length.** N is the entire lever on the speculation row and it is
+  content-dependent — llama.cpp's MTP measured anywhere from +10% to +20% across
+  prompts, and DSpark's 3.43 is on GSM8K. Code and long prose will accept less.
+  Validate N early in Phase 3; 245 tok/s assumes 2.5.
+- **Quantization quality at 4.0 bpw.** The tok/s advantage over llama.cpp comes
+  substantially from quantizing harder. If 4.0 bpw is not acceptable in output
+  quality, the short-context margin collapses toward the +14% row.
+
 ## Risks and honest boundaries
 
 - Hybrid architecture is roughly **2x the engineering** of a standard transformer.
