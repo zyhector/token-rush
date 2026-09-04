@@ -144,10 +144,10 @@ in 1–3. Do not spend Phase 2 hand-writing GEMV.
 | Rival | Role |
 |---|---|
 | ollama | sanity floor only, no credibility value |
-| llama.cpp (+MTP) | raw-decode reference — measured at 78.4% of the wall, MTP +60%, `docs/baselines.md` |
-| vLLM (bs=1) | **the strongest raw engine** — 88% of the wall at bs=1 with torch.compile + full CUDA graphs, 90% at 200k, `docs/baselines.md` |
+| llama.cpp (+MTP) | raw-decode reference — measured at 78.4% of the wall, MTP +60%, DSpark only +16%, `docs/baselines.md` |
+| vLLM (bs=1) | **the strongest raw engine** — 88% of the wall at bs=1 with torch.compile + full CUDA graphs, 90% at 200k; its MTP path is *slower* than raw, `docs/baselines.md` |
 | **SGLang + DSpark** | **the real opponent** — 70% of the wall raw, flat to 200k; 104 / 137 / 205 tok/s with DSpark on prose / code / math, `docs/baselines.md` |
-| ExLlamaV3 | peer specialist; included proactively because reviewers will ask |
+| ExLlamaV3 | peer specialist, and the only rival at our bpw — 77 tok/s = 60% of the wall at 3.92 bpw; its chained MTP reaches 127–160 tok/s, `docs/baselines.md` |
 
 ## The plan
 

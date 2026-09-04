@@ -82,6 +82,7 @@ and sampling. **88–95% is the realistic band; the table below uses 92%.**
 | Raw decode, short context, 4.25 bpw | 110 tok/s | 82.8 | +32% |
 | Raw decode, short context, 4.0 bpw | 116 tok/s | 82.8 | +40% |
 | **Raw decode, matched 4.79 bpw** | **97 tok/s** | **82.8** | **+17%** |
+| Raw decode, matched 3.92 bpw, vs ExLlamaV3 | 119 tok/s | 77.0 | +54% |
 | Decode at 200k context, 4.0 bpw | 78 tok/s | 44.3 | **+77%** (vLLM: 61.0, +28%) |
 | Effective, with speculation (N≈2.5) | 260 tok/s | 130 | **2.0x** |
 
@@ -97,7 +98,9 @@ with no other work achieves. That target is physically out of reach.
 
 **The matched-bpw row is the weak point.** Held to llama.cpp's own 4.79 bpw, the
 short-context engine win is +17%; held to vLLM's bytes, it is 92% of the wall
-against vLLM's measured 88% — about +5%. A reviewer will ask for exactly that
+against vLLM's measured 88% — about +5%. The one rival at our own bpw,
+ExLlamaV3, holds only 60% of the wall, so that comparison is comfortable
+(+54%) but it is the specialist, not the strongest engine. A reviewer will ask for exactly that
 comparison. Concede it early rather than be caught by it — and note it is a
 fair-comparison artifact, not the project's claim.
 

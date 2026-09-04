@@ -115,9 +115,12 @@ CUDA 12.8+ builds are mandatory: an older wheel (e.g. `cu124`) installs cleanly
 and then fails at the first GPU op with *no kernel image is available*.
 
 Rival stacks live in their own venvs: `/workspace/venvs/sglang` (SGLang 0.5.18,
-torch 2.13.0+cu130) and `/workspace/venvs/vllm` (vLLM 0.28.0, torch
-2.13.0+cu130). Both install cleanly on this driver and serve the NVFP4 checkpoint; both
-need `cuda-bindings 13`, which is why the project moved to a CUDA 13 host.
+torch 2.13.0+cu130), `/workspace/venvs/vllm` (vLLM 0.28.0, torch 2.13.0+cu130)
+and `/workspace/venvs/exl3` (ExLlamaV3 1.4.6, torch 2.11.0+cu130). All install
+cleanly on this driver; SGLang and vLLM need `cuda-bindings 13`, which is why
+the project moved to a CUDA 13 host. Together with the four checkpoints they
+fill the 100 GB disk to within a few GB — `uv cache clean` and `apt-get clean`
+are the first things to run when it fills.
 
 ### What is verified on this card (`check_stack.py`)
 

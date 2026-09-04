@@ -56,12 +56,21 @@ The conversion already drops the vision tower — 0 vision tensors in the file.
 | `llama-cli` + `--spec-type draft-mtp`, essay prompt | 129.6 | 129.5–129.8 over 3 runs |
 | same, code prompt | 128.4 | |
 | same, math prompt | 162.2 | |
+| `llama-cli` + `--spec-type draft-dspark`, essay / code / math | 93.6 / 92.0 / 131.6 | draft `erlidev/Qwen3.8-27B-DSpark-GGUF` BF16 (2.7 GB), `-ngld 999` |
 
 ```
 ceiling  = 1701 GB/s / 16.102 GB = 105.6 tok/s
 llama.cpp raw = 82.84 tok/s      =  78.4% of the wall
 MTP gain      = 129.6 / 80.6     =  +61%  (essay; +59% code, +101% math)
 ```
+
+The DSpark draft (RadixArk's 1.86B model, as a GGUF sidecar) is *worse* than
+the built-in one-token MTP head inside llama.cpp: +16% on prose against +60%,
++63% on math against +100%. The same draft gives SGLang 1.65x / 3.25x, so
+this is llama.cpp's DSpark integration, not the draft — a fresh
+`--spec-type` that has not had the tuning the MTP path has. Within one engine
+the comparison holds everything else constant, and it says the draft model is
+not the lever; the verify loop is.
 
 The MTP gain is content-dependent and large. It is not a property of the
 llama.cpp version: commit `6703d78` (2026-09-03) built the same way on this
@@ -283,6 +292,27 @@ vLLM holds 88–90% of the wall from empty context to 200k. At 200k it decodes
 at 61 tok/s against SGLang's 50 and llama.cpp's 44, on the same or more bytes
 per token. Its long-context decode is, within a few points, at the roofline.
 
+### MTP speculation
+
+`--speculative-config '{"method":"mtp","num_speculative_tokens":1}'`, using
+the MTP head shipped inside the checkpoint (bf16, `mtp.*`), same server
+otherwise. FULL decode CUDA graphs are still captured.
+
+| Prompt | tok/s | vs. raw 80.0 |
+|---|---|---|
+| essay | 63.0 | 0.79x |
+| code | 63.0 | 0.79x |
+| math | 62.6 | 0.78x |
+
+Mean acceptance length 1.84–1.93 per step (draft acceptance 87–93%), and it
+is still **slower than not speculating**: a draft-plus-verify step costs about
+30 ms against 12.5 ms for a raw decode step. Nearly-free verification is
+exactly what a bs=1 engine gets from idle tensor cores, and vLLM's speculative
+path does not get it — the EAGLE-style draft loop runs eager Triton kernels
+between the graphs. This is headroom argument #2 in `CLAUDE.md` measured on
+the strongest raw engine: its raw decode is at 88% of the wall, and its
+speculation loses 21% from there.
+
 ### Reproducing
 
 ```bash
@@ -294,6 +324,94 @@ VIRTUAL_ENV=/workspace/venvs/vllm uv pip install vllm
 # 262144 needs 8.3 GB of KV and 0.92 leaves 7.3; 220k is enough for the 200k row
 scripts/rivals/vllm_bench.py raw
 scripts/rivals/vllm_bench.py context 0 22000 90000 200000
+```
+
+## ExLlamaV3
+
+Measured 2026-09-04. ExLlamaV3 **1.4.6** (release wheel `cu132.torch2.11.0`,
+torch 2.11.0+cu130) in `/workspace/venvs/exl3`, in-process through its
+`Generator`/`Job` API (`scripts/rivals/exl3_bench.py`). Weights
+`turboderp/Qwen3.8-27B-exl3`, revision `4.00bpw` (4-bit trellis body, 6-bit
+head, the MTP head quantized to 4 bits alongside) — the only rival at the
+project's own target bpw, so this is the matched-quantization row.
+
+### Bytes per token
+
+From the safetensors headers:
+
+| Component | Bytes |
+|---|---|
+| Text body (64 layers) | 12.230 GB |
+| `lm_head` (6-bit) | 0.954 GB |
+| **Text path, read per decode step** | **13.184 GB = 3.92 bpw** |
+| `embed_tokens` (bf16, one row read) | 2.543 GB |
+| MTP head (4-bit) | 0.213 GB |
+| Vision tower | 0.921 GB |
+
+Ceiling at 1701 GB/s: **129.0 tok/s** — the highest of any rival, because it
+reads the fewest bytes.
+
+### Results
+
+Raw decode, three short prompts, FP16 cache, greedy, 256 tokens, best of 3,
+from the generator's own per-job `time_generate`:
+
+| Prompt | tok/s | % of wall |
+|---|---|---|
+| essay | 76.8 | 59.5% |
+| code | 77.0 | 59.7% |
+| math | 76.9 | 59.6% |
+
+### Decode vs. context length
+
+FP16 cache (ExLlamaV3's default; 64 KB per token of context over the 16
+attention layers), random-token prompts already in the cache, 256 decode
+tokens, best of 2. At 200k the cache alone is 13 GB and the process sits at
+29 GB — it fits, barely.
+
+| Context | decode | bytes/token | ceiling | % of wall |
+|---|---|---|---|---|
+| 0 | 76.5 tok/s | 13.18 GB | 129.0 | **59.3%** |
+| 22k | 71.4 tok/s | 14.63 GB | 116.3 | 61.4% |
+| 90k | 59.8 tok/s | 19.08 GB | 89.2 | 67.0% |
+| 200k | 47.7 tok/s | 26.29 GB | 64.7 | **73.7%** |
+
+The fraction *rises* with context, which says the attention decode kernel is
+efficient and the short-context deficit is a constant per-step cost —
+Python-side generator overhead and per-layer dispatch — that shrinks in
+relative terms as the KV read grows. Absolute tok/s at 200k is close to
+SGLang's (47.7 vs 49.9) on twice the KV bytes.
+
+### MTP speculation
+
+The MTP head shipped in the checkpoint (quantized to 4 bits alongside the
+body), loaded as ExLlamaV3's `mtp` component and chained for one or two draft
+tokens per step. Greedy, 256 tokens, same prompts. "Per step" is tokens
+committed per verify step including the bonus token.
+
+| Prompt | 1 draft token | per step | 2 draft tokens | per step |
+|---|---|---|---|---|
+| essay | 113.8 tok/s (1.48x) | 1.79 | 126.7 tok/s (1.65x) | 2.24 |
+| code | 119.8 tok/s (1.56x) | 1.87 | 142.1 tok/s (1.85x) | 2.36 |
+| math | 124.5 tok/s (1.62x) | 1.94 | 160.3 tok/s (2.08x) | 2.81 |
+
+This is the best-integrated MTP path of any rival: the second draft token is
+a net gain everywhere, and 2.8 committed tokens per step on math from a
+one-layer head is close to what DSpark's 1.86B draft achieves in llama.cpp.
+It still runs on a raw decode that holds only 60% of the wall, so the
+absolute numbers land where llama.cpp's MTP does.
+
+### Reproducing
+
+```bash
+uv venv /workspace/venvs/exl3 --python 3.12
+VIRTUAL_ENV=/workspace/venvs/exl3 uv pip install "torch==2.11.0" --torch-backend=cu130
+VIRTUAL_ENV=/workspace/venvs/exl3 uv pip install \
+  https://github.com/turboderp-org/exllamav3/releases/download/v1.4.6/exllamav3-1.4.6+cu132.torch2.11.0-cp312-cp312-linux_x86_64.whl
+hf download turboderp/Qwen3.8-27B-exl3 --revision 4.00bpw --local-dir /workspace/models/Qwen3.8-27B-exl3-4.0
+/workspace/venvs/exl3/bin/python scripts/rivals/exl3_bench.py /workspace/models/Qwen3.8-27B-exl3-4.0 raw
+/workspace/venvs/exl3/bin/python scripts/rivals/exl3_bench.py /workspace/models/Qwen3.8-27B-exl3-4.0 context 0 22000 90000 200000
+/workspace/venvs/exl3/bin/python scripts/rivals/exl3_bench.py /workspace/models/Qwen3.8-27B-exl3-4.0 mtp --draft-tokens 1
 ```
 
 ## What these numbers change
@@ -325,6 +443,14 @@ MTP gain per accepted token is far below what a fused, graph-captured verify
 would give. That, plus the ~30% raw tax, is the effective-throughput margin.
 
 
+**Speculation is where every rival is weak, each in its own way.** vLLM's MTP
+path is slower than its raw decode. llama.cpp's DSpark integration gets a
+quarter of what the same draft gives SGLang. SGLang's verify step costs 1.45x
+a raw step. ExLlamaV3 chains the MTP head well (2.8 tokens per step on math)
+but on a 60%-of-wall raw decode. Nobody has both a raw decode near the wall
+and a speculative loop built for one stream with idle tensor cores — which is
+headroom argument #2 measured four times over.
+
 **Raw decode is not where the win is.** "+30% over llama.cpp raw" means 108
 tok/s, which at 4.0 bpw (ceiling 126.5) is 85% of the wall — the bottom of the
 85–90% band, and a fraction vLLM already holds. At matched bytes the raw
@@ -353,9 +479,6 @@ produce a matched-bpw GGUF with `llama-quantize` for a supporting comparison.
 
 ## Still to measure
 
-- vLLM + speculation (its `qwen3_5_mtp` model and EAGLE-style drafts) —
-  vLLM is the strongest raw engine here, so its speculative path is the
-  effective-throughput number to beat
-- ExLlamaV3 — peer specialist
-- llama.cpp `--spec-type draft-dspark` — DSpark inside the llama.cpp engine,
-  for a same-engine comparison of the two drafts
+- vLLM with a DFlash/DSpark draft (`method: dflash` / `dspark`) — only the
+  built-in MTP head is measured; a Qwen DSpark draft model class does not
+  exist in vLLM 0.28 (only `gemma4_dspark`)
