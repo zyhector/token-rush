@@ -1,0 +1,83 @@
+# Traps already paid for
+
+Each of these cost real time. Do not rediscover them.
+
+## Measuring
+
+- **Measure bandwidth as best-of, never mean, over a big buffer.** The card
+  idles at 405 MHz memory clock and boosts to 14001 MHz; a run starting cold
+  reads ~30% low. A 512 MB buffer reads 4% low from fixed launch and reduce
+  overhead alone. `check_bandwidth.py` does both right; keep it that way.
+- **A kernel that runs is not a kernel that works.** `fla`'s fused GDN decode
+  step returns the right shapes and dtypes and NaNs whole heads
+  (`environment.md`). Differential-test every kernel against a reference, over
+  several calls on the same inputs — the failure depends on the call sequence
+  and passes once.
+- **Bytes per token must use the KV format's real size.** `q8_0` is 34.8
+  KB/token for this model's 16 attention layers, FP8 is 32 KB. A wrong KV byte
+  count moves a "% of wall" figure at 200k by ten points.
+- **`nohup cmd &` returns the launcher's exit code, not the command's.** A build
+  that is 22% done reports "completed, exit 0". Wait on an actual artifact.
+- **`sglang.launch_server` re-execs itself**, so the PID of the process you
+  started exits while the server lives on. Poll `/health`, not the PID.
+- **Test profiler output positively.** Checking that `nsys stats` output lacks
+  `SKIPPED` reports success when the report file does not exist at all. Count
+  kernel rows instead.
+- **Never name a scratch script after a stdlib module** (`nt.py`, `os.py`). The
+  interpreter dies before CUDA init and `nsys` records an empty trace that
+  looks exactly like a permission failure. `nsys` traces `sm_120` fine.
+- **`pkill -f <pattern>` matches your own shell** when the pattern appears in
+  the command line you are running — including a `kill-then-relaunch` one-liner
+  whose relaunch half contains the very string being killed. Anchor the pattern
+  to the executable (`pkill -f "^/workspace/venvs/vllm/bin/vllm"`), use
+  `pkill -x <name>`, or kill in a separate step. Paid for three times.
+
+## Serving rivals on 32 GB
+
+- **SGLang's hybrid state cache is sized in units of 5 slots per request.**
+  `--max-mamba-cache-size` below 5 gives `max_num_reqs=0` and the server
+  refuses to start; the default sizes it for dozens of requests and eats
+  3.4 GB. Use 6 for bs=1.
+- **SGLang captures prefill CUDA graphs up to `--chunked-prefill-size`** and
+  the 32k default runs out of memory next to a 256k KV pool. Pass
+  `--disable-prefill-cuda-graph`; decode graphs (the ones bs=1 cares about)
+  still capture.
+- **A 16k prefill chunk needs ~400 MB of scratch for the GDN chunk kernel.**
+  With the KV pool taking everything `--mem-fraction-static` allows, that
+  allocation fails on the first long prompt. Use `--chunked-prefill-size 4096`
+  and bound the pool with `--max-total-tokens`.
+- **Port 8080 is taken by Jupyter** on the vast base image. Use 8090 or 30000.
+- **`llama-cli` no longer accepts `-no-cnv`**; use `--single-turn`. It prints
+  `[ Prompt: N t/s | Generation: N t/s ]` at exit instead of `eval time` lines.
+
+## The machine
+
+- **Do not install or upgrade the NVIDIA driver from apt.** It is host-injected
+  and must match the host kernel module. If a package wants a newer CUDA major
+  than the driver supports, the answer is a different machine, not a new driver.
+- **`ncu` is blocked on every vast host seen so far** (`ERR_NVGPUCTRPERM`).
+  Plan on wall-clock timing against known byte counts.
+- **Nothing on this instance survives a recycle.** `/workspace` is not a volume
+  here (`workspace_is_volume: false`). Rebuild recipes live in
+  `environment.md` and `baselines.md`; check `vast-capabilities` before
+  assuming otherwise on a new machine.
+- **MTP speedups are host-dependent.** The same llama.cpp binary and weights
+  give +17% on one host and +60% on this one; the speculative loop has
+  host-side work between tiny kernels. Name the machine with every number.
+
+## Local chat setup (optional, not part of the project)
+
+llama.cpp serves the Anthropic Messages API natively at `/v1/messages`, so
+Claude Code needs no proxy — point `ANTHROPIC_BASE_URL` at it. Two things are
+required:
+
+1. **Patch the chat template.** Claude Code appends a system message at the
+   *end* of the messages array, and Qwen's stock template hard-fails on any
+   system message not at position 0. Extract the template from the GGUF,
+   replace the `raise_exception('System message must be at the beginning.')`
+   branch with one that renders the message as a user turn, and pass
+   `--chat-template-file`.
+2. **Match the context windows.** Claude Code assumes a 200k window. Set
+   `CLAUDE_CODE_MAX_CONTEXT_TOKENS` to the server's `--ctx-size`.
+
+At 256k with `q8_0` KV this needs ~29.4 GB of 32.6 GB. f16 KV does not fit.

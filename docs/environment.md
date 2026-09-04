@@ -2,9 +2,9 @@
 
 The machine Token Rush is being built on. Measured 2026-09-04.
 
-Re-run `scripts/env_check/check_env.sh` and `scripts/env_check/check_bandwidth.py`
-on any new instance and update this file — every "% of wall" claim in the project
-is relative to the bandwidth recorded here.
+Re-run the scripts in `scripts/env_check/` on any new instance and update this
+file — every "% of wall" claim in the project is relative to the bandwidth
+recorded here.
 
 ## Instance
 
@@ -12,17 +12,17 @@ Rented from vast.ai. Benchmarks must cite this machine.
 
 | | |
 |---|---|
-| Instance / container id | 49818067 |
-| **Machine id** | **25132** (host 18) |
-| Location | Alberta, CA |
+| Instance / container id | 49832910 |
+| **Machine id** | **94372** (host 71705) |
+| Location | North Carolina, US |
 | Image | `vastai/base-image:cuda-12.8.1-auto` |
-| Price | $0.428/hr |
-| Host reliability | 0.9985 |
-| Motherboard | ROME2D32GM-2T |
-| Public IP | 198.53.64.194 |
+| Price | $0.591/hr |
+| Host reliability | 0.987 |
+| Motherboard | S8056GME |
+| Public IP | 108.255.76.60 |
 
-At $0.428/hr the whole project — quoted at a few hundred hours in
-`feasibility.md` — lands around $85–170.
+At $0.591/hr the whole project — quoted at a few hundred hours in
+`feasibility.md` — lands around $120–240.
 
 ## GPU — RTX 5090
 
@@ -32,14 +32,16 @@ At $0.428/hr the whole project — quoted at a few hundred hours in
 | SMs | 170 |
 | VRAM | 32607 MiB (31.4 GiB usable) |
 | Memory clock | 14001 MHz (GDDR7, 512-bit) |
-| SM clock (max) | 3090 MHz |
-| Power limit | 575 W (default = max; min 400 W) |
-| PCIe | Gen4 x16 (~26.2 GB/s host transfer) |
-| VBIOS | 98.02.2E.40.AF |
-| UUID | `GPU-a98bb22d-3ce8-d451-1390-62496971682c` |
+| SM clock (max) | 3120 MHz |
+| Power limit | 600 W |
+| PCIe | Gen5 x16 (vast quotes 27 GB/s host transfer) |
+| VBIOS | 98.02.2E.80.4A |
+| UUID | `GPU-3a108a21-07b6-4d16-67f2-23a26c597e8b` |
 
 Idle and unshared — 1 GPU, no other tenants, no thermal or power throttling
-observed (`HW Slowdown: Not Active`).
+observed (`HW Slowdown: Not Active`). Bit-exact repeatability checked: 200
+rounds of large matmul / reduction / copy and a host round trip, zero
+mismatches.
 
 SM120 is the consumer Blackwell lineage: `mma.sync` tensor cores plus FP4, but
 no Hopper `wgmma` and no datacenter-Blackwell `tcgen05`. Kernels must target
@@ -51,70 +53,114 @@ The number the whole project is anchored to.
 
 | | Measured | % of 1792 GB/s spec |
 |---|---|---|
-| **Read-only (reduction)** | **1615 GB/s** | **~90.1%** |
-| Copy (read + write) | 1519 GB/s | ~84.8% |
+| **Read-only, Triton streaming kernel** | **1701 GB/s** | **94.9%** |
+| Read-only, `torch.sum` | 1686 GB/s | 94.1% |
+| Copy (read + write) | 1530 GB/s | 85.4% |
 
-Weight streaming at bs=1 is a pure read, so **1615 GB/s is the wall**, not 1792.
-Reproducible to within 0.1% across runs. (vast's own advertised figure for this
-machine is a more conservative 1451 GB/s.)
+Weight streaming at bs=1 is a pure read, so **1701 GB/s is the wall**, not
+1792. Reproducible to within 0.5% across runs. (vast's own advertised figure
+for this machine is a more conservative 1456 GB/s.)
 
-`check_bandwidth.py` reports the fastest of several timed blocks rather than the
-mean. The card idles at 810 MHz memory clock and boosts to 14001 MHz, so a block
-overlapping the ramp reads low by up to 30%; a slow block is always clock
-contamination, never the card beating physics.
+`check_bandwidth.py` streams a 2 GB buffer — more than 20x the 96 MB L2, so no
+re-read can hit cache — and reports the fastest of several timed blocks rather
+than the mean. Two things it guards against, both of which read low rather
+than high: the card idles at 405 MHz memory clock and boosts to 14001 MHz, so a
+block overlapping the ramp reads low by up to 30%; and a buffer small enough to
+finish in a few hundred microseconds is dominated by fixed launch and
+final-reduce cost (a 512 MB buffer reads 4% low for that reason alone).
 
 ## CPU / memory / storage
 
 | | |
 |---|---|
-| CPU | 2x AMD EPYC 7B13 64-core (256 threads visible) |
-| **Effective cores allocated** | **32** — the 256 shown are the host's |
-| L3 | 512 MiB, 8 NUMA nodes |
+| CPU | AMD EPYC 9B14 96-core, Zen 4 (192 threads visible) |
+| **Effective cores allocated** | **24** — the 192 shown are the host's |
+| L3 | 384 MiB, 4 NUMA nodes |
 | RAM | 503 GiB visible |
 | `/` (overlay) | 100 GB — **wiped on recycle/destroy** |
-| `/workspace` | **200 GB persistent volume** (`workspace_is_volume: true`) |
-| Disk bandwidth | ~5.3 GB/s |
-| Network | ~2.9 Gbps down / 3.3 Gbps up |
+| `/workspace` | **not a volume** (`workspace_is_volume: false`) |
+| Disk bandwidth | ~7 GB/s |
+| Network | ~3.0 Gbps down / 1.5 Gbps up |
 
-Only `/workspace` survives a recycle. Weights, quantized checkpoints and
-benchmark results belong there; nothing irreplaceable goes on `/`.
-
-Model download measured at **131 MB/s** from HuggingFace — the full 55.6 GB
-bf16 repo pulls in about 7 minutes, so re-downloading after a wipe is cheap.
+**Nothing on this instance survives a recycle or destroy.** The repo is on
+GitHub; weights re-download from the Hub in minutes (37 GB in about three);
+everything else is rebuilt by the recipes in this file and `baselines.md`.
 
 ## Software
 
-Driver **575.51.03** (supports up to CUDA 12.9), CUDA toolkit **12.8** with
-`nvcc` confirmed emitting working `sm_120` cubins.
+Driver **610.43.02** (supports up to CUDA 13.3). The image ships CUDA 12.8;
+CUDA toolkit **13.3** is installed alongside it from the NVIDIA apt repo
+(`cuda-toolkit-13-3`) and `/usr/local/cuda` points at it. `nvcc` 13.3 emits
+working `sm_120` cubins; llama.cpp is built with it.
 
 The base image ships **no Python ML stack**. Installed for this project:
 
 | | |
 |---|---|
 | Python | 3.12.14 (`/venv/main`) |
-| torch | 2.11.0+cu128 |
-| triton | 3.6.0 |
+| torch | 2.14.0+cu130 (bundles cuda-bindings 13.3) |
+| triton | 3.8.0 |
 | transformers | 5.16.1 |
-| flash-linear-attention | 0.5.2 |
+| flash-linear-attention | 0.6.0 (git main `3468279`) |
 | numpy / safetensors / einops | 2.5.2 / 0.8.0 / 0.8.2 |
+
+```bash
+source /venv/main/bin/activate
+uv pip install torch --torch-backend=cu130
+uv pip install numpy transformers einops safetensors huggingface-hub
+uv pip install --no-deps "flash-linear-attention @ git+https://github.com/fla-org/flash-linear-attention"
+```
 
 CUDA 12.8+ builds are mandatory: an older wheel (e.g. `cu124`) installs cleanly
 and then fails at the first GPU op with *no kernel image is available*.
 
-Verified working on this card: `sm_120` Triton codegen, CUDA graph
-capture/replay, and `fla`'s `fused_recurrent_gated_delta_rule` at the bs=1
-decode shape with FP32 recurrent state.
+Rival stacks live in their own venvs: `/workspace/venvs/sglang` (SGLang 0.5.18,
+torch 2.13.0+cu130) and `/workspace/venvs/vllm` (vLLM 0.28.0, torch
+2.13.0+cu130). Both install cleanly on this driver and serve the NVFP4 checkpoint; both
+need `cuda-bindings 13`, which is why the project moved to a CUDA 13 host.
+
+### What is verified on this card (`check_stack.py`)
+
+| | |
+|---|---|
+| `sm_120` Triton codegen | works |
+| CUDA graph capture / replay | works |
+| `fla` `chunk_gated_delta_rule` at the bs=1 decode shape, FP32 state | **correct** — max error 2e-4 on outputs, 5e-3 on state, over repeated calls |
+| `fla` `fused_recurrent_gated_delta_rule` at the same shape | **miscompiled** — see below |
+
+**`fused_recurrent_gated_delta_rule` cannot be used on this stack.** It runs
+without error and returns the right shapes, but whole heads of its output and
+final state come back NaN. The set of bad heads is deterministic for a given
+sequence of calls and changes from call to call on identical inputs; it
+survives every launch-config and source variant tried (`num_stages`,
+`num_warps`, scalar vs. block loads, static loop, no int64 indexing, `tl.exp`
+vs. fla's `exp`), Triton 3.6 / 3.7 / 3.8, ptxas 12.8 / 12.9, and fla 0.5.2 /
+main; `compute-sanitizer memcheck` reports nothing; adding a debug store inside
+the loop makes the bug vanish. A plain-torch reference and the chunk kernel
+agree with each other, and a minimal single-kernel Triton step written for
+the same recurrence (in `check_stack.py`, same grid, same per-program tile)
+is correct to 1e-7 on the state over the same call sequence. So Triton on
+`sm_120` is fine; something specific to fla's kernel source trips the
+compiler. Not root-caused further — nothing about it is fixable from the
+project side, and the project's own fused step does not depend on it.
+
+Consequences: the Phase 1 reference uses `chunk_gated_delta_rule` (slow at T=1
+but correct), and the Phase 2 fused GDN step — already the plan — is written
+by us. The differential test in `check_stack.py` is the guard; **a kernel that
+"runs" is not a kernel that works**, and this one was recorded as working
+before it was tested against a reference.
 
 ## Profiling — one real gap
 
 | Tool | State |
 |---|---|
-| **nsys** (timeline, kernel trace) | **Works** |
+| **nsys** 2026.1.3 (timeline, kernel trace) | **Works** |
 | **ncu** (per-kernel HW counters) | **Blocked** — `ERR_NVGPUCTRPERM` |
 
 The container has no `CAP_SYS_ADMIN` / `CAP_PERFMON` (`CapEff a80405fb`), and
 `NVreg_RestrictProfilingToAdminUsers` is a host kernel-module parameter. **This
-cannot be fixed from inside the container.**
+cannot be fixed from inside the container**, and this is the second host in a
+row to block it — expect it to be the norm on vast.
 
 What still works: full kernel timelines on `sm_120`, so the Phase 0 per-token
 timeline slice and all wall-clock work are unaffected.
@@ -159,37 +205,42 @@ available without training anything.
 The vision tower is cleanly separable by prefix and is discarded.
 
 Rival and comparison artifacts all exist on the Hub: GGUF (`unsloth`), NVFP4
-(`unsloth`, `QUASAR-QAT`), EXL3 (`turboderp`, for the ExLlamaV3 comparison),
-official FP8 (`Qwen`), and the DSpark draft (`RadixArk`).
+(`QUASAR-QAT`; `RadixArk`'s is a mixed FP8/FP4 config and `unsloth`'s is FP8
+despite the name), EXL3 (`turboderp`, for the ExLlamaV3 comparison), official
+FP8 (`Qwen`), and the DSpark draft (`RadixArk`, 1.86B, bf16, 3.7 GB). Local
+copies live under `/workspace/models/`.
 
 ## What this machine implies for the plan
 
-Two measurements that set where Phase 2 effort belongs. Both are `bench/`
-material when they need re-measuring against the real engine.
+Three measurements that set where Phase 2 effort belongs
+(`check_gemv_sol.py`, `check_stack.py`).
 
-**A naive Triton GEMV already saturates GDDR7.** A textbook bf16 GEMV, no
-tuning, reached 1569 GB/s — 97% of the 1615 GB/s wall. The dense
-weight-streaming path needs no hand-written kernel.
+**cuBLAS feeds the card at bs=1.** 63 bf16 GEMVs at the real per-layer shapes
+of Qwen3.8-27B (9 GDN + 3 attention layers, 9.13 GB of weights), replayed from
+one CUDA graph, stream at **1643 GB/s — 96.6% of the wall**; eager, 1638 GB/s.
+The dense weight-streaming path needs no hand-written kernel. With torch
+2.14+cu130, cuBLAS dispatches a dedicated `gemvx` kernel for these shapes, not
+the Ampere-lineage `cutlass_80_tensorop_*` GEMM it used on CUDA 12.8 — the
+headroom argument in `CLAUDE.md` no longer cites that fallback.
 
-**The launch-dispatch tax is large.** A 48-layer Gated DeltaNet chain, eager vs.
-captured into a single CUDA graph:
+**The launch-dispatch tax is large.** A 48-layer Gated DeltaNet decode chain —
+conv1d step, gating, delta-rule state update, gated RMSNorm, output gate,
+projections excluded — eager vs. captured into a single CUDA graph:
 
 | | ms/token |
 |---|---|
-| Eager (48 separate launches) | 4.39 |
-| One CUDA graph | 0.15 |
-| **Tax removed** | **4.23** |
+| Eager | 10.55 |
+| One CUDA graph | 1.44 |
+| **Tax removed** | **9.11** |
 
-That is ~42% of the entire 10 ms budget for 100 tok/s, spent on launch overhead
-alone. Graphed, the chain sits within 1.6x of its 0.094 ms state-bandwidth floor
-(151 MB of FP32 state).
+That is ~91% of the entire 10 ms budget for 100 tok/s, spent on launch
+overhead alone. The state update is a minimal single-kernel Triton step
+written in `check_stack.py` (the fused fla kernel being unusable here, and the
+minimal kernel passing the same differential test); the rest of the layer is
+about two dozen small torch ops, which is what a kernel-per-op engine launches.
+The graphed figure is a lower bound: the benchmark replays one layer's tensors
+48 times, so its 3 MB of state stays cache-warm, and those two dozen ops per
+layer are what GDN fusion in Phase 2 collapses further.
 
-Caveat: the benchmark replays one layer's tensors 48 times, so weights and state
-stay cache-warm. The launch-tax figure is what it measures reliably; the graphed
-absolute is a lower bound, not a prediction for the real model.
-
-Together these two say the Phase 2 win is concentrated in graph capture and GDN
+Together these say the Phase 2 win is concentrated in graph capture and GDN
 fusion rather than in GEMV tuning.
-
-Incidental: cuBLAS dispatches `cutlass_80_tensorop_*` — Ampere-lineage kernels —
-for bf16 matmul on this card.
