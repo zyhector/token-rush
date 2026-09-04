@@ -24,10 +24,12 @@ the correct shape for a mini project.
 
 ## Known rival data points (as of Sept 2026 — re-verify before citing)
 
-- llama.cpp on 5090 mobile (896 GB/s), Qwen3.8-27B Q4_K_M: **36.7 tok/s raw**,
-  **50.9 with MTP** (+39%, acceptance 0.76–0.82). On a 3090: 31 → 41.3.
-  36.7 tok/s at 896 GB/s is roughly **65% of the wall** — that 35% gap is the
-  headroom this project takes.
+- llama.cpp on our own 5090, Qwen3.8-27B UD-Q4_K_M: **80.86 tok/s raw**,
+  **91 with MTP** (+17%). Raw decode reads 16.10 GB/token, so that is **80.6% of
+  the bandwidth wall**. Measured, not cited — see `docs/baselines.md`. The
+  remaining 19% is the raw-decode headroom, and it is thinner than public
+  mobile-5090 figures suggest: "+30% over llama.cpp" requires 105 tok/s, which
+  at 4.0 bpw is 88% of the wall. The speculation gap is the wider opening.
 - SGLang + DSpark (RadixArk, 1.86B draft): bs=1 GSM8K **3.16x**, mean accepted
   length 3.43. Falls to 2.48x at concurrency 8.
 - 24 GB Blackwell card at 262k context: 50 → 12.6 tok/s. Long context is real.

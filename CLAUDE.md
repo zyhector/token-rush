@@ -112,7 +112,7 @@ win is concentrated in 1–3. Do not spend Phase 2 hand-writing GEMV.
 | Rival | Role |
 |---|---|
 | ollama | sanity floor only, no credibility value |
-| llama.cpp (+MTP) | raw-decode reference |
+| llama.cpp (+MTP) | raw-decode reference — measured at 80.6% of the wall, `docs/baselines.md` |
 | vLLM (bs=1) | general-engine tax reference |
 | **SGLang + DSpark** | **the real opponent** |
 | ExLlamaV3 | peer specialist; included proactively because reviewers will ask |
