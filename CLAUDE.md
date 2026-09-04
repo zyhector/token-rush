@@ -20,16 +20,20 @@ headroom.
 
 | | Target |
 |---|---|
-| Raw decode | 100–110 tok/s at ≤4.25 bpw, i.e. 85–90% of the bandwidth wall |
-| vs llama.cpp raw | +30% or more |
-| With fused speculative decoding | 250–300 tok/s effective |
-| vs llama.cpp + MTP | 2x or more |
-| vs SGLang + DSpark | 2x on prose (DSpark: 104 tok/s), +20% or more on math (205) |
+| Raw decode | 110–120 tok/s at ≤4.25 bpw, i.e. 90–95% of the bandwidth wall |
+| vs llama.cpp raw | +30% or more; at matched bytes the engine itself is worth +5% over vLLM — concede that row up front |
+| With fused speculative decoding | 200–240 tok/s effective on prose (the floor); 230–280 code, 300–380 math |
+| vs SGLang + DSpark | **2x on prose** (DSpark: 104 tok/s), +50% or more on math (205) — the durable headline |
+| vs vLLM (its best config is raw, 80 tok/s) | 2.5–3x effective; true today, perishable if vLLM fixes its speculative path |
+| vs llama.cpp + MTP | 1.5–1.85x on prose (130), 2x on code and math |
 | Context | **256k usable**, not merely loadable — the model's native maximum |
 | Decode at 200k | hold **≥92% of the wall**, the same fraction as at short context (llama.cpp holds 60%, SGLang 74%, vLLM 90%) |
 
 **% of the memory-bandwidth roofline** is the primary metric — unlike a margin over
-a rival, it does not move as rivals mature.
+a rival, it does not move as rivals mature. The projection behind these rows,
+the step-cost model and the reasons the project is worth its 6–7 weeks are in
+`docs/feasibility.md`; the numbers there are extrapolated from component
+measurements, not from a working engine.
 
 ## The physics
 
@@ -68,7 +72,7 @@ of 27.78B in the repo. Weight bytes are computed against 26.90B, not 27B.
 | 5.0 | 16.81 GB | 101 tok/s | ~95 | 86–91 |
 
 Quantization is therefore the single largest lever on the headline number — it
-moves the ceiling by ~25 tok/s across that range, and **the 100–110 tok/s target
+moves the ceiling by ~25 tok/s across that range, and **the 110–120 tok/s target
 is only reachable at or below ~4.25 bpw**. Pick accordingly in Phase 1.
 
 Raw decode headroom equals the distance rivals sit from this wall.

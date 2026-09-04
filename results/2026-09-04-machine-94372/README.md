@@ -23,7 +23,7 @@ the reproduce sections in `baselines.md` skip past.
 | `vllm/results_context.log`, `vllm/server_ctx.log`, `console/vllm-context-220k.txt` | vLLM decode vs. context at `--max-model-len 220000` (`server_262k_fail.log` is why not 262144) |
 | `vllm/results_mtp1.log`, `vllm/server_mtp1.log`, `console/vllm-mtp1.txt` | vLLM with its MTP head |
 | `vllm/results_dspark3.log`, `vllm/server_dspark3.log` | vLLM + DSpark (`server_dspark.log`, `server_dspark2.log` are the two failed attempts: draft quant config, wrong draft class) |
-| `vllm/results_dflash2.log`, `vllm/server_dflash2.log` | vLLM + DFlash2 (`server_dflash.log`: the KV-budget failure at 32k) |
+| `vllm/results_dflash2.log`, `vllm/server_dflash2.log` | vLLM + DFlash2 (`results_dflash.log` + `server_dflash.log`: the first attempt, which crashed on the math prompt at the 32k KV budget) |
 | `exllamav3/exl3_results.log`, `exl3_results2.log`, `console/exl3-context-sweep.txt` | ExLlamaV3 raw and decode vs. context |
 | `exllamav3/exl3_mtp.log`, `console/exl3-mtp.txt` | ExLlamaV3 chained MTP, 1 and 2 draft tokens |
 | `ollama/serve.log`, `ollama/Modelfile` | ollama's runner command line (the `llama-server` invocation with `--spec-type draft-mtp --spec-draft-n-max 4`), offload state, MTP statistics; the bench numbers are in `console/chain-vllm-dflash-dspark-llama-dflash-ollama.txt` |

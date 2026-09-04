@@ -519,11 +519,11 @@ competence, and nothing more.
 
 **llama.cpp's MTP is not leaving much on the table at bs=1 on this host.**
 +60% on prose and code, +100% on math, from a one-layer MTP head verifying
-one draft token per step. Against 130 tok/s, the 220–280 tok/s effective
-target is 1.7–2.2x — "2x or more over llama.cpp + MTP" now means 260 tok/s,
-which at 4.0 bpw and 92% of the wall needs a mean accepted length of about
-2.3. The margin that used to come from llama.cpp's weak MTP has to come from
-deeper speculation instead.
+one draft token per step. Against 130 tok/s, the projected 200–240 tok/s
+effective on prose is 1.5–1.85x — "2x over llama.cpp + MTP" holds on code
+and math, not on prose, and the durable 2x is against SGLang + DSpark
+(`docs/feasibility.md`). The margin that used to come from llama.cpp's weak
+MTP has to come from deeper speculation instead.
 
 **Long context is still where the gap is widest, but it is 17 points, not
 27.** llama.cpp holds 77% of the wall at short context and 60% at 200k. Only

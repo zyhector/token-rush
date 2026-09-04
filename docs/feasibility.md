@@ -1,8 +1,11 @@
 # Feasibility — short version
 
-**Verdict: feasible, and not a gamble.** The win comes from a design point general
-engines are unwilling to serve, not from luck. The physics, the memory budget and
-the per-rival argument live in `CLAUDE.md`; this file holds what that leaves out.
+**Verdict: feasible, and not a gamble — but the number worth writing down
+only exists once Phase 2 and Phase 3 both land.** The win comes from a design
+point general engines are unwilling to serve, not from luck. The physics, the
+memory budget and the per-rival argument live in `CLAUDE.md`; this file holds
+what that leaves out, and — since Phase 0 — the projection of where the engine
+ends up and which comparison to headline.
 
 ## The thesis is already proven by precedent
 
@@ -77,45 +80,96 @@ and sampling. **88–95% is the realistic band; the table below uses 92%.**
 
 ### What that yields
 
-| Scenario | Token Rush | llama.cpp | Gain |
+Raw decode first. At 4.0 bpw the text path is 13.45 GB, the ceiling is
+126.5 tok/s, and 92% of it is **116 tok/s** (90–95%: 114–120).
+
+| Scenario | Token Rush | Rival | Gain |
 |---|---|---|---|
-| Raw decode, short context, 4.25 bpw | 110 tok/s | 82.8 | +32% |
-| Raw decode, short context, 4.0 bpw | 116 tok/s | 82.8 | +40% |
-| **Raw decode, matched 4.79 bpw** | **97 tok/s** | **82.8** | **+17%** |
-| Raw decode, matched 3.92 bpw, vs ExLlamaV3 | 119 tok/s | 77.0 | +54% |
-| Decode at 200k context, 4.0 bpw | 78 tok/s | 44.3 | **+77%** (vLLM: 61.0, +28%) |
-| Effective, with speculation (N≈2.5) | 260 tok/s | 130 | **2.0x** |
+| Raw decode, short context, 4.25 bpw | 110 tok/s | llama.cpp 82.8 | +32% |
+| Raw decode, short context, 4.0 bpw | 116 tok/s | llama.cpp 82.8 / vLLM 80.0 | +40% / +45% |
+| **Raw decode, matched 4.79 bpw** | **97 tok/s** | **llama.cpp 82.8** | **+17%** |
+| **Raw decode, matched 18.79 GB (vLLM's bytes)** | **83 tok/s** | **vLLM 80.0** | **+5%** |
+| Raw decode, matched 3.92 bpw | 119 tok/s | ExLlamaV3 77.0 | +54% |
+| Decode at 200k context, 4.0 bpw | 78 tok/s | llama.cpp 44.3 / vLLM 61.0 | +77% / +28% |
+
+The +40–45% raw rows are almost entirely bytes: we read 13.45 GB where vLLM's
+NVFP4 checkpoint reads 18.79 (its `lm_head` is bf16) and llama.cpp reads
+16.10. Held to the same bytes the engine itself is worth +5% over vLLM. That
+is the fair-comparison row and it must be conceded up front.
+
+**Speculation is where the number comes from.** The step-cost model, from
+the component measurements on this machine:
+
+- a raw step at 116 tok/s is 8.6 ms;
+- a verify step for K ≤ 8 draft tokens reads the weights once, the same as a
+  raw step; the extra K−1 positions cost only KV and recurrent-state work,
+  which is bandwidth-trivial, so a verify step is taken as **1.1x a raw
+  step** — 9.5 ms — when it is inside the same CUDA graph. The rivals pay
+  1.44x (SGLang, 22.8 vs 15.8 ms) and 5.6x (vLLM, 70 vs 12.5 ms) because
+  their draft-verify loop runs eager kernels outside the graph;
+- the draft: the MTP head (0.21 GB at 4 bits) chained three deep costs ~1 ms
+  in-graph; a 4-bit DSpark-class draft with a gamma-7 tree costs 4–6 ms;
+- mean accepted length per step, including the bonus token, from the
+  measurements in `baselines.md`: MTP chained two deep gets 2.24 / 2.36 /
+  2.81 on prose / code / math (ExLlamaV3), DSpark at gamma 7 gets 2.39 /
+  3.11 / 4.68 (SGLang). Three-deep MTP is taken as 2.4 / 2.6 / 3.2; a tree
+  over a DSpark-class draft as 2.4–3.0 / 3.1–3.6 / 4.7–5.2.
+
+| Effective tok/s | Token Rush | SGLang + DSpark | llama.cpp + MTP | ExLlamaV3 + MTP×2 | vLLM (best = raw) |
+|---|---|---|---|---|---|
+| prose | **200–240** | 104 (1.9–2.3x) | 130 (1.5–1.85x) | 127 (1.6–1.9x) | 80 (2.5–3x) |
+| code | **230–280** | 137 (1.7–2.0x) | 128 (1.8–2.2x) | 142 (1.6–2.0x) | 80 (2.9–3.5x) |
+| math | **300–380** | 205 (1.5–1.85x) | 162 (1.85–2.3x) | 160 (1.9–2.4x) | 80 (3.8–4.8x) |
+| prose at 200k | **140–180** | does not fit in 32 GB | not measured | not measured | 61 (2.3–3x) |
 
 Absolute optimistic ceiling — 4.0 bpw at 95% of the wall with mean accepted
 length 3.5 — is roughly 385 tok/s effective. The realistic good outcome is
-**110–116 tok/s raw and 250–300 tok/s effective**.
+**114–120 tok/s raw and 200–240 tok/s effective on prose**, with code and
+math above that.
 
-### Which claims are safe, and which are not
+### Which comparison to headline
 
-**A 50% margin is not available at short-context raw decode.** Reaching it would
-need 4.0 bpw *and* essentially 100% of the wall, above the 96.6% that a pure GEMV
-with no other work achieves. That target is physically out of reach.
+Three candidates, in order of how well they survive a reviewer:
 
-**The matched-bpw row is the weak point.** Held to llama.cpp's own 4.79 bpw, the
-short-context engine win is +17%; held to vLLM's bytes, it is 92% of the wall
-against vLLM's measured 88% — about +5%. The one rival at our own bpw,
-ExLlamaV3, holds only 60% of the wall, so that comparison is comfortable
-(+54%) but it is the specialist, not the strongest engine. A reviewer will ask for exactly that
-comparison. Concede it early rather than be caught by it — and note it is a
-fair-comparison artifact, not the project's claim.
+1. **% of the roofline.** 92% raw against vLLM's 88%, SGLang's 70%,
+   llama.cpp's 78%, ExLlamaV3's 60%; and effective tok/s per GB/s of
+   bandwidth. Bulletproof, invariant to quantization and to rivals
+   improving, and not pretty.
+2. **2x SGLang + DSpark on prose.** The project's stated opponent, the best
+   speculative rival measured, and the comparison that is most durable:
+   SGLang's verify cost is its scheduler's, not a bug. Report prose — it is
+   the floor; code and math are higher, so nobody reproducing it lands below
+   the claim.
+3. **2.5–3x vLLM.** The strongest raw engine, whose best configuration on
+   this model is *not speculating*, because every draft it has is slower than
+   its raw decode. Large, true today, and perishable: that is an integration
+   bug in vLLM's speculative path, not a structural limit, and if it is fixed
+   before the writeup the margin shrinks toward 1.5x. Use it, date it, and do
+   not build the story on it.
 
-**Long context is where 50%+ over llama.cpp lives; speculation is where 2x
-lives.** The 200k figure asks only that we hold 92% of the wall at long
-context, when llama.cpp holds 77% at short context and 60% at 200k. That is
-not a miracle; it is declining to collapse — and vLLM already holds 90% there,
-so against the best rival the long-context row is a match, not a margin. Speculation is nearly free at bs=1 because the tensor
-cores are otherwise idle — but llama.cpp's own MTP already gets +60% on prose
-here, so 2x over it needs a mean accepted length of about 2.3 at the projected
-raw speed, and the acceptance numbers in `baselines.md` say what is realistic.
+The headline is therefore **"2x the best speculative engine, 2.5–3x the
+strongest raw engine, on one RTX 5090, with 256k context usable"**, backed by
+the roofline fraction as the number that does not move. Short-context raw
+decode is evidence of competence, not the selling point; long context is a
+match with vLLM at the wall, plus the fact that a draft model and a 200k KV
+cache fit together here and do not in SGLang.
 
-The headline should therefore be long context and effective throughput, with
-short-context raw decode presented as evidence of competence rather than as the
-selling point.
+### Is it worth doing
+
+Yes, on three measured facts, none of them assumed: the GDN launch tax is
+9.1 ms per token against a 10 ms budget, so a full-step graph alone moves the
+raw number; every rival runs its draft-verify loop outside the graph and
+pays 1.44x to 5.6x a raw step for it; and at bs=1 the 5090's tensor cores are
+idle, so verification is free. Nobody has both a raw decode near the wall
+and a speculative loop built for one stream. That gap is real.
+
+The cost is that the number exists only after Phase 2 (full-step graph,
+fused GDN step) *and* Phase 3 (speculation inside the graph) — about 6–7
+weeks of core work with no standalone milestone in between. Phase 1 alone
+yields a token-exact reference and a raw number that, held to matched bytes,
+is +5% over vLLM: correct, publishable as a roofline fraction, and not a
+resume line. If the time box only reaches the end of Phase 2, the honest
+outcome is "92% of the wall against vLLM's 88%".
 
 ### What would falsify this
 
@@ -131,6 +185,14 @@ selling point.
 - **Quantization quality at 4.0 bpw.** The tok/s advantage over llama.cpp comes
   substantially from quantizing harder. If 4.0 bpw is not acceptable in output
   quality, the short-context margin collapses toward the +17% row.
+- **The verify step costing more than 1.1x a raw step.** The whole
+  speculation table rests on it. The risk is concentrated in the 48 GDN
+  layers: a K-token verify needs a K-token recurrent step inside the graph,
+  `fla`'s fused kernel is unusable here, and the chunk kernel's efficiency
+  at T=8 is unmeasured. At SGLang's 1.44x the prose row drops to about 190.
+- **Rivals fixing their speculative paths.** vLLM's drafts being slower than
+  its raw decode is a bug, not physics. The 2.5–3x row can halve before the
+  writeup; the roofline fraction and the SGLang row cannot.
 
 ## Risks and honest boundaries
 
