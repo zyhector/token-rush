@@ -51,17 +51,33 @@ llama.cpp raw = 80.86 tok/s      =  80.6% of the wall
 MTP gain      = 91.1 / 78.0      =  +17%
 ```
 
-### Commands
+### Reproducing
+
+From nothing, on a fresh instance. `/workspace` survives a recycle but not a
+destroy, so this is the recovery path as much as the audit trail.
 
 ```bash
-cd /workspace/rivals/llama.cpp
-M=/workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
+# 1. build — the arch flag is required; a default build has no sm_120 kernels
+git clone https://github.com/ggml-org/llama.cpp /workspace/rivals/llama.cpp
+cd /workspace/rivals/llama.cpp && git checkout 6703d78
+cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120 \
+      -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=ON
+cmake --build build --config Release -j 32      # ~25 min, CUDA templates dominate
 
+# 2. weights (16.5 GB, ~2 min at 131 MB/s)
+hf download unsloth/Qwen3.8-27B-GGUF --include "Qwen3.8-27B-UD-Q4_K_M.gguf" \
+   --local-dir /workspace/models/Qwen3.8-27B-GGUF
+
+# 3. measure
+M=/workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
 ./build/bin/llama-bench -m $M -ngl 999 -p 512 -n 128 -r 3
 
 ./build/bin/llama-cli -m $M -ngl 999 -c 4096 -n 200 --temp 0 \
   -p "<prompt>" --single-turn --no-warmup [--spec-type draft-mtp]
 ```
+
+Stop any local server before measuring (`pkill -f llama-server`) — a resident
+model competes for the bandwidth being measured.
 
 ## What these numbers change
 
