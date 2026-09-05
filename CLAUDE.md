@@ -28,6 +28,7 @@ headroom.
 | vs llama.cpp + MTP | 1.5–1.85x on prose (130), 2x on code and math |
 | Context | **256k usable**, not merely loadable — the model's native maximum |
 | Decode at 200k | hold **≥92% of the wall**, the same fraction as at short context (llama.cpp holds 60%, SGLang 74%, vLLM 90%) |
+| Quantization quality | at ≤4.25 bpw, mean KL divergence to bf16 **no worse than ExLlamaV3's 4.00 bpw** (the one rival at our bpw); GSM8K within noise of llama.cpp's Q4_K_M — without this row the byte advantage does not count |
 
 **% of the memory-bandwidth roofline** is the primary metric — unlike a margin over
 a rival, it does not move as rivals mature. The projection behind these rows,
@@ -161,9 +162,9 @@ works" risk.
 | Phase | Content | Output |
 |---|---|---|
 | 0 (1 wk) | Run llama.cpp (+MTP), SGLang (int4 + DSpark), vLLM on Qwen3.8-27B; slice per-token timeline with `nsys`; read GDN and MTP structure | Baseline report + overhead breakdown |
-| 1 (2 wk) | Clean PyTorch reference for the text path (GDN via `fla`), token-exact against HF; pick quantization at ≤4.25 bpw (NVFP4 or int4 groupwise) | Correctness baseline + first speed number |
+| 1 (2 wk) | Clean PyTorch reference for the text path (GDN via `fla`), bf16 path passing the engine-correctness gate against HF; pick quantization at ≤4.25 bpw (NVFP4 or int4 groupwise) and pass the quantization-quality gate | Correctness baseline + quality table + first speed number |
 | 2 (3–4 wk) | Own kernels, in payoff order: full-step CUDA graph first, then fused GDN single step, attention decode, fused sampling; GEMV last and only if measurement demands it | Raw decode near the wall |
-| 3 (2–3 wk) | Speculation fused into the graph: MTP chain/tree vs 4-bit DSpark, acceptance-driven dynamic depth | Effective-throughput headline |
+| 3 (2–3 wk) | Speculation fused into the graph: MTP chain/tree vs 4-bit DSpark, acceptance-driven dynamic depth; greedy speculative output identical to greedy raw output | Effective-throughput headline |
 | 4 | Fair benchmark matrix + writeup | Report and blog post |
 
 ## Scope
@@ -180,9 +181,25 @@ kernel-level occupancy and DRAM-throughput tuning must come from wall-clock
 timing against known byte counts. `nsys` timelines work. See
 `docs/environment.md`.
 
-- **Correctness is a gate**: token-exact against the HF reference. GDN decode has no
-  mature single-stream reference to copy, so correctness comes from differential
-  testing. Store recurrent state in FP32 to avoid long-sequence drift.
+- **Correctness is two gates, answering two different questions.**
+  *Engine correctness* — is the implementation right — compares our bf16 path
+  with HF `transformers` on the same weights: greedy tokens identical up to
+  the first divergence, and at the divergence the reference's token within our
+  top-5 with the logprob gap inside bf16 noise (the vLLM test-suite
+  standard; HF runs CPU-offloaded, since 55.6 GB of bf16 does not fit the
+  card). Under it, every custom kernel is differential-tested against a torch
+  reference over repeated calls, CUDA-graph replay must match eager
+  bit-for-bit, and greedy speculative output must equal greedy raw output
+  exactly — the one check that is truly exact. Long context is verified
+  functionally (needle retrieval at 128k and 256k). GDN decode has no mature
+  single-stream reference to copy, so this is where correctness comes from.
+  Store recurrent state in FP32 to avoid long-sequence drift.
+  *Quantization quality* — how much the 4-bit weights lose — compares our
+  quant with bf16 and with the rivals' quants on the same text with the same
+  script: KL divergence (mean, p99), WikiText-2 perplexity delta, top-1
+  agreement, and one downstream task; bf16 logits computed once on CPU and
+  reused. Threshold in the Targets table. Token-exactness against HF was
+  never a quantization metric and is not a goal.
 - **Time-box**: resume-ready milestone by **end of October 2026**.
 
 Longer-form argument, precedents and sources: `docs/feasibility.md`.

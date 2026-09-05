@@ -183,8 +183,12 @@ outcome is "92% of the wall against vLLM's 88%".
   early in Phase 3 with the MTP head, which is a weaker draft than DSpark's
   1.86B model.
 - **Quantization quality at 4.0 bpw.** The tok/s advantage over llama.cpp comes
-  substantially from quantizing harder. If 4.0 bpw is not acceptable in output
-  quality, the short-context margin collapses toward the +17% row.
+  substantially from quantizing harder, so the quality gate in `CLAUDE.md`
+  (mean KL to bf16 no worse than ExLlamaV3's 4.00 bpw; GSM8K within noise of
+  Q4_K_M) is what makes the byte advantage count. If our quant fails it, the
+  choice is a higher bpw and the short-context margin collapses toward the
+  +17% row. Measure the rivals' quants with the same script first; the
+  threshold is theirs, not a number picked in advance.
 - **The verify step costing more than 1.1x a raw step.** The whole
   speculation table rests on it. The risk is concentrated in the 48 GDN
   layers: a K-token verify needs a K-token recurrent step inside the graph,
@@ -198,7 +202,10 @@ outcome is "92% of the wall against vLLM's 88%".
 
 - Hybrid architecture is roughly **2x the engineering** of a standard transformer.
 - **GDN decode has no mature single-stream reference to copy.** Correctness rests
-  entirely on differential testing against HF. Store recurrent state in FP32.
+  on differential testing against HF and against torch references for every
+  kernel — the two-gate definition in `CLAUDE.md`, not token-exactness, which
+  a quantized engine cannot meet and which never measured quantization anyway.
+  Store recurrent state in FP32.
 - **The bar moves.** RadixArk is actively optimizing this model; DSpark will get
   faster. Pin rival versions and date every benchmark.
 - Take the free lunch first (launch overhead, fusion). Do not start by chasing the
