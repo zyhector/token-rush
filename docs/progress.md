@@ -14,6 +14,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 |---|---|---|---|---|
 | 1. Environment and weights | 2026-09-08 | no engine yet | — | — |
 | 2. Skeleton runs | 2026-09-08 | full text path, int4 g128 RTN, dequantize-then-matmul GEMV, eager | 1490 | 3.2 |
+| 3. GEMV shootout, kernel swapped in | 2026-09-08 | + own Triton int4 GEMV (92% of wall inside the model), fused q\|k\|v and gate\|up projections; still eager, CPU-bound on ~2500 launches | 1500 | 36 (46 with tinygemm) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -79,12 +80,41 @@ by ~2% in norm because SDPA tiles by sequence length and fla's chunk kernel
 accumulates in bf16 — so the criterion is "bounded, and no jump after a
 chunk boundary", not elementwise closeness.
 
+## Step 3 — GEMV shootout, kernel swapped in (2026-09-08)
+
+`scripts/gemv_shootout/` (method, full table and decisions in its README),
+`bench/decode.py` (the engine's decode timer and profiler).
+
+Six candidates at the real shapes, in-graph, packed GB/s against 1701:
+bf16 cuBLAS 96–97% (the reference), dequant-then-matmul 2.6% (what step 2
+ran), **our Triton int4 88% on the fused layer set and 99% on `lm_head`**,
+torch's tinygemm 91% / 99%, vLLM's Marlin 88% / 97%, vLLM's NVFP4 cutlass
+GEMM 52% / 58% (a GEMM, not a GEMV; the wrong tool at M=1).
+
+Decisions: our Triton kernel is the default (one copy of the weights, prefill
+dequantizes the same nibbles, ours to fuse in Phase 2); q|k|v, in_proj_qkv|z
+and gate|up are fused into one matrix each at load time (+4–5 points: a
+2.8 MB GEMV costs 6 µs whatever the kernel); autotune pinned to six configs.
+
+| | tok/s | note |
+|---|---|---|
+| decode, triton backend | 36.0 | 27.7 ms/step: GEMVs 9.1 ms GPU (1560 GB/s = 92% of wall), other ~2500 kernels 9 ms GPU, **CPU launch time 30 ms** |
+| decode, tinygemm backend | 46.4 | same GPU work; aten launches cost ~25 µs less Python each than Triton launches |
+| prefill (5451 tokens) | ~1500 | unchanged: dequant + cuBLAS GEMM |
+
+The step is now CPU-bound: the GPU finishes its 18 ms of work while the host
+is still issuing launches for 30 ms. That is Phase 0's launch tax measured on
+the whole model, and it is what step 4's CUDA graph removes. With the GEMVs at
+92% of the wall, the graphed step should land near 9 + (fused GDN/attention
+chain) ms; the eager non-GEMV GPU time of 9 ms is the next thing to shrink
+after that.
+
 ## Next
 
-- Step 3: 4-bit GEMV shootout (torchao int4, Marlin, NVFP4 cutlass, EXL3,
-  own Triton dequant GEMV) at the real layer shapes including `lm_head`,
-  packed GB/s in-graph against 1701; swap the winner into `QLinear`.
-  Decode should move from 3 to the tens, then toward 100.
-- Step 4: first CUDA graph over a whole decode step.
+- Step 4: first CUDA graph over a whole decode step (positions as device
+  tensors, attention over a fixed-length masked cache or a bucketed set of
+  graphs, argmax in-graph). Expect the 30 ms of CPU launch time to vanish
+  and the step to approach its 18 ms of GPU time, then the ~9 ms of
+  non-GEMV GPU time to become the target (GDN chain fusion, Phase 2).
 - Phase 1b: engine-correctness gate against HF (per-layer first), quality
   table, quantization choice.

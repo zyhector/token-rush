@@ -13,6 +13,10 @@ Each of these cost real time. Do not rediscover them.
   (`environment.md`). Differential-test every kernel against a reference, over
   several calls on the same inputs — the failure depends on the call sequence
   and passes once.
+- **A kernel benchmark on one matrix reads from L2, not DRAM.** Anything
+  under ~96 MB replayed alone in a CUDA graph reports 2500 GB/s on this card.
+  Cycle through >400 MB of copies, or benchmark a set that does not fit
+  (`scripts/gemv_shootout/`).
 - **Bytes per token must use the KV format's real size.** `q8_0` is 34.8
   KB/token for this model's 16 attention layers, FP8 is 32 KB. A wrong KV byte
   count moves a "% of wall" figure at 200k by ten points.

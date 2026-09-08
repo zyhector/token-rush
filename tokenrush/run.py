@@ -19,11 +19,12 @@ def main():
     ap.add_argument("--max-new", type=int, default=200)
     ap.add_argument("--max-len", type=int, default=32768, help="preallocated context")
     ap.add_argument("--chunk", type=int, default=4096, help="prefill chunk")
+    ap.add_argument("--backend", default="triton", choices=("triton", "tinygemm", "dequant"), help="int4 GEMV")
     a = ap.parse_args()
     if not is_packed(a.model):
         raise SystemExit(f"{a.model} is not a packed checkpoint; run python -m tokenrush.quantize first")
 
-    cfg, w, _ = load_packed(a.model)
+    cfg, w, _ = load_packed(a.model, backend=a.backend)
     tok = AutoTokenizer.from_pretrained(a.model)
     engine = Engine(cfg, w, max_len=a.max_len)
     print(f"weights {w.nbytes / 1e9:.2f} GB, state {engine.state.nbytes / 1e9:.2f} GB, "

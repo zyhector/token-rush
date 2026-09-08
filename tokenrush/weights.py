@@ -14,7 +14,7 @@ from safetensors.torch import save_file
 
 from .config import ModelConfig
 from .model import AttnWeights, GDNWeights, LayerWeights, ModelWeights
-from .quant import GROUP, Linear, QLinear, quantize_int4
+from .quant import DEFAULT_BACKEND, GROUP, Linear, QLinear, quantize_int4
 
 HF_PREFIX = "model.language_model."
 VISION_PREFIX = "model.visual."
@@ -98,45 +98,48 @@ def is_packed(path: str) -> bool:
     return os.path.exists(os.path.join(path, PACK_META))
 
 
-def _linear(tensors, name, device):
-    if name + ".qweight" in tensors:
-        return QLinear(*(tensors[name + s].to(device) for s in (".qweight", ".scale", ".mn")))
-    return Linear(tensors[name].to(device))
+def _linear(tensors, names, device, backend):
+    """One Linear from one or more checkpoint matrices concatenated along the output dim."""
+    names = [names] if isinstance(names, str) else names
+    if names[0] + ".qweight" in tensors:
+        parts = [QLinear(*(tensors[n + s].to(device) for s in (".qweight", ".scale", ".mn")), backend="dequant")
+                 for n in names]
+        return QLinear.cat(parts, backend) if len(parts) > 1 else QLinear(parts[0].qweight, parts[0].scale, parts[0].mn, backend)
+    return Linear(torch.cat([tensors[n].to(device) for n in names]))
 
 
-def build_weights(cfg: ModelConfig, tensors: dict, device) -> ModelWeights:
+def build_weights(cfg: ModelConfig, tensors: dict, device, backend=DEFAULT_BACKEND) -> ModelWeights:
     """tensors: our names -> CPU tensors (bf16, or the packed triple)."""
     dev = lambda n, dt=None: (tensors[n].to(device) if dt is None else tensors[n].to(device=device, dtype=dt))
+    lin = lambda names: _linear(tensors, names, device, backend)
     layers = []
     for i, lt in enumerate(cfg.layer_types):
         p = f"layers.{i}."
         if lt == "linear_attention":
             m = p + "linear_attn."
             mixer = GDNWeights(
-                in_qkv=_linear(tensors, m + "in_proj_qkv.weight", device),
-                in_z=_linear(tensors, m + "in_proj_z.weight", device),
-                in_b=dev(m + "in_proj_b.weight"), in_a=dev(m + "in_proj_a.weight"),
+                in_qkvz=lin([m + "in_proj_qkv.weight", m + "in_proj_z.weight"]),
+                in_ba=torch.cat([dev(m + "in_proj_b.weight"), dev(m + "in_proj_a.weight")]),
                 conv_w=dev(m + "conv1d.weight").squeeze(1),
                 A=-torch.exp(dev(m + "A_log", torch.float32)),
                 dt_bias=dev(m + "dt_bias", torch.float32),
                 norm_w=dev(m + "norm.weight"),
-                out=_linear(tensors, m + "out_proj.weight", device))
+                out=lin(m + "out_proj.weight"))
         else:
             m = p + "self_attn."
             mixer = AttnWeights(
-                q=_linear(tensors, m + "q_proj.weight", device), k=_linear(tensors, m + "k_proj.weight", device),
-                v=_linear(tensors, m + "v_proj.weight", device), o=_linear(tensors, m + "o_proj.weight", device),
+                qkv=lin([m + "q_proj.weight", m + "k_proj.weight", m + "v_proj.weight"]),
+                o=lin(m + "o_proj.weight"),
                 q_norm_w=dev(m + "q_norm.weight"), k_norm_w=dev(m + "k_norm.weight"))
         layers.append(LayerWeights(
             ln1=dev(p + "input_layernorm.weight"), ln2=dev(p + "post_attention_layernorm.weight"),
-            mixer=mixer, gate=_linear(tensors, p + "mlp.gate_proj.weight", device),
-            up=_linear(tensors, p + "mlp.up_proj.weight", device),
-            down=_linear(tensors, p + "mlp.down_proj.weight", device)))
+            mixer=mixer, gate_up=lin([p + "mlp.gate_proj.weight", p + "mlp.up_proj.weight"]),
+            down=lin(p + "mlp.down_proj.weight")))
     return ModelWeights(embed=dev("embed_tokens.weight"), layers=layers, final_norm=dev("norm.weight"),
-                        lm_head=_linear(tensors, "lm_head.weight", device))
+                        lm_head=lin("lm_head.weight"))
 
 
-def load_packed(path: str, device="cuda", with_mtp: bool = False):
+def load_packed(path: str, device="cuda", with_mtp: bool = False, backend=DEFAULT_BACKEND):
     """-> (cfg, ModelWeights, mtp tensors or None)."""
     cfg = ModelConfig.load(path)
     t0 = time.time()
@@ -149,7 +152,7 @@ def load_packed(path: str, device="cuda", with_mtp: bool = False):
                         mtp[name] = f.get_tensor(name)
                 else:
                     tensors[name] = f.get_tensor(name)
-    w = build_weights(cfg, tensors, device)
+    w = build_weights(cfg, tensors, device, backend)
     torch.cuda.synchronize()
     print(f"loaded {w.nbytes / 1e9:.2f} GB of weights in {time.time() - t0:.1f}s")
     return cfg, w, (mtp if with_mtp else None)

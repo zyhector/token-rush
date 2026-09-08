@@ -159,34 +159,52 @@ def test_int4_pack_roundtrip():
 # --------------------------------------------------- engine, structurally
 
 
-def random_weights(cfg: ModelConfig, quant: bool = False) -> ModelWeights:
+def random_weights(cfg: ModelConfig, backend=None) -> ModelWeights:
+    """backend None -> bf16 Linear; else QLinear with that GEMV backend."""
     def lin(out, inp, std=0.02):
         w = rnd(out, inp, std=std)
-        return QLinear(*quantize_int4(w)) if quant else Linear(w)
+        return QLinear(*quantize_int4(w), backend=backend) if backend else Linear(w)
 
     layers = []
     for lt in cfg.layer_types:
         if lt == "linear_attention":
             mixer = GDNWeights(
-                in_qkv=lin(cfg.conv_dim, cfg.hidden), in_z=lin(cfg.gdn_val_dim, cfg.hidden),
-                in_b=rnd(cfg.gdn_v_heads, cfg.hidden), in_a=rnd(cfg.gdn_v_heads, cfg.hidden),
+                in_qkvz=lin(cfg.conv_dim + cfg.gdn_val_dim, cfg.hidden),
+                in_ba=rnd(2 * cfg.gdn_v_heads, cfg.hidden),
                 conv_w=rnd(cfg.conv_dim, cfg.conv_k, std=0.3),
                 A=-torch.exp(torch.randn(cfg.gdn_v_heads, device=DEV)),
                 dt_bias=torch.randn(cfg.gdn_v_heads, device=DEV),
                 norm_w=rnd(cfg.gdn_v_dim, std=0.5) + 1, out=lin(cfg.hidden, cfg.gdn_val_dim))
         else:
             mixer = AttnWeights(
-                q=lin(cfg.n_heads * cfg.head_dim * 2, cfg.hidden), k=lin(cfg.n_kv_heads * cfg.head_dim, cfg.hidden),
-                v=lin(cfg.n_kv_heads * cfg.head_dim, cfg.hidden), o=lin(cfg.hidden, cfg.n_heads * cfg.head_dim),
+                qkv=lin(cfg.n_heads * cfg.head_dim * 2 + 2 * cfg.n_kv_heads * cfg.head_dim, cfg.hidden),
+                o=lin(cfg.hidden, cfg.n_heads * cfg.head_dim),
                 q_norm_w=rnd(cfg.head_dim, std=0.5), k_norm_w=rnd(cfg.head_dim, std=0.5))
         layers.append(LayerWeights(ln1=rnd(cfg.hidden, std=0.5), ln2=rnd(cfg.hidden, std=0.5), mixer=mixer,
-                                   gate=lin(cfg.ffn, cfg.hidden), up=lin(cfg.ffn, cfg.hidden),
-                                   down=lin(cfg.hidden, cfg.ffn)))
+                                   gate_up=lin(2 * cfg.ffn, cfg.hidden), down=lin(cfg.hidden, cfg.ffn)))
     return ModelWeights(embed=rnd(cfg.vocab, cfg.hidden, std=1.0), layers=layers,
                         final_norm=rnd(cfg.hidden, std=0.5), lm_head=lin(cfg.vocab, cfg.hidden))
 
 
-@pytest.mark.parametrize("quant", [False, True])
+@pytest.mark.parametrize("backend", ["tinygemm", "triton"])
+def test_int4_backends_match_dequant(backend):
+    """The int4 GEMV kernels agree with dequantize-then-matmul on real shapes."""
+    for out, inp in ((5120, 6144), (34816, 5120), (1024, 5120)):
+        q, s, m = quantize_int4(rnd(out, inp))
+        x = rnd(1, inp, std=1.0)
+        ref = QLinear(q, s, m, backend="dequant")(x).float()
+        y = QLinear(q, s, m, backend=backend)(x).float()
+        assert ((y - ref).norm() / ref.norm()).item() < 1e-2, (backend, out, inp)
+
+
+def test_qlinear_cat_matches_separate():
+    a, b = rnd(1024, 512), rnd(256, 512)
+    qa, qb = QLinear(*quantize_int4(a), backend="dequant"), QLinear(*quantize_int4(b), backend="dequant")
+    x = rnd(1, 512, std=1.0)
+    torch.testing.assert_close(QLinear.cat([qa, qb], "dequant")(x), torch.cat([qa(x), qb(x)], -1), rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("quant", [None, "dequant", "triton", "tinygemm"])
 def test_engine_prefill_chunks_and_decode_agree(quant):
     w = random_weights(CFG, quant)
     eng = Engine(CFG, w, max_len=256)

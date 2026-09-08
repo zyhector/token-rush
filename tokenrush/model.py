@@ -19,10 +19,8 @@ Lin = Union[Linear, QLinear]
 
 @dataclass
 class GDNWeights:
-    in_qkv: Lin            # hidden -> 2*qk_dim + val_dim
-    in_z: Lin              # hidden -> val_dim
-    in_b: torch.Tensor     # [HV, hidden] bf16
-    in_a: torch.Tensor     # [HV, hidden] bf16
+    in_qkvz: Lin           # hidden -> 2*qk_dim + val_dim (conv path) | val_dim (gate z), one GEMV
+    in_ba: torch.Tensor    # [2*HV, hidden] bf16: b rows then a rows
     conv_w: torch.Tensor   # [conv_dim, K] bf16
     A: torch.Tensor        # [HV] fp32, = -exp(A_log)
     dt_bias: torch.Tensor  # [HV] fp32
@@ -32,9 +30,7 @@ class GDNWeights:
 
 @dataclass
 class AttnWeights:
-    q: Lin                 # hidden -> n_heads * head_dim * 2 (query and gate, per head)
-    k: Lin
-    v: Lin
+    qkv: Lin               # hidden -> n_heads*head_dim*2 (query|gate per head) | kv_heads*head_dim (k) | same (v)
     o: Lin
     q_norm_w: torch.Tensor  # [head_dim]
     k_norm_w: torch.Tensor
@@ -45,8 +41,7 @@ class LayerWeights:
     ln1: torch.Tensor
     ln2: torch.Tensor
     mixer: Union[GDNWeights, AttnWeights]
-    gate: Lin
-    up: Lin
+    gate_up: Lin           # hidden -> 2*ffn: gate rows then up rows
     down: Lin
 
 
@@ -61,13 +56,12 @@ class ModelWeights:
     def nbytes(self):
         n = self.embed.numel() * 2 + self.lm_head.nbytes
         for l in self.layers:
-            for f in ("gate", "up", "down"):
-                n += getattr(l, f).nbytes
+            n += l.gate_up.nbytes + l.down.nbytes
             m = l.mixer
             if isinstance(m, GDNWeights):
-                n += m.in_qkv.nbytes + m.in_z.nbytes + m.out.nbytes + m.in_b.numel() * 4 + m.conv_w.numel() * 2
+                n += m.in_qkvz.nbytes + m.out.nbytes + m.in_ba.numel() * 2 + m.conv_w.numel() * 2
             else:
-                n += m.q.nbytes + m.k.nbytes + m.v.nbytes + m.o.nbytes
+                n += m.qkv.nbytes + m.o.nbytes
         return n
 
 
@@ -76,10 +70,8 @@ class ModelWeights:
 
 def gdn_forward(x: torch.Tensor, w: GDNWeights, cfg: ModelConfig, state: State, slot: int) -> torch.Tensor:
     T = x.shape[0]
-    qkv = w.in_qkv(x)                                            # [T, conv_dim]
-    z = w.in_z(x)                                                # [T, val_dim]
-    b = F.linear(x, w.in_b)                                      # [T, HV]
-    a = F.linear(x, w.in_a)
+    qkv, z = torch.split(w.in_qkvz(x), [cfg.conv_dim, cfg.gdn_val_dim], dim=-1)   # [T, conv_dim], [T, val_dim]
+    b, a = torch.split(F.linear(x, w.in_ba), [cfg.gdn_v_heads, cfg.gdn_v_heads], dim=-1)   # [T, HV] each
     if T == 1:
         qkv = ops.conv_step(qkv, state.conv[slot], w.conv_w)
     else:
@@ -103,12 +95,14 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
     T = x.shape[0]
     pos = state.pos
     hd = cfg.head_dim
-    qg = w.q(x).view(T, cfg.n_heads, 2 * hd)
+    kv_dim = cfg.n_kv_heads * hd
+    qg, k, v = torch.split(w.qkv(x), [cfg.n_heads * 2 * hd, kv_dim, kv_dim], dim=-1)
+    qg = qg.view(T, cfg.n_heads, 2 * hd)
     q, gate = qg[..., :hd], qg[..., hd:]
     gate = gate.reshape(T, cfg.n_heads * hd)
     q = ops.rmsnorm(q, w.q_norm_w, cfg.eps).transpose(0, 1)                       # [Hq, T, D]
-    k = ops.rmsnorm(w.k(x).view(T, cfg.n_kv_heads, hd), w.k_norm_w, cfg.eps).transpose(0, 1)
-    v = w.v(x).view(T, cfg.n_kv_heads, hd).transpose(0, 1)
+    k = ops.rmsnorm(k.view(T, cfg.n_kv_heads, hd), w.k_norm_w, cfg.eps).transpose(0, 1)
+    v = v.view(T, cfg.n_kv_heads, hd).transpose(0, 1)
     q = ops.apply_rope(q, cos[pos:pos + T], sin[pos:pos + T])
     k = ops.apply_rope(k, cos[pos:pos + T], sin[pos:pos + T])
     state.k[slot, :, pos:pos + T] = k
@@ -124,7 +118,8 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
 
 
 def mlp_forward(x: torch.Tensor, w: LayerWeights) -> torch.Tensor:
-    return w.down(F.silu(w.gate(x)) * w.up(x))
+    gate, up = torch.chunk(w.gate_up(x), 2, dim=-1)
+    return w.down(F.silu(gate) * up)
 
 
 # ----------------------------------------------------------------- engine
