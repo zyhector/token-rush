@@ -1,87 +1,279 @@
-# Progress log
+# Phase 1 progress log
 
-One row per step: what changed and the decode speed it produced. The same
-rows are in `progress.csv` for plotting (x = step, y = decode tok/s). All
-numbers are **development numbers** on the instance of the day, quoted
-against the 1701 GB/s wall of `docs/environment.md`; Phase 4 produces the
-citable ones. Decode is short-context, greedy, `bench/decode.py`. The wall
-fraction uses bytes actually streamed per step (13.65 GB: the embedding
-table is not read). Ceiling at this quantization: 124.6 tok/s.
+One entry per step, with the number it produced. Every speed figure here is
+a **development number** on whatever instance was rented that day, quoted
+against the 1701 GB/s wall recorded in `docs/environment.md`; the citable
+numbers come from Phase 4. Prefill is compute-bound and not a project
+target; it is logged because it is free to measure and catches regressions.
 
-| step | what changed | decode tok/s | % of wall | ms/step |
+Instance for all entries so far: vast container 50295164, RTX 5090, driver
+610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
+fla 0.6.0. 150 GB disk, 60 GB RAM.
+
+| Step | Date | State of the engine | prefill tok/s | decode tok/s |
 |---|---|---|---|---|
-| 1 | environment + weights | — | — | — |
-| 2 | skeleton runs: int4 RTN, dequantize-then-matmul, eager | 3.2 | 2.6 | 312 |
-| 3 | own Triton int4 GEMV, fused q\|k\|v and gate\|up | 36.0 | 29 | 27.7 |
-| 4 | whole-step CUDA graph | 68.4 | 55 | 14.6 |
-| 5 | engine-correctness gate vs HF (no speed change) | 68.4 | 55 | 14.6 |
-| 6 | fused GDN step, fused add+RMSNorm | 83.2 | 67 | 12.0 |
-| 7 | fused attention decode (flash-decoding), no buckets | **99.5** | **80** | 10.05 |
+| 1. Environment and weights | 2026-09-08 | no engine yet | — | — |
+| 2. Skeleton runs | 2026-09-08 | full text path, int4 g128 RTN, dequantize-then-matmul GEMV, eager | 1490 | 3.2 |
+| 3. GEMV shootout, kernel swapped in | 2026-09-08 | + own Triton int4 GEMV (92% of wall inside the model), fused q\|k\|v and gate\|up projections; still eager, CPU-bound on ~2500 launches | 1500 | 36 (46 with tinygemm) |
+| 4. Whole-step CUDA graph | 2026-09-08 | + one graph per context bucket, device position, in-graph argmax feeding the next step; GPU-bound at 14.6 ms/step | 1500 | **68.4** (55% of wall) |
+| 5. Engine-correctness gate vs HF | 2026-09-08 | bf16 path streamed layer by layer against HF transformers 5.16.1: 48/48 greedy tokens identical, residual error <=2% with no jump; engine declared correct | — | — |
+| 6. Phase 2: fused GDN step, fused add+norm | 2026-09-08 | + one Triton kernel per GDN layer (conv, gating, delta rule, gated norm, output gate), one kernel per residual+RMSNorm, silu*mul fused; ring-buffer conv state | 1500 | **83.2** (67% of wall) |
+| 7. Phase 2: fused attention decode | 2026-09-08 | + prep kernel (q/k norm, rope, KV write) and a flash-decoding kernel over the live length with the output gate in its reduce; no context buckets, one graph | 1500 | **99.5** (80% of wall) |
 
-Rivals on the same yardstick (Phase 0, `docs/baselines.md`): llama.cpp 78%,
-vLLM 88% (likely ~76% once the embedding is removed from its byte count),
-SGLang 70%, ExLlamaV3 60%. Prefill is ~1500 tok/s throughout (compute-bound,
-not a target).
+## Step 1 — environment and weights (2026-09-08)
 
-Decode vs. context after step 7 (bf16 KV): 0 / 22k / 30k tokens ->
-99.5 / 91.5 / 88.8 tok/s = 79.9 / 81.2 / 81.5% of the wall. Flat, as the
-attention kernel keeps up with the KV read. Needle retrieval passes at 5k
-and 30k.
+- `/venv/main` provisioned from the recipe in `docs/environment.md`.
+- `check_stack.py`: same picture as the Phase 0 machine. Triton `sm_120`
+  codegen and CUDA graph replay work; `fla`'s fused GDN step returns NaN
+  heads; the chunk kernel and the minimal Triton step match the FP32
+  reference over repeated calls. Its timing output was not recorded (freeze).
+- `Qwen/Qwen3.8-27B` bf16, 18 shards, 55.6 GB, at `/workspace/models/Qwen3.8-27B`.
+  Verified by size against the Hub listing and by parsing every header (the
+  shipped `crc32.txt` does not cover the shards). Parameter split matches
+  `CLAUDE.md`: text body 25.625B, `lm_head` 1.271B, MTP 0.425B, vision 0.461B.
+  The vision tower shares shard 1 with 59 text tensors, so it is dropped at
+  load time, not download time.
+- Facts read from the config that the model code needs: 64 layers in a
+  3 GDN + 1 attention pattern, attention output gate, partial rotary on 64
+  of 256 dims with interleaved mRoPE (collapses to plain RoPE for text),
+  swish output gate on GDN, FP32 recurrent state, untied embeddings.
+- Disk reads at ~2.5 GB/s, so a pass over the bf16 checkpoint is ~25 s.
 
-## Notes per step
+## Step 2 — skeleton runs (2026-09-08)
 
-All on 2026-09-08, vast container 50295164 (RTX 5090, driver 610.43.02,
-CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1, fla 0.6.0;
-150 GB disk, 60 GB RAM).
+`tokenrush/`, ~800 lines, commit `dfd7cd8`. What it is:
 
-**1. Environment and weights.** Recipe in `docs/environment.md`.
-`check_stack.py` same picture as the Phase 0 machine (fla's fused GDN step
-NaN; chunk kernel and minimal Triton step correct). `Qwen/Qwen3.8-27B` bf16
-verified by size and header; the vision tower shares shard 1 with text
-tensors, dropped at load. Disk reads ~2.5 GB/s.
+- **Explicit state** (`state.py`): contiguous preallocated KV per attention
+  layer `[layer, kv_head, pos, 256]`, conv state `[layer, 10240, 3]`, FP32
+  recurrent state `[layer, 48, 128, 128]`, a position counter. Allocated
+  once, written in place.
+- **Layers as pure functions** over dataclass weight containers
+  (`model.py`); activations `[T, hidden]`, bs=1 implicit; `T == 1` is the
+  decode path, `T > 1` the prefill path. Chunked prefill; greedy loop.
+- **Existing blocks only**: fla `chunk_gated_delta_rule` for GDN prefill,
+  the verified Triton step from `check_stack.py` for GDN decode (state
+  updated in place), SDPA attention with a causal-over-cache boolean mask in
+  1024-query blocks, cuBLAS for everything dense.
+- **Quantization**: own int4 g128 asymmetric RTN packing (4.25 bpw), bf16
+  scale and minimum per group; the GEMV is dequantize-then-matmul. Packed
+  checkpoint at `/workspace/models/Qwen3.8-27B-int4g128` (17 GB, packs in
+  18 s, loads in 3 s). MTP head packed alongside in bf16, loaded on request.
+- **Mirrors HF exactly where it matters**: RMSNorm gain is `1 + weight`,
+  the GDN gated norm's is plain; `q_proj` emits query and sigmoid gate
+  interleaved per head; rotary on the first 64 dims after q/k norm.
 
-**2. Skeleton runs.** `tokenrush/`, ~800 lines: explicit preallocated state,
-layers as pure functions, chunked prefill, greedy loop; fla chunk kernel for
-GDN prefill, verified Triton step for decode, SDPA attention; own int4 g128
-RTN packing. Coherent text on raw, chat and a 5k needle prompt. Chunked vs
-one-shot vs stepped paths agree to ~2% (bf16 kernel noise, no jump at
-boundaries).
+Results on the real weights (eager, `--max-len 32768`, peak 21 GB VRAM):
 
-**3. GEMV shootout.** `scripts/gemv_shootout/README.md`. Our Triton int4 88%
-of the wall on the fused layer set, 99% on lm_head; tinygemm 91/99, Marlin
-88/97, NVFP4 cutlass 52 (a GEMM, wrong tool at M=1). Ours is the default;
-projections fused at load (+4–5 points). Step still CPU-bound: 30 ms of
-launches for 18 ms of GPU work.
+| Run | Outcome |
+|---|---|
+| "The capital of France is" | "Paris. The capital of Germany is Berlin. ..." |
+| chat, thinking off, haiku + one-sentence explanation | correct, stops on `<\|im_end\|>` |
+| 5451-token needle prompt, 3 prefill chunks of 2048 | retrieves the needle |
 
-**4. CUDA graph.** Device position tensor, indexed KV writes and rope,
-attention over context buckets with a mask, one graph per bucket, argmax
-in-graph feeding the next step. Replay matches eager bit for bit. Step time
-= GPU time. Byte accounting corrected (embedding not streamed).
+| | tok/s | note |
+|---|---|---|
+| prefill (5451 tokens) | 1490 | ~80 TFLOPS; compute-bound, dequant amortized over a 2048-token chunk |
+| decode | 3.2 | each step expands 14 GB of int4 into 28 GB of bf16 and reads it back |
 
-**5. Engine-correctness gate.** `bench/hf_reference.py` + `bench/gate_engine.py`.
-bf16 path streamed layer by layer vs HF (fla blocked): residual drift
-2e-3 -> 2e-2 over 64 layers with no jump, prompt top-1 32/32, teacher-forced
-top-1 48/48, greedy identical 48/48. int4 RTN: KL 6e-2, diverges at step 4,
-HF's token always in top-5 — the quality baseline to beat
-(`docs/quality_plan.md`).
+Tests (`tests/test_ops.py`, 10 passing): each op against a torch or HF
+reference (exact for RMSNorm, gated norm, rotary against HF's modules; the
+GDN step against an fp32 reference over repeated calls), int4 pack
+round-trip, and a structural test that one-shot prefill, chunked prefill and
+token-by-token decode agree. Finding from that test: the three paths differ
+by ~2% in norm because SDPA tiles by sequence length and fla's chunk kernel
+accumulates in bf16 — so the criterion is "bounded, and no jump after a
+chunk boundary", not elementwise closeness.
 
-**6. Fused GDN step and norms.** `tokenrush/fused.py`. One kernel per GDN
-layer (conv on a 4-column ring state, gating, delta rule, gated norm, output
-gate: 22 -> 1), one per residual+RMSNorm (11 -> 1), silu*mul. Found and fixed
-the eager conv rounding each product in bf16 where HF's cuDNN conv rounds
-once. Gate numbers unchanged.
+## Step 3 — GEMV shootout, kernel swapped in (2026-09-08)
 
-**7. Fused attention decode.** Prep kernel (norm, rope, KV write), flash-
-decoding split kernel over the live length (32 splits per kv head, tensor-core
-dots, fp32 online softmax), reduce kernel with the output gate. Static grid,
-so context buckets are gone. Attention 1.8 -> 0.09 ms; ~600 launches per
-step, GEMVs 90% of it.
+`scripts/gemv_shootout/` (method, full table and decisions in its README),
+`bench/decode.py` (the engine's decode timer and profiler).
+
+Six candidates at the real shapes, in-graph, packed GB/s against 1701:
+bf16 cuBLAS 96–97% (the reference), dequant-then-matmul 2.6% (what step 2
+ran), **our Triton int4 88% on the fused layer set and 99% on `lm_head`**,
+torch's tinygemm 91% / 99%, vLLM's Marlin 88% / 97%, vLLM's NVFP4 cutlass
+GEMM 52% / 58% (a GEMM, not a GEMV; the wrong tool at M=1).
+
+Decisions: our Triton kernel is the default (one copy of the weights, prefill
+dequantizes the same nibbles, ours to fuse in Phase 2); q|k|v, in_proj_qkv|z
+and gate|up are fused into one matrix each at load time (+4–5 points: a
+2.8 MB GEMV costs 6 µs whatever the kernel); autotune pinned to six configs.
+
+| | tok/s | note |
+|---|---|---|
+| decode, triton backend | 36.0 | 27.7 ms/step: GEMVs 9.1 ms GPU (1560 GB/s = 92% of wall), other ~2500 kernels 9 ms GPU, **CPU launch time 30 ms** |
+| decode, tinygemm backend | 46.4 | same GPU work; aten launches cost ~25 µs less Python each than Triton launches |
+| prefill (5451 tokens) | ~1500 | unchanged: dequant + cuBLAS GEMM |
+
+The step is now CPU-bound: the GPU finishes its 18 ms of work while the host
+is still issuing launches for 30 ms. That is Phase 0's launch tax measured on
+the whole model, and it is what step 4's CUDA graph removes. With the GEMVs at
+92% of the wall, the graphed step should land near 9 + (fused GDN/attention
+chain) ms; the eager non-GEMV GPU time of 9 ms is the next thing to shrink
+after that.
+
+## Step 4 — whole-step CUDA graph (2026-09-08)
+
+What changed (`state.py`, `model.py`, `ops.py`): the position is a device
+tensor; rotary lookup and KV writes index with it; decode attention runs over
+a fixed context bucket (1k, 2k, 4k, ... , max_len) with a mask derived from
+the position, so a step is shape-static; `Engine.capture()` records one graph
+per bucket into a shared pool, and a step is `graph.replay()` with the argmax
+written back into the step's own input token. Nothing returns to the host.
+Test: replay matches the eager bucketed step bit for bit.
+
+| | | note |
+|---|---|---|
+| decode | **68.4 tok/s**, 14.62 ms/step | equals the step's GPU time: CPU launch cost is gone |
+| bytes read per step | 13.65 GB | 25.6B streamed params at 4.25 bpw; the 2.5 GB embedding table is not read (earlier "16.19 GB" figures counted it) |
+| ceiling | 124.6 tok/s | 1701 / 13.65 |
+| % of wall | 55% | |
+| capture | 4 graphs, 4.8 s, +0.6 GB | max_len 8192 in the bench |
+
+Where the 14.6 ms of GPU time goes now: GEMVs 9.06 ms (92% of the wall on
+their bytes), memory-efficient SDPA over the 1024 bucket 1.18 ms for 16
+layers, and **~4.4 ms in about 2200 elementwise, reduce and copy kernels**
+of the GDN chain, the norms and the gating. That last item is Phase 2's
+GDN-step fusion; at Phase 0's 48-layer measurement (1.4 ms graphed for the
+whole chain) it is worth ~3 ms, i.e. the step goes to ~11.5 ms and ~87 tok/s
+before attention or sampling are touched.
+
+## Step 5 — engine-correctness gate against HF (2026-09-08)
+
+Phase 1b, first half. `bench/hf_reference.py` dumps HF's residual stream
+after every layer, prompt logits and 48 greedy tokens with their logits
+(Qwen3_5ForCausalLM, bf16, CPU-offloaded, `fla` blocked so HF's GDN path is
+pure torch; 1.9 s per decode step). `bench/gate_engine.py` runs our engine
+against the dump; `StreamingBF16Engine` builds each layer's bf16 weights
+from the HF checkpoint on demand since 55.6 GB does not fit the card.
+
+**bf16 path (the gate):**
+
+| | |
+|---|---|
+| residual stream vs HF, after each of 64 layers | 1.7e-3 at layer 1, growing smoothly to 2.0e-2 at layer 64; no jump |
+| prompt logits | top-1 agreement 32/32, KL 1.3e-4 mean, 1.8e-3 max |
+| teacher-forced decode, 48 steps | **top-1 agreement 48/48**, max logprob gap 0.000, KL 3.8e-4 mean |
+| greedy tokens identical | **48 of 48** |
+
+Passes the gate in `CLAUDE.md` with no divergence at all. The 2% residual
+drift over 64 layers is bf16 accumulation through different kernels (fla's
+chunk kernel and SDPA against HF's pure-torch loops), the same order as the
+chunked-vs-stepped drift seen in step 2. The engine is correct; every fused
+kernel from here is tested against these ops.
+
+**int4 g128 RTN path (first quality data point, not yet the quality table):**
+residual error 3.5% after layer 1 rising to 19% at layer 63; prompt top-1
+96.9%; teacher-forced top-1 37/48 with HF's token always in our top-5, KL
+6e-2 mean; greedy diverges at step 4. That is what 4.25-bit round-to-nearest
+with no calibration costs on this model, and it is the number the Phase 1b
+quality table has to beat (ExLlamaV3's 4.00 bpw KL is the bar).
+
+## Step 6 — Phase 2 begins: fused GDN step and fused norms (2026-09-08)
+
+`tokenrush/fused.py`, tests in `tests/test_fused.py`. Kernel anatomy of one
+decode step at the start: a GDN layer ran 26 kernels (2 GEMVs, 1 small
+cuBLAS GEMV for b|a, 1 delta-rule step, 22 elementwise/reduce/copy kernels),
+every residual+RMSNorm 11 kernels, an attention layer 51.
+
+Three fused kernels, each differential-tested against the ops it replaces
+(which step 5 verified against HF):
+
+- **`gdn_step_fused`**: conv step, sigmoid/softplus gating, L2 norms, delta
+  rule state update, gated RMSNorm and silu output gate for one GDN layer in
+  one launch, one program per V head (BV=128; splitting the head into more
+  programs plus a second norm kernel was measured slower). 22 kernels -> 1.
+  It needed the conv state to become a **4-column ring** (column = position
+  mod 4) so a program can write the new input while others still read the
+  older columns.
+- **`add_rmsnorm`**: residual add (rounded to bf16, as the residual stream is)
+  and RMSNorm with the (1 + w) gain in one launch. 11 kernels -> 1, 129 per step.
+- **`silu_mul`**: 2 -> 1.
+
+A finding on the way: the eager `conv_step` multiplied in bf16 and rounded
+every product; HF's cuDNN conv1d accumulates in fp32 and rounds once, and so
+does the fused kernel. The fused kernel matched HF exactly; the eager op was
+the odd one out and was fixed. The fused path reproduces the int4 gate
+numbers of step 5 to three digits (teacher-forced KL 6.04e-2 vs 6.05e-2,
+same divergence step).
+
+| | | |
+|---|---|---|
+| decode | **83.2 tok/s**, 12.02 ms/step | 67% of the wall, ceiling 124.6 |
+| GEMVs | 9.06 ms | unchanged, 92% of the wall on their bytes |
+| attention (SDPA over the 1024 bucket) | 1.19 ms | 16 layers, 74 us each |
+| fused norms | 0.32 ms | 129 launches |
+| fused GDN steps | 0.31 ms | 48 launches, 6.4 us each |
+| b\|a GEMV (cuBLAS) | 0.20 ms | 48 launches; foldable into the fused kernel |
+| attention layer small kernels | ~0.6 ms | ~48 launches per attention layer: q/k norm, rope, cat, index ops, mask, gate |
+
+Next inside Phase 2: the attention layer (one prep kernel for q/k norm +
+rope + KV write, then our own decode attention kernel reading the live
+length instead of a bucket, with FP8 KV so 256k fits), then the b|a fold and
+GEMV split-K for the two 5120-row shapes.
+
+## Step 7 — fused attention decode (2026-09-08)
+
+Three kernels in `tokenrush/fused.py` replace SDPA-over-a-bucket and the ~48
+small kernels around it in each attention layer:
+
+- **`attn_prep`**: one program per head (24 q + 4 kv): RMSNorm with the
+  (1 + w) gain, rope on the first 64 dims with HF's bf16 rounding order,
+  query out, key and value written into the cache at the device position.
+- **`attn_split`**: flash-decoding. One program per (kv head, split of the
+  key range), 32 splits; the 6 query heads of a kv head are padded to 16
+  rows so the score and PV products run on tensor cores (`tl.dot`), online
+  softmax in fp32, keys beyond the live length masked. The live length comes
+  from `pos_t`, the grid is static, so it captures into a graph and **the
+  context buckets are gone**: one graph per engine.
+- **`attn_reduce`**: one program per query head combines the splits,
+  normalizes, and applies the sigmoid output gate.
+
+A 64-key block of bf16 K and V triple-buffered exceeded the 101 KB of shared
+memory per block on this card; 32-key blocks with two stages fit.
+
+| | | |
+|---|---|---|
+| decode | **99.5 tok/s**, 10.05 ms/step | 80% of the wall, ceiling 124.6 |
+| GEMVs | 9.06 ms | 90% of the step |
+| attention, 16 layers | 0.09 ms | was 1.8 ms (SDPA 1.19 + small kernels 0.6) |
+| fused norms / GDN / silu / b\|a | 0.32 / 0.30 / 0.07 / 0.20 ms | |
+| launches per step | ~600 | was ~2500 |
+
+The gate through the new path: teacher-forced KL 6.1e-2 vs 6.0e-2 before,
+HF's token in our top-5 48/48, same divergence step. Tests cover short and
+long (2100+) contexts where all splits are active and the last block is
+partial.
+
+Decode vs. context (`bench/decode.py --context N`, bf16 KV, 32k cache;
+bytes per step = weights + live KV at 64 KB/token):
+
+| context | ms/step | tok/s | ceiling | % of wall |
+|---|---|---|---|---|
+| 0 | 10.05 | 99.5 | 124.6 | 79.9% |
+| 22k | 10.93 | 91.5 | 112.7 | 81.2% |
+| 30k | 11.26 | 88.8 | 108.9 | 81.5% |
+
+Flat, slightly rising: the attention kernel keeps up with the KV read, as
+SGLang's and vLLM's do (llama.cpp's falls 17 points over this range). Needle
+retrieval passes at 5k and 30k tokens through the fused path.
+
+The step is now the GEMVs plus 1 ms. What is left inside Phase 2: fold the
+b|a projection into the GDN kernel (0.2 ms), split-K for the two 5120-row
+GEMV shapes (they run at 74–81% against 90%+ for the wide ones: ~0.5 ms),
+sampling in-graph beyond argmax, FP8 KV with a prefill attention kernel
+for 256k.
 
 ## Next
 
-- Phase 2 remaining: fold b|a into the GDN kernel (0.2 ms); split-K for the
-  two 5120-row GEMV shapes (74–81% -> 90%+, ~0.5 ms); sampling in-graph
-  beyond argmax; FP8 KV with a prefill attention kernel for 256k.
-- Phase 1b second half (quality table, quantization choice) deferred to a
-  two-GPU box: `docs/quality_plan.md`.
-- Decision 2026-09-08: Phase 2 first; Phase 0 numbers frozen until Phase 4.
+- **Decision 2026-09-08: Phase 2 first.** The quality table and the
+  quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
+  the full plan, what exists to build on, and what else is owed from 1b are
+  in `docs/quality_plan.md`. Until then the engine runs on an uncalibrated
+  int4 RTN that is 2–4x worse in KL than it should be.
+- Phase 2, in order: fused GDN step (the 4.4 ms of small kernels), attention
+  decode over the live length instead of a bucket (with FP8 KV, which 256k
+  needs), fused sampling.
+- Phase 1b: engine-correctness gate against HF (per-layer first), quality
+  table, quantization choice.
