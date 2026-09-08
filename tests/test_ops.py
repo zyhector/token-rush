@@ -166,10 +166,13 @@ def test_int4_pack_roundtrip():
 
 
 def random_weights(cfg: ModelConfig, backend=None) -> ModelWeights:
-    """backend None -> bf16 Linear; else QLinear with that GEMV backend."""
+    """backend None -> bf16 Linear; else QLinear with that GEMV backend (split-K on the
+    hidden-sized outputs, as the loader does)."""
     def lin(out, inp, std=0.02):
         w = rnd(out, inp, std=std)
-        return QLinear(*quantize_int4(w), backend=backend) if backend else Linear(w)
+        if not backend:
+            return Linear(w)
+        return QLinear(*quantize_int4(w), backend=backend, split_k=4 if (out == cfg.hidden and backend == "triton") else 1)
 
     layers = []
     for lt in cfg.layer_types:

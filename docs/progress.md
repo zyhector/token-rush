@@ -19,6 +19,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 5. Engine-correctness gate vs HF | 2026-09-08 | bf16 path streamed layer by layer against HF transformers 5.16.1: 48/48 greedy tokens identical, residual error <=2% with no jump; engine declared correct | — | — |
 | 6. Phase 2: fused GDN step, fused add+norm | 2026-09-08 | + one Triton kernel per GDN layer (conv, gating, delta rule, gated norm, output gate), one kernel per residual+RMSNorm, silu*mul fused; ring-buffer conv state | 1500 | **83.2** (67% of wall) |
 | 7. Phase 2: fused attention decode | 2026-09-08 | + prep kernel (q/k norm, rope, KV write) and a flash-decoding kernel over the live length with the output gate in its reduce; no context buckets, one graph | 1500 | **99.5** (80% of wall) |
+| 8. Phase 2: b\|a folded into the GDN kernel, split-K GEMV for the hidden-sized outputs | 2026-09-08 | + no cuBLAS launches left in the step; out/o/down projections at split-K 4 write fp32 partials that the fused add+RMSNorm sums | 1500 | **102.5** (82% of wall) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -264,6 +265,40 @@ b|a projection into the GDN kernel (0.2 ms), split-K for the two 5120-row
 GEMV shapes (they run at 74–81% against 90%+ for the wide ones: ~0.5 ms),
 sampling in-graph beyond argmax, FP8 KV with a prefill attention kernel
 for 256k.
+
+## Step 8 — b|a into the GDN kernel, split-K for the narrow GEMVs (2026-09-08)
+
+- The b and a gate projections (2 x 48 rows of 5120) are now two dot
+  products inside `gdn_step_fused`, per program, fp32-accumulated and rounded
+  once as cuBLAS did. The 48 cuBLAS `gemvx` launches are gone; the GDN kernel
+  grew from 0.30 to 0.35 ms. Net -0.15 ms.
+- `int4_gemv_splitk`: the three matrices whose output is the hidden size
+  (`out_proj`, `o_proj`, `down_proj`; 5120 rows, so too few programs to fill
+  the card) cut their K range into split-K pieces and write fp32 partials
+  `[S, 5120]`; `add_rmsnorm` sums the partials as it reads them (rounding the
+  sum to bf16 first, the value a plain GEMV would have produced), so the
+  reduction costs no launch. Measured on the model: split-K 1 / 2 / 4 / 8 ->
+  99.5 / 102.5 / 102.6 / 101.3 tok/s; 4 is the default. Those matrices went
+  from ~78% to 87% of the wall; the wide ones are at 91.5%, `lm_head` at 99%.
+- **A bug caught by the gate, not by the tests**: with partials in flight,
+  the final norm's `h[-1:]` kept one partial row of the last MLP output.
+  The text stayed coherent; the teacher-forced KL against HF went from 0.060
+  to 0.196. Fixed; a regression test now checks the final-norm input
+  against the traced residual. The gate is back to KL 5.97e-2, HF's token
+  in our top-5 48/48. Lesson recorded in `docs/traps.md`.
+
+| | | |
+|---|---|---|
+| decode | **102.5 tok/s**, 9.76 ms/step | 82.3% of the wall, ceiling 124.6 |
+| GEMVs | 8.90 ms (wide 6.14, split-K 2.76) | 91% of the step |
+| everything else | 0.86 ms | GDN 0.35, norms 0.34, silu 0.07, attention 0.09 |
+
+Phase 2 remaining: sampling in-graph beyond argmax; FP8 KV with a prefill
+attention kernel for 256k; GEMV from 88–91% toward 95% on the layer
+matrices (the last ~0.5 ms), which is the "GEMV last, if measurement
+demands it" item. The step is 91% GEMV, so from here the number moves with
+bytes (quantization, Phase 1b) and with speculation (Phase 3), not with
+fusion.
 
 ## Next
 

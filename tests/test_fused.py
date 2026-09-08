@@ -60,9 +60,9 @@ def test_gdn_step_fused_matches_ops_over_steps():
         torch.testing.assert_close(s_ops.conv, s_fused.conv, rtol=0, atol=0)
         for t in range(5, 11):
             y_ops = gdn_forward(xs[t:t + 1], w, cfg, s_ops, 0, fused=False)
-            qkvz = w.in_qkvz(xs[t:t + 1]); ba = F.linear(xs[t:t + 1], w.in_ba)
-            y_f = w.out(fused.gdn_step_fused(qkvz, ba, s_fused.conv[0], w.conv_w, w.A, w.dt_bias, s_fused.rec[0],
-                                             w.norm_w, s_fused.pos_t, cfg, cfg.eps, BV=BV))
+            qkvz = w.in_qkvz(xs[t:t + 1])
+            y_f = w.out(fused.gdn_step_fused(qkvz, xs[t:t + 1], w.in_ba, s_fused.conv[0], w.conv_w, w.A, w.dt_bias,
+                                             s_fused.rec[0], w.norm_w, s_fused.pos_t, cfg, cfg.eps, BV=BV))
             s_ops.advance(1); s_fused.advance(1)
             assert torch.isfinite(y_f).all()
             assert rel(y_f, y_ops) < 2e-2, (BV, t, rel(y_f, y_ops))
@@ -79,7 +79,9 @@ def test_engine_fused_matches_unfused_and_graphs():
         eng.reset()
         eng.forward(toks[:20])
         outs[fused_flag] = torch.cat([eng.decode(toks[t]) for t in range(20, 30)]).float()
-    assert rel(outs[True], outs[False]) < 3e-2, rel(outs[True], outs[False])
+    # fused vs unfused differ by kernel rounding order (flash-decoding vs SDPA, split-K
+    # summation, norm reduction order): ~1% on random-weight logits
+    assert rel(outs[True], outs[False]) < 2e-2, rel(outs[True], outs[False])
     # and the fused step captures and replays (one graph: the live length is read on device)
     eng = Engine(CFG, w, max_len=256, fused=True)
     eng.capture()
@@ -89,7 +91,7 @@ def test_engine_fused_matches_unfused_and_graphs():
     for t in range(20, 30):
         eng.tok.copy_(toks[t:t + 1]); eng.step(); got.append(eng.logits.clone())
     got = torch.cat(got).float()
-    assert rel(got, outs[True]) < 3e-2
+    assert rel(got, outs[True]) < 2e-2
 
 
 def test_attention_fused_matches_ops_over_steps():
@@ -120,3 +122,38 @@ def test_attention_fused_matches_ops_over_steps():
             assert rel(y_f, y_ops) < 2e-2, (T0, t, rel(y_f, y_ops))
             kr, vr = s_ops.k[0, :, :t + 1], s_ops.v[0, :, :t + 1]
             assert rel(s_f.k[0, :, :t + 1], kr) < 5e-3 and torch.equal(s_f.v[0, :, :t + 1], vr), (T0, t)
+
+
+def test_splitk_gemv_and_partial_norm():
+    from tokenrush.quant import QLinear, quantize_int4
+    x = rnd(1, 17408, std=1.0)
+    q, s, m = quantize_int4(rnd(5120, 17408))
+    ref = QLinear(q, s, m, backend="dequant")(x).float()
+    for sk in (2, 4, 8):
+        ql = QLinear(q, s, m, backend="triton", split_k=sk)
+        parts = ql.partials(x)
+        assert parts.shape == (sk, 5120)
+        assert rel(parts.sum(0), ref) < 1e-2
+        assert rel(ql(x), ref) < 1e-2
+        # add_rmsnorm over the partials == add_rmsnorm over the summed bf16 value
+        xr, w = rnd(1, 5120, std=1.0), rnd(5120, std=0.5)
+        xo1, y1 = fused.add_rmsnorm(xr, parts, w, 1e-6)
+        xo2, y2 = fused.add_rmsnorm(xr, parts.sum(0, keepdim=True).to(torch.bfloat16), w, 1e-6)
+        torch.testing.assert_close(xo1, xo2, rtol=0, atol=0)
+        torch.testing.assert_close(y1, y2, rtol=0, atol=0)
+
+
+def test_fused_final_norm_sees_all_partials():
+    """Regression: with split-K the last MLP output is S partial rows; the final
+    norm must consume their sum, not the last row. The trace records the full
+    residual after every layer, so lm_head(rmsnorm(trace[-1])) is the truth."""
+    from tokenrush import ops as _ops
+    w = random_weights(CFG, "triton")
+    assert w.layers[0].down.split_k > 1
+    eng = Engine(CFG, w, max_len=64, fused=True)
+    eng.reset()
+    eng.trace = []
+    tok = torch.randint(0, CFG.vocab, (1,), device=DEV)
+    logits = eng.decode(tok).float()
+    ref = w.lm_head(_ops.rmsnorm(eng.trace[-1], w.final_norm, CFG.eps)).float()
+    assert rel(logits, ref) < 5e-3, rel(logits, ref)

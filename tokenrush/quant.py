@@ -59,6 +59,9 @@ class Linear:
     def __init__(self, weight: torch.Tensor):
         self.weight = weight
 
+    def partials(self, x: torch.Tensor) -> torch.Tensor:
+        return self(x).float()
+
     @property
     def shape(self):
         return tuple(self.weight.shape)
@@ -126,6 +129,59 @@ def int4_gemv(x, packed, scale, mn):
     return y
 
 
+# Split-K variant for the narrow shapes (N = 5120: out_proj, down_proj), whose
+# N/BLOCK_N programs each stream a long K alone and leave bandwidth idle. The
+# K range is cut into SPLIT_K pieces, each program writes an fp32 partial row
+# block, and the consumer (fused add+RMSNorm) sums the partials as it reads
+# them, so the reduction costs no launch.
+_SPLITK_CONFIGS = [
+    triton.Config({"BLOCK_N": bn, "BLOCK_K": bk}, num_warps=nw, num_stages=ns)
+    for bn in (8, 16) for bk in (512, 1024) for nw in (4, 8) for ns in (2, 3, 4)]
+
+
+@triton.autotune(configs=_SPLITK_CONFIGS, key=["N", "K", "SPLIT_K"])
+@triton.jit
+def _int4_gemv_splitk_kernel(x_ptr, w_ptr, s_ptr, m_ptr, y_ptr, N, K,
+                             SPLIT_K: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr,
+                             GROUP_SIZE: tl.constexpr):
+    pid_n = tl.program_id(0)
+    pid_k = tl.program_id(1)
+    rows = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+    row_mask = rows < N
+    KB: tl.constexpr = BLOCK_K // 2
+    G: tl.constexpr = BLOCK_K // GROUP_SIZE
+    GB: tl.constexpr = GROUP_SIZE // 2
+    n_groups = K // GROUP_SIZE
+    n_blocks = K // BLOCK_K
+    per = (n_blocks + SPLIT_K - 1) // SPLIT_K
+    b0 = pid_k * per
+    b1 = tl.minimum(b0 + per, n_blocks)
+    acc = tl.zeros([BLOCK_N], dtype=tl.float32)
+    for blk in range(b0, b1):
+        k0 = blk * BLOCK_K
+        kb = k0 // 2 + tl.arange(0, KB)
+        xe = tl.load(x_ptr + k0 + 2 * tl.arange(0, KB)).to(tl.float32)
+        xo = tl.load(x_ptr + k0 + 2 * tl.arange(0, KB) + 1).to(tl.float32)
+        pk = tl.load(w_ptr + rows[:, None] * (K // 2) + kb[None, :], mask=row_mask[:, None], other=0)
+        prod = (pk & 0xF).to(tl.float32) * xe[None, :] + (pk >> 4).to(tl.float32) * xo[None, :]
+        pg = tl.sum(tl.reshape(prod, [BLOCK_N, G, GB]), axis=2)
+        xs = tl.sum(tl.reshape(xe + xo, [G, GB]), axis=1)
+        gi = k0 // GROUP_SIZE + tl.arange(0, G)
+        sc = tl.load(s_ptr + rows[:, None] * n_groups + gi[None, :], mask=row_mask[:, None], other=0).to(tl.float32)
+        mn = tl.load(m_ptr + rows[:, None] * n_groups + gi[None, :], mask=row_mask[:, None], other=0).to(tl.float32)
+        acc += tl.sum(pg * sc + xs[None, :] * mn, axis=1)
+    tl.store(y_ptr + pid_k * N + rows, acc, mask=row_mask)
+
+
+def int4_gemv_splitk(x, packed, scale, mn, split_k: int):
+    """x [1, K] bf16 -> fp32 partials [split_k, N]; sum over dim 0 is the GEMV."""
+    N, K = packed.shape[0], packed.shape[1] * 2
+    y = torch.empty(split_k, N, device=x.device, dtype=torch.float32)
+    grid = lambda meta: (triton.cdiv(N, meta["BLOCK_N"]), split_k)
+    _int4_gemv_splitk_kernel[grid](x, packed, scale, mn, y, N, K, SPLIT_K=split_k, GROUP_SIZE=K // scale.shape[1])
+    return y
+
+
 # --------------------------------------------------------------- QLinear
 
 BACKENDS = ("triton", "tinygemm", "dequant")
@@ -145,9 +201,10 @@ class QLinear:
               than dequant+GEMM at T >= 512. Kept as a reference backend.
     dequant:  dequantize-then-matmul at every T; the reference."""
 
-    def __init__(self, qweight, scale, mn, backend=DEFAULT_BACKEND):
+    def __init__(self, qweight, scale, mn, backend=DEFAULT_BACKEND, split_k: int = 1):
         assert backend in BACKENDS, backend
         self.backend = backend
+        self.split_k = split_k        # > 1: partials(x) uses the split-K kernel (triton backend only)
         self.shape_ = (qweight.shape[0], qweight.shape[1] * 2)
         self.group = self.shape_[1] // scale.shape[1]
         if backend == "tinygemm":
@@ -186,4 +243,12 @@ class QLinear:
             return torch.ops.aten._weight_int4pack_mm(x, self.tg_w, self.group, self.tg_sz)
         if x.shape[0] != 1 or self.backend == "dequant":
             return F.linear(x, self.dequantize())
+        if self.split_k > 1:
+            return self.partials(x).sum(0, keepdim=True).to(x.dtype)
         return int4_gemv(x, self.qweight, self.scale, self.mn)
+
+    def partials(self, x: torch.Tensor) -> torch.Tensor:
+        """x [1, K] -> [S, N] fp32 whose sum over S is the GEMV (S == 1 unless split-K)."""
+        if self.backend == "triton" and self.split_k > 1 and x.shape[0] == 1:
+            return int4_gemv_splitk(x, self.qweight, self.scale, self.mn, self.split_k)
+        return self(x).float()

@@ -98,20 +98,24 @@ def is_packed(path: str) -> bool:
     return os.path.exists(os.path.join(path, PACK_META))
 
 
-def _linear(tensors, names, device, backend):
+SPLIT_K = 4          # for the matrices whose output is the hidden size (out_proj, o_proj, down_proj)
+
+
+def _linear(tensors, names, device, backend, split_k=1):
     """One Linear from one or more checkpoint matrices concatenated along the output dim."""
     names = [names] if isinstance(names, str) else names
     if names[0] + ".qweight" in tensors:
         parts = [QLinear(*(tensors[n + s].to(device) for s in (".qweight", ".scale", ".mn")), backend="dequant")
                  for n in names]
-        return QLinear.cat(parts, backend) if len(parts) > 1 else QLinear(parts[0].qweight, parts[0].scale, parts[0].mn, backend)
+        q = QLinear.cat(parts, "dequant") if len(parts) > 1 else parts[0]
+        return QLinear(q.qweight, q.scale, q.mn, backend, split_k=split_k)
     return Linear(torch.cat([tensors[n].to(device) for n in names]))
 
 
 def build_layer(cfg: ModelConfig, tensors, i: int, device, backend=DEFAULT_BACKEND) -> LayerWeights:
     """One layer's containers from a name -> CPU tensor mapping (bf16, or the packed triple)."""
     dev = lambda n, dt=None: (tensors[n].to(device) if dt is None else tensors[n].to(device=device, dtype=dt))
-    lin = lambda names: _linear(tensors, names, device, backend)
+    lin = lambda names, split_k=1: _linear(tensors, names, device, backend, split_k)
     lt = cfg.layer_types[i]
     p = f"layers.{i}."
     if True:
@@ -124,17 +128,17 @@ def build_layer(cfg: ModelConfig, tensors, i: int, device, backend=DEFAULT_BACKE
                 A=-torch.exp(dev(m + "A_log", torch.float32)),
                 dt_bias=dev(m + "dt_bias", torch.float32),
                 norm_w=dev(m + "norm.weight"),
-                out=lin(m + "out_proj.weight"))
+                out=lin(m + "out_proj.weight", SPLIT_K))
         else:
             m = p + "self_attn."
             mixer = AttnWeights(
                 qkv=lin([m + "q_proj.weight", m + "k_proj.weight", m + "v_proj.weight"]),
-                o=lin(m + "o_proj.weight"),
+                o=lin(m + "o_proj.weight", SPLIT_K),
                 q_norm_w=dev(m + "q_norm.weight"), k_norm_w=dev(m + "k_norm.weight"))
         return LayerWeights(
             ln1=dev(p + "input_layernorm.weight"), ln2=dev(p + "post_attention_layernorm.weight"),
             mixer=mixer, gate_up=lin([p + "mlp.gate_proj.weight", p + "mlp.up_proj.weight"]),
-            down=lin(p + "mlp.down_proj.weight"))
+            down=lin(p + "mlp.down_proj.weight", SPLIT_K))
 
 
 def build_weights(cfg: ModelConfig, tensors: dict, device, backend=DEFAULT_BACKEND) -> ModelWeights:

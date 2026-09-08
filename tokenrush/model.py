@@ -73,11 +73,11 @@ def gdn_forward(x: torch.Tensor, w: GDNWeights, cfg: ModelConfig, state: State, 
                 fused: bool = False) -> torch.Tensor:
     T = x.shape[0]
     qkvz = w.in_qkvz(x)                                                              # [T, conv_dim + val_dim]
-    ba = F.linear(x, w.in_ba)                                                        # [T, 2*HV]
     if T == 1 and fused:
-        y = fused_k.gdn_step_fused(qkvz, ba, state.conv[slot], w.conv_w, w.A, w.dt_bias, state.rec[slot],
+        y = fused_k.gdn_step_fused(qkvz, x, w.in_ba, state.conv[slot], w.conv_w, w.A, w.dt_bias, state.rec[slot],
                                    w.norm_w, state.pos_t, cfg, cfg.eps)
-        return w.out(y)
+        return w.out.partials(y)                                                     # [S, hidden] fp32
+    ba = F.linear(x, w.in_ba)                                                        # [T, 2*HV]
     qkv, z = torch.split(qkvz, [cfg.conv_dim, cfg.gdn_val_dim], dim=-1)
     b, a = torch.split(ba, [cfg.gdn_v_heads, cfg.gdn_v_heads], dim=-1)
     if T == 1:
@@ -110,7 +110,7 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
         qkv = w.qkv(x)
         q = fused_k.attn_prep(qkv, w.q_norm_w, w.k_norm_w, cos, sin, state.pos_t, state.k[slot], state.v[slot], cfg)
         o = fused_k.attn_decode_fused(q, qkv, state.k[slot], state.v[slot], state.pos_t, cfg)
-        return w.o(o)
+        return w.o.partials(o)                                                       # [S, hidden] fp32
     idx = state.pos_t + torch.arange(T, device=x.device)                          # positions, on device
     kv_dim = cfg.n_kv_heads * hd
     qg, k, v = torch.split(w.qkv(x), [cfg.n_heads * 2 * hd, kv_dim, kv_dim], dim=-1)
@@ -139,7 +139,7 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
 def mlp_forward(x: torch.Tensor, w: LayerWeights, fused: bool = False) -> torch.Tensor:
     gu = w.gate_up(x)
     if fused:
-        return w.down(fused_k.silu_mul(gu))
+        return w.down.partials(fused_k.silu_mul(gu))                                 # [S, hidden] fp32
     gate, up = torch.chunk(gu, 2, dim=-1)
     return w.down(F.silu(gate) * up)
 
@@ -194,10 +194,11 @@ class Engine:
                 n = ops.rmsnorm(x, lw.ln2, cfg.eps)
             h = mlp_forward(n, lw, fused)
             if self.trace is not None:
-                self.trace.append((x + h).clone())
-        if not all_logits:
+                hs = h.sum(0, keepdim=True).to(x.dtype) if h.dtype == torch.float32 else h   # split-K partials
+                self.trace.append(x + hs)
+        if not all_logits and not fused:
             x, h = x[-1:], h[-1:]
-        if fused:
+        if fused:                                    # T == 1; h may be split-K partials [S, N]
             _, n = fused_k.add_rmsnorm(x, h, self.w.final_norm, cfg.eps)
         else:
             n = ops.rmsnorm(x + h, self.w.final_norm, cfg.eps)

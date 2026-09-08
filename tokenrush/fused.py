@@ -20,13 +20,19 @@ import triton.language as tl
 
 
 @triton.jit
-def _add_rmsnorm_kernel(x_ptr, h_ptr, w_ptr, xo_ptr, y_ptr, N, eps, HAS_H: tl.constexpr, BLOCK: tl.constexpr):
+def _add_rmsnorm_kernel(x_ptr, h_ptr, w_ptr, xo_ptr, y_ptr, N, eps, HAS_H: tl.constexpr, NSPLIT: tl.constexpr,
+                        BLOCK: tl.constexpr):
+    """h may be NSPLIT fp32 partial rows (split-K GEMV output): they are summed and
+    rounded to bf16 first, which is the value a plain GEMV would have produced."""
     row = tl.program_id(0)
     offs = tl.arange(0, BLOCK)
     m = offs < N
     x = tl.load(x_ptr + row * N + offs, mask=m, other=0.0).to(tl.float32)
     if HAS_H:
-        x = x + tl.load(h_ptr + row * N + offs, mask=m, other=0.0).to(tl.float32)
+        h = tl.load(h_ptr + row * NSPLIT * N + offs, mask=m, other=0.0).to(tl.float32)
+        for sidx in tl.static_range(1, NSPLIT):
+            h += tl.load(h_ptr + (row * NSPLIT + sidx) * N + offs, mask=m, other=0.0).to(tl.float32)
+        x = x + h.to(tl.bfloat16).to(tl.float32)
         x = x.to(tl.bfloat16)                       # the residual stream is bf16
         tl.store(xo_ptr + row * N + offs, x, mask=m)
         x = x.to(tl.float32)
@@ -38,12 +44,14 @@ def _add_rmsnorm_kernel(x_ptr, h_ptr, w_ptr, xo_ptr, y_ptr, N, eps, HAS_H: tl.co
 
 
 def add_rmsnorm(x: torch.Tensor, h, weight: torch.Tensor, eps: float):
-    """x [T, N] bf16, h [T, N] bf16 or None -> (x + h as bf16, rmsnorm(x + h)) ; with h None -> (x, rmsnorm(x))."""
+    """x [T, N] bf16; h None, [T, N] bf16, or [S, N] fp32 partials (T == 1) ->
+    (x + h as bf16, rmsnorm(x + h)); with h None -> (x, rmsnorm(x))."""
     T, N = x.shape
     y = torch.empty_like(x)
     xo = torch.empty_like(x) if h is not None else x
+    nsplit = 1 if h is None or h.dtype != torch.float32 else h.shape[0]
     _add_rmsnorm_kernel[(T,)](x, h if h is not None else x, weight, xo, y, N, eps,
-                              HAS_H=h is not None, BLOCK=triton.next_power_of_2(N), num_warps=8)
+                              HAS_H=h is not None, NSPLIT=nsplit, BLOCK=triton.next_power_of_2(N), num_warps=8)
     return xo, y
 
 
@@ -102,14 +110,18 @@ def _conv_ring(x_ptr, ring_ptr, w_ptr, ch, c0, c1, c2, c3):
 
 
 @triton.jit
-def _gdn_step_fused_kernel(qkvz_ptr, ba_ptr, ring_ptr, convw_ptr, A_ptr, dtb_ptr, rec_ptr, o_ptr, y_ptr,
+def _gdn_step_fused_kernel(qkvz_ptr, x_ptr, ba_w_ptr, ring_ptr, convw_ptr, A_ptr, dtb_ptr, rec_ptr, o_ptr, y_ptr,
                            normw_ptr, pos_ptr, scale, eps,
                            H: tl.constexpr, HV: tl.constexpr, K: tl.constexpr, V: tl.constexpr,
-                           BV: tl.constexpr, QK_DIM: tl.constexpr, VAL_DIM: tl.constexpr):
+                           BV: tl.constexpr, QK_DIM: tl.constexpr, VAL_DIM: tl.constexpr,
+                           HIDDEN: tl.constexpr, BLOCK_H: tl.constexpr):
     """One program per (V head, BV-column block). qkvz is the in_proj output
-    [2*QK_DIM + 2*VAL_DIM]: q | k | v | z. ba is [2*HV]: b | a. When BV == V the
-    program owns a whole head and also applies the gated norm and output gate,
-    writing y; otherwise it writes the raw head output o for a second kernel."""
+    [2*QK_DIM + 2*VAL_DIM]: q | k | v | z. The gate projections b and a for this
+    head are two bf16 dot products of the layer input x [HIDDEN] with rows i_hv and
+    HV + i_hv of ba_w [2*HV, HIDDEN], computed here (fp32 accumulate, one rounding
+    to bf16, as cuBLAS does). When BV == V the program owns a whole head and also
+    applies the gated norm and output gate, writing y; otherwise it writes the raw
+    head output o for a second kernel."""
     pid = tl.program_id(0)
     NV: tl.constexpr = V // BV
     i_v = pid % NV
@@ -125,8 +137,15 @@ def _gdn_step_fused_kernel(qkvz_ptr, ba_ptr, ring_ptr, convw_ptr, A_ptr, dtb_ptr
     q = _conv_ring(qkvz_ptr, ring_ptr, convw_ptr, i_h * K + o_k, c0, c1, c2, c3)
     k = _conv_ring(qkvz_ptr, ring_ptr, convw_ptr, QK_DIM + i_h * K + o_k, c0, c1, c2, c3)
     v = _conv_ring(qkvz_ptr, ring_ptr, convw_ptr, 2 * QK_DIM + i_hv * V + o_v, c0, c1, c2, c3)
-    b = tl.load(ba_ptr + i_hv).to(tl.float32)
-    a = tl.load(ba_ptr + HV + i_hv).to(tl.float32)
+    b = tl.zeros([BLOCK_H], dtype=tl.float32)
+    a = tl.zeros([BLOCK_H], dtype=tl.float32)
+    for h0 in tl.static_range(0, HIDDEN, BLOCK_H):
+        hh = h0 + tl.arange(0, BLOCK_H)
+        xb = tl.load(x_ptr + hh).to(tl.float32)
+        b += xb * tl.load(ba_w_ptr + i_hv * HIDDEN + hh).to(tl.float32)
+        a += xb * tl.load(ba_w_ptr + (HV + i_hv) * HIDDEN + hh).to(tl.float32)
+    b = tl.sum(b).to(tl.bfloat16).to(tl.float32)
+    a = tl.sum(a).to(tl.bfloat16).to(tl.float32)
     beta = (1.0 / (1.0 + tl.exp(-b))).to(tl.bfloat16).to(tl.float32)   # HF: b.sigmoid() in bf16
     g = tl.load(A_ptr + i_hv) * _softplus(a + tl.load(dtb_ptr + i_hv))
     q = q / tl.sqrt(tl.sum(q * q) + 1e-6) * scale
@@ -165,16 +184,18 @@ def _gated_norm_kernel(o_ptr, z_ptr, w_ptr, y_ptr, eps, V: tl.constexpr):
     tl.store(y_ptr + i_hv * V + o_v, n.to(y_ptr.dtype.element_ty))
 
 
-def gdn_step_fused(qkvz, ba, ring, conv_w, A, dt_bias, rec, norm_w, pos_t, cfg, eps, BV=128):
-    """One GDN decode step: qkvz [1, 2*qk+2*val] bf16 (in_proj output), ba [1, 2*HV]
-    -> y [1, val_dim] bf16, ready for out_proj. Updates ring and rec in place."""
+def gdn_step_fused(qkvz, x, ba_w, ring, conv_w, A, dt_bias, rec, norm_w, pos_t, cfg, eps, BV=128):
+    """One GDN decode step: qkvz [1, 2*qk+2*val] bf16 (in_proj output), x [1, hidden]
+    the layer input, ba_w [2*HV, hidden] -> y [1, val_dim] bf16, ready for out_proj.
+    Updates ring and rec in place."""
     H, HV, K, V = cfg.gdn_k_heads, cfg.gdn_v_heads, cfg.gdn_k_dim, cfg.gdn_v_dim
     QK, VAL = cfg.gdn_qk_dim, cfg.gdn_val_dim
     y = torch.empty(1, VAL, device=qkvz.device, dtype=qkvz.dtype)
     o = y if BV == V else torch.empty_like(y)
     _gdn_step_fused_kernel[(HV * (V // BV),)](
-        qkvz, ba, ring, conv_w, A, dt_bias, rec, o, y, norm_w, pos_t, K ** -0.5, eps,
-        H=H, HV=HV, K=K, V=V, BV=BV, QK_DIM=QK, VAL_DIM=VAL, num_warps=4 if BV == V else 1)
+        qkvz, x, ba_w, ring, conv_w, A, dt_bias, rec, o, y, norm_w, pos_t, K ** -0.5, eps,
+        H=H, HV=HV, K=K, V=V, BV=BV, QK_DIM=QK, VAL_DIM=VAL, HIDDEN=cfg.hidden, BLOCK_H=1024,
+        num_warps=4 if BV == V else 1)
     if BV != V:
         _gated_norm_kernel[(HV,)](o, qkvz[:, 2 * QK + VAL:], norm_w, y, eps, V=V, num_warps=1)
     return y

@@ -43,6 +43,15 @@ Each of these cost real time. Do not rediscover them.
   fails with "free memory less than desired utilization". `ollama stop
   <model>` or kill the runner before launching anything else.
 
+## Building the engine
+
+- **Coherent text is not a correctness signal.** Dropping three quarters of
+  the last MLP layer's output (a `[-1:]` slice on split-K partials) left the
+  chat output fluent and moved the teacher-forced KL against HF from 0.06 to
+  0.20. Run `bench/gate_engine.py` after every change to the decode path;
+  it takes 20 seconds. Random-weight tests with small init do not see
+  bugs in small-magnitude contributions.
+
 ## Serving rivals on 32 GB
 
 - **SGLang's hybrid state cache is sized in units of 5 slots per request.**
