@@ -284,7 +284,11 @@ class Engine:
         logits = self._body(self.spec_toks[:M])                    # [M, vocab]
         self.spec_logits[:M].copy_(logits)
         self.spec_hidden[:M].copy_(self.last_hidden)
-        pred = logits.argmax(-1)                                   # [M]
+        # greedy: the argmax per position. sampling (temperature > 0): one draw per
+        # position from the target's own distribution; a draft is accepted only when
+        # it equals the draw, and the draw itself is what gets committed, so the
+        # output distribution is exactly the target's, drafts or not.
+        pred = sample(logits, self.sampling)                       # [M]
         match = (pred[:K] == self.spec_toks[1:M]).long()
         n = match.cumprod(0).sum().view(1)                         # leading accepted drafts, 0..K (device)
         self.n_accepted.copy_(n)

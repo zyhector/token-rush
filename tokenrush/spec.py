@@ -89,7 +89,7 @@ def generate_spec(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=T
 
 
 def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=True, chunk=4096,
-                        dynamic=(3, 4)):
+                        dynamic=(3, 4), temperature=0.0, top_p=1.0, top_k=64, seed=None):
     """Same as generate_spec, with the draft chain inside the graph (Engine.capture_spec(K)).
     dynamic=(Kmin, Kmax): pick each step's depth as clamp(n_prev + 2, Kmin, Kmax) — deeper
     after a well-accepted chain, shallower after an early rejection; needs graphs for every
@@ -98,6 +98,9 @@ def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, st
     Ks = list(range(dynamic[0], dynamic[1] + 1)) if dynamic else [K]
     assert all(("spec", k) in engine.spec_graphs for k in Ks)
     kmax = max(Ks)
+    engine.sampling.set(temperature, top_p, top_k)
+    if seed is not None:
+        torch.manual_seed(seed)
     torch.cuda.synchronize()
     t0 = time.perf_counter()
     nxt, T = prime_spec(engine, mtp, prompt_ids, chunk)
@@ -147,7 +150,8 @@ def prime_spec(engine, mtp, prompt_ids, chunk=4096):
     ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
     logits, H = engine.prefill_hidden(ids, chunk=chunk)
     T = ids.numel()
-    nxt = logits[-1].argmax()
+    from .sample import sample
+    nxt = sample(logits[-1:], engine.sampling)[0]
     engine.tok.copy_(nxt.view(1))
     mtp.set_pos(1)
     for s in range(1, T, chunk):                            # MTP rows 1..T-1: pairs (ids[p], H[p-1])

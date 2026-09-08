@@ -76,3 +76,13 @@ def test_engine_samples_in_graph():
             out.append(int(eng.tok))
         runs.append(out)
     assert runs[0] != runs[1]
+
+
+def test_sample_rows_independent():
+    logits = torch.zeros(4, 1000, device=DEV)
+    logits[0, 5] = 20.0; logits[1, 7] = 20.0; logits[2, 9] = 20.0; logits[3, 11] = 20.0    # peaked rows
+    p = SamplingParams(DEV)
+    p.set(temperature=1.0)
+    assert sample(logits.bfloat16(), p).tolist() == [5, 7, 9, 11]
+    p.set(temperature=0.0)
+    assert sample(logits.bfloat16(), p).tolist() == [5, 7, 9, 11]

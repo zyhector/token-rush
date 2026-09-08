@@ -32,6 +32,8 @@ def main():
     ap.add_argument("--graph", action="store_true", help="draft chain inside the graph")
     ap.add_argument("--mtp-int4", action="store_true", help="quantize the MTP head's projections to int4")
     ap.add_argument("--dynamic", default=None, help="Kmin:Kmax adaptive depth, e.g. 2:4 (implies --graph)")
+    ap.add_argument("--temperature", type=float, default=0.0)
+    ap.add_argument("--top-p", type=float, default=1.0)
     a = ap.parse_args()
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(a.model)
@@ -57,9 +59,10 @@ def main():
     for name, text in PROMPTS.items():
         ids = tok.encode(tok.apply_chat_template([{"role": "user", "content": text}], tokenize=False,
                                                  add_generation_prompt=True, enable_thinking=False))
-        raw, st_raw = generate(eng, tok, ids, a.new, stop, stream=False)
+        raw, st_raw = generate(eng, tok, ids, a.new, stop, stream=False, temperature=a.temperature, top_p=a.top_p, seed=0)
         if a.graph:
-            spec, st_spec = generate_spec_graph(eng, mtp, tok, ids, a.new, stop, K=a.k, stream=False, dynamic=dyn)
+            spec, st_spec = generate_spec_graph(eng, mtp, tok, ids, a.new, stop, K=a.k, stream=False, dynamic=dyn,
+                                                temperature=a.temperature, top_p=a.top_p, seed=0)
         else:
             spec, st_spec = generate_spec(eng, mtp, tok, ids, a.new, stop, K=a.k, stream=False)
         n = min(len(raw), len(spec))

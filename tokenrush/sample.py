@@ -28,7 +28,9 @@ class SamplingParams:
 
 
 def sample(logits: torch.Tensor, params: SamplingParams, u: torch.Tensor = None) -> torch.Tensor:
-    """logits [1, V] -> token [1] (long). u: uniform [1] in [0, 1), drawn if None."""
+    """logits [M, V] -> tokens [M] (long), one independent draw per row.
+    u: uniform [M] in [0, 1), drawn if None."""
+    M = logits.shape[0]
     vals, idx = logits.float().topk(CANDIDATES, dim=-1)                  # descending
     greedy = logits.argmax(-1)          # not idx[:, 0]: topk breaks ties arbitrarily, argmax by index,
                                         # and the verify step uses argmax; greedy must agree with it
@@ -43,7 +45,7 @@ def sample(logits: torch.Tensor, params: SamplingParams, u: torch.Tensor = None)
     cum = p.cumsum(-1)
     total = cum[:, -1:]
     if u is None:
-        u = torch.rand(1, device=logits.device)
-    pick = (cum < u * total).sum(-1).clamp(max=CANDIDATES - 1)           # inverse CDF
+        u = torch.rand(M, device=logits.device)
+    pick = (cum < u.view(M, 1) * total).sum(-1).clamp(max=CANDIDATES - 1)   # inverse CDF, per row
     sampled = idx.gather(1, pick[:, None])[:, 0]
     return torch.where(params.temperature > 0, sampled, greedy)

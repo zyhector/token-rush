@@ -69,3 +69,37 @@ def test_spec_loop_respects_max_len():
     out, st = generate_spec_graph(eng, mtp, _Tok(), ids, 100, set(), K=3, stream=False, dynamic=None)
     # stops exactly when the next step (up to 4 tokens) would not fit
     assert eng.state.pos <= 64 and eng.state.pos + 4 > 64 and st["verify_steps"] >= 1
+
+
+def test_spec_sampling_matches_raw_distribution():
+    """With temperature > 0 the speculative loop must produce the target's sampling
+    distribution. Compare the empirical distribution of the first sampled token over
+    many runs between the raw sampled graph and the spec graph (drafts from a random
+    MTP, so acceptance is rare but nonzero on a 1024-token vocab at high temperature)."""
+    torch.manual_seed(0)
+    w = random_weights(CFG, "triton")
+    eng = Engine(CFG, w, max_len=64, fused=True, max_spec=2)
+    eng.capture()
+    mtp = MTPHead(CFG, _random_mtp(CFG), w.embed, w.lm_head, 64)
+    eng.attach_mtp(mtp)
+    eng.capture_spec(2)
+    toks = torch.randint(0, CFG.vocab, (10,), device=DEV)
+    eng.sampling.set(temperature=1.5, top_k=8)
+    N = 600
+    # raw: prefill toks[:-1], commit toks[-1], one sampled step -> the token after toks[-1]
+    raw_counts = torch.zeros(CFG.vocab)
+    for _ in range(N):
+        eng.reset(); eng.forward(toks[:-1]); eng.tok.copy_(toks[-1:]); eng.step()
+        raw_counts[int(eng.tok)] += 1
+    # spec: the same position is the first committed sample (tok after one spec step)
+    spec_counts = torch.zeros(CFG.vocab)
+    logits = None
+    for _ in range(N):
+        eng.reset(); mtp.reset()
+        lg = eng.forward(toks[:-1], all_logits=True); H = eng.last_hidden
+        eng.tok.copy_(toks[-1:]); mtp.set_pos(1); mtp.forward(toks[1:-1], H[:-1])
+        eng.n_accepted.zero_(); eng.spec_hidden[0].copy_(H[-1])
+        eng.spec_step(2)
+        spec_counts[int(eng.spec_logits[0].argmax()) if False else int(eng.tok) if int(eng.n_accepted) == 0 else int(eng.drafts[0])] += 1
+    raw_f, spec_f = raw_counts / N, spec_counts / N
+    assert (raw_f - spec_f).abs().max() < 0.08, (raw_f.topk(5), spec_f.topk(5))

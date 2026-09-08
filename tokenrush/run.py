@@ -35,8 +35,7 @@ def main():
     if not is_packed(a.model):
         raise SystemExit(f"{a.model} is not a packed checkpoint; run python -m tokenrush.quantize first")
 
-    # speculation is greedy-only for now; sampling falls back to the raw graph
-    spec = not a.no_spec and not a.eager and a.temperature == 0.0
+    spec = not a.no_spec and not a.eager
     kmin, kmax = (int(v) for v in a.spec_depth.split(":"))
     cfg, w, mtp_t = load_packed(a.model, backend=a.backend, with_mtp=spec)
     tok = AutoTokenizer.from_pretrained(a.model)
@@ -66,7 +65,8 @@ def main():
     stop = set(cfg.eos_ids) | {tok.eos_token_id}
     print(f"--- prompt ({len(ids)} tokens) ---\n{text}\n--- output ---")
     if spec:
-        _, st = generate_spec_graph(engine, mtp, tok, ids, a.max_new, stop, chunk=a.chunk, dynamic=(kmin, kmax))
+        _, st = generate_spec_graph(engine, mtp, tok, ids, a.max_new, stop, chunk=a.chunk, dynamic=(kmin, kmax),
+                                    temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, seed=a.seed)
     else:
         _, st = generate(engine, tok, ids, a.max_new, stop, chunk=a.chunk, graphed=not a.eager,
                          temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, seed=a.seed)

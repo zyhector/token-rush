@@ -27,6 +27,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 13. Phase 3 steps 2–3: verify step in one graph, accept/commit on device | 2026-09-08 | + M-row kernels (tensor-core int4 GEMM, M-token GDN with per-prefix state slots, M-query attention), a graphed verify step per K with device-side accept/commit; eager MTP drafts. K=3 verify = 1.22x a raw step. Spec greedy == raw greedy 200/200 with shared numerics | — | **172 / 212 / 204 effective** (essay / code / math), raw 102 |
 | 14. Phase 3 step 4: MTP draft chain inside the graph, int4 head, adaptive depth | 2026-09-08 | + one graph per depth runs the MTP batched pass over the accepted rows, the chained drafts and the verify; depth = clamp(n_prev+2, 3, 4) | — | **183 / 254 / 258 effective** (essay / code / math), raw 102 |
 | 15. Speculation is the default decode | 2026-09-08 | + `run.py` decodes speculatively by default (`--no-spec` for raw; temperature > 0 falls back to raw until spec sampling lands); chunked prefill keeps every position's hidden for the MTP prompt pass; the loop stops before a step could overrun the cache; works with fp8 KV | — | 154 on a short haiku (2.1 tokens/step), 280 on a 30k needle answer |
+| 16. Speculative sampling (temperature > 0) | 2026-09-08 | + the verify step draws one sample per position; a draft is accepted only when it equals the draw, the draw is what gets committed: the output distribution is exactly the target's. Chat at T=0.8: 165 tok/s | — | **167 / 237 / 239** at T=0.7 top-p 0.9 (essay / code / math), raw 102 |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -601,15 +602,38 @@ short, low-acceptance text), the 30k needle with fp8 KV through the spec
 path (retrieved, 4.3 accepted per step on the predictable answer), sampled
 fallback, and the max_len edge. 36 tests.
 
+## Step 16 — speculative sampling (2026-09-08)
+
+The verify step now runs the sampler on all K+1 rows (`sample()` takes M
+rows, one uniform draw each, greedy when temperature is 0): a draft is
+accepted only when it equals the draw at its position, and the draw itself
+is committed. Each committed token is therefore a sample from the target's
+own conditional at the right prefix, so the output distribution is exactly
+raw sampling's — drafts change only speed. (Classic rejection sampling
+accepts more of the drafts; this scheme is the simplest exact one and was
+enough.) A test compares the empirical first-token distribution of the raw
+sampled graph and the spec graph over 600 runs on random weights.
+
+| effective tok/s, dynamic 3:4, int4 MTP | essay | code | math |
+|---|---|---|---|
+| greedy (step 14) | 183 | 254 | 258 |
+| **T=0.7, top-p 0.9** | **167** (2.34/step) | **237** (3.39) | **239** (3.41) |
+| T=1.0, top-p 1.0 | 164 (2.31) | 252 (3.62) | 255 (3.67) |
+| raw, any temperature | 102 | 102 | 102 |
+
+Code and math barely lose acceptance at temperature 1.0 (their next-token
+distributions are peaked); prose drops from 2.56 to 2.3 accepted per step.
+`run.py` no longer falls back to raw for temperature > 0; a sampled chat
+run gets 165 tok/s.
+
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
-  258 tok/s effective. Remaining, in order: speculative sampling for
-  temperature > 0 (sample at each verify position, accept a draft only when
-  it equals the sample: exact, simple); spec at 200k context (the
-  feasibility row); verify overhead 1.22x -> ~1.1x (GDN M-token loop, rows
-  GEMV tuning); a truncated-vocab lm_head for drafting; a draft tree for
-  prose; DSpark as an alternative draft.
+  258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7. Remaining,
+  in order: spec at 200k context (the feasibility row); verify overhead
+  1.22x -> ~1.1x (GDN M-token loop, rows GEMV tuning); a truncated-vocab
+  lm_head for drafting; a draft tree for prose; DSpark as an alternative
+  draft; rejection-sampling acceptance for sampled decoding.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are
