@@ -27,9 +27,10 @@ def main():
     ap.add_argument("--no-spec", action="store_true", help="raw decode instead of speculative (MTP chain)")
     ap.add_argument("--spec-depth", default="3:4", help="Kmin:Kmax adaptive draft depth")
     ap.add_argument("--draft-vocab", default="128k",
-                    help="the draft chain's lm_head rows: 'full', '128k' (the first 131072 token ids, i.e. the "
-                         "tokenizer's BPE merge order, a language-neutral frequency proxy; default), or a path "
-                         "to a saved id tensor (bench/draft_vocab.py builds corpus-specific ones)")
+                    help="the draft chain's lm_head rows: 'full'; '128k' (the first 131072 token ids, i.e. the "
+                         "tokenizer's BPE merge order, a language-neutral frequency proxy; default); a named list "
+                         "from tokenrush/draft_vocab/ ('en_64k', 'mix_64k', 'mix_96k': corpus-frequency lists, "
+                         "see docs/progress.md step 21); or a path to a saved id tensor")
     ap.add_argument("--kv", default="bf16", choices=("bf16", "fp8"), help="KV cache dtype")
     ap.add_argument("--temperature", type=float, default=0.0, help="0 = greedy")
     ap.add_argument("--top-p", type=float, default=1.0)
@@ -53,10 +54,14 @@ def main():
         if spec:
             mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len,
                           kv_dtype=engine.state.kv_dtype)
+            import os
+            named = os.path.join(os.path.dirname(__file__), "draft_vocab", a.draft_vocab + ".pt")
             if a.draft_vocab == "full":
                 dv = None
             elif a.draft_vocab == "128k":
                 dv = torch.arange(131072)
+            elif os.path.exists(named):
+                dv = torch.load(named).long()
             else:
                 dv = torch.load(a.draft_vocab).long()
             engine.attach_mtp(mtp, draft_vocab=dv)

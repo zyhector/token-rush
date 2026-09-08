@@ -19,3 +19,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 18,2026-09-08,fp8 cache for the MTP head: prose 180 / code 199 at 200k,102.2,82,9.78,1500
 19,2026-09-08,rows-GEMM config re-pick (neutral; verify 1.20x is structural),102.2,82,9.78,1500
 20,2026-09-08,draft vocabulary = first 128k ids (id order): 186/261/263 effective; 64k corpus list rejected (Chinese collapsed),102.2,82,9.78,1500
+21,2026-09-08,corpus-specific draft vocabularies measured; id-order 128k stays default; mix_96k for zh-en use,102.2,82,9.78,1500

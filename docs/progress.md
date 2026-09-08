@@ -48,6 +48,7 @@ re-measures everything on one machine.
 | 18. fp8 cache for the MTP head | 2026-09-08 | + the draft head's own single-layer cache in e4m3 (follows the engine's KV dtype in `run.py`) | — | at 200k: prose 180 (was 174), code 199 (was 197); short context unchanged |
 | 19. rows-GEMM config re-pick (L2-proof sweep at M=4) | 2026-09-08 | + configs re-picked; **neutral**: verify K=3 at 1.20x raw (was 1.21x). The M-row kernel's 79–84% on layer shapes is structural (bf16 dequant + dot per block), not a config matter | — | 179 / 243 / 252 (noise vs step 14) |
 | 20. Truncated draft vocabulary | 2026-09-08 | + the draft chain's argmax reads the first 131072 rows of lm_head (id order = BPE merge rank, language-neutral) instead of all 248k: −0.7 ms per step, no family loses. A 64k English-corpus list was tried first and cut Chinese below raw | — | **186 / 261 / 263** (essay / code / math), Chinese essay / math 162 / 279; raw 100 |
+| 21. Corpus-specific draft vocabularies (en_64k, mix_64k, mix_96k) | 2026-09-08 | + lists built from English, code and Chinese Wikipedia corpora, shipped in `tokenrush/draft_vocab/`, selectable by name; measured on six families incl. Chinese and mixed. None beats the id-order 128k default by more than noise; mix_96k is the pick for a Chinese-English daily driver | — | id_128k 186 / 261 / 263 / 162 / 279 / 216 vs mix_96k 185 / 253 / 262 / 162 / 279 / 227 (essay / code / math / zh-essay / zh-math / mixed) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -759,6 +760,59 @@ cheaper. `run.py --draft-vocab full|128k|<file>`; `Engine.attach_mtp
 (draft_vocab=...)` gathers the int4 rows. Caveat recorded: languages whose
 tokens sit late in the merge order (the rarer 20k CJK, other scripts) were
 not measured; `--draft-vocab full` is the safe setting for them.
+
+## Step 21 — corpus-specific draft vocabularies, measured against the id order (2026-09-08)
+
+Question asked: for a Chinese-English daily driver (some code, some math),
+can a 64k list built from the right corpora keep the 64k slice's larger
+saving without the Chinese collapse of step 20?
+
+`bench/draft_vocab.py` now builds three lists from English Wikipedia
+(WikiText-103), torch's Python sources, and a Chinese Wikipedia shard
+(`wikimedia/wikipedia` 20231101.zh, 20k articles, simplified and
+traditional), math-ish tokens boosted, the rest in id order:
+
+| list | corpora | CJK tokens held (of 55,328) |
+|---|---|---|
+| `en_64k` | English + code | 147 |
+| `mix_64k` | Chinese + English + code | 26,413 |
+| `mix_96k` | same, first 98,304 | 40,923 |
+| id order 128k (default) | none (tokenizer merge rank) | 35,024 |
+
+`bench/draft_vocab_eval.py`, 300 greedy tokens per family, dynamic 3:4,
+int4 MTP; the sixth family is a mixed prompt (Chinese question about
+Python locks with a code example and a throughput formula):
+
+| tok/s (accepted/step) | essay | code | math | zh-essay | zh-math | mixed |
+|---|---|---|---|---|---|---|
+| full (no slice) | 178 (2.53) | 249 (3.61) | 253 (3.68) | 156 (2.19) | 269 (3.92) | 214 (3.07) |
+| **id order 128k** | 186 (2.53) | **261** (3.61) | 263 (3.64) | 162 (2.17) | 279 (3.87) | 216 (2.94) |
+| en_64k | **193** (2.55) | 257 (3.45) | **267** (3.60) | 92 (1.19) | 174 (2.29) | 154 (2.01) |
+| mix_64k | 184 (2.43) | 249 (3.33) | 264 (3.55) | **164** (2.14) | **281** (3.77) | 212 (2.81) |
+| mix_96k | 185 (2.49) | 253 (3.45) | 262 (3.60) | 162 (2.16) | 279 (3.82) | **227** (3.07) |
+
+**What the numbers say.**
+
+- The 64k budget is too small for two languages plus code: `mix_64k`
+  keeps Chinese but pays in code (3.33 vs 3.61 accepted per step) and mixed
+  text (2.81 vs 3.07); the 0.35 ms it saves over 128k is eaten by the lost
+  acceptance, and it lands on par with the default.
+- `mix_96k` is the best on mixed text (+5% over the default) and within
+  noise elsewhere. Its acceptance on code and mixed is back at the full
+  head's.
+- `en_64k` is the fastest on pure English (+4% over the default) and
+  unusable for anything with Chinese in it (below raw decode).
+- The differences among full, 128k and mix_96k are 0–5%: the draft
+  vocabulary is a small lever once the language question is handled.
+
+**Decision.** The engine default stays the id-order 128k: language-neutral,
+no corpus, no file, no family loses. For this project's daily use
+(Chinese-English, some code and math) `--draft-vocab mix_96k` is the
+recommendation, worth about 5% on mixed text. `en_64k` stays available for
+English-only deployments and as the documented example of what a
+language-blind list costs. All three lists are in `tokenrush/draft_vocab/`
+(1 MB), rebuildable with the script; a deployment on other languages should
+rebuild from its own corpus and rerun `bench/draft_vocab_eval.py`.
 
 ## Next
 
