@@ -178,3 +178,145 @@ def gdn_step_fused(qkvz, ba, ring, conv_w, A, dt_bias, rec, norm_w, pos_t, cfg, 
     if BV != V:
         _gated_norm_kernel[(HV,)](o, qkvz[:, 2 * QK + VAL:], norm_w, y, eps, V=V, num_warps=1)
     return y
+
+
+# ------------------------------------------------------ attention: prep
+
+
+@triton.jit
+def _attn_prep_kernel(qkv_ptr, qn_ptr, kn_ptr, cos_ptr, sin_ptr, pos_ptr, k_cache, v_cache, q_out, eps,
+                      HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, RD: tl.constexpr, MAXLEN: tl.constexpr):
+    """One program per head. Heads 0..HQ-1: RMSNorm + rope the query, write q_out.
+    Heads HQ..HQ+HKV-1: RMSNorm + rope the key and write it and the value into the
+    cache at position pos. qkv is the fused projection [HQ*2D (q|gate per head) | HKV*D | HKV*D].
+    Rounding mirrors ops.rmsnorm / ops.apply_rope in bf16."""
+    pid = tl.program_id(0)
+    pos = tl.load(pos_ptr)
+    d = tl.arange(0, D)
+    HALF: tl.constexpr = RD // 2
+    r = tl.arange(0, HALF)
+    if pid < HQ:
+        src = qkv_ptr + pid * 2 * D
+        w_ptr = qn_ptr
+    else:
+        src = qkv_ptr + HQ * 2 * D + (pid - HQ) * D
+        w_ptr = kn_ptr
+    x = tl.load(src + d).to(tl.float32)
+    var = tl.sum(x * x) / D
+    x = x * tl.math.rsqrt(var + eps) * (1.0 + tl.load(w_ptr + d).to(tl.float32))
+    x = x.to(tl.bfloat16)
+    # rope on the first RD dims: [x1 | x2] -> [x1*c - x2*s | x2*c + x1*s], each product rounded to bf16
+    x1 = tl.load(src + r).to(tl.float32)                         # reload the two halves as vectors
+    x2 = tl.load(src + HALF + r).to(tl.float32)
+    inv = tl.math.rsqrt(var + eps)
+    w1 = 1.0 + tl.load(w_ptr + r).to(tl.float32)
+    w2 = 1.0 + tl.load(w_ptr + HALF + r).to(tl.float32)
+    x1 = (x1 * inv * w1).to(tl.bfloat16).to(tl.float32)
+    x2 = (x2 * inv * w2).to(tl.bfloat16).to(tl.float32)
+    c = tl.load(cos_ptr + pos * RD + r).to(tl.float32)           # cos == cos[HALF + r]
+    s = tl.load(sin_ptr + pos * RD + r).to(tl.float32)
+    o1 = ((x1 * c).to(tl.bfloat16).to(tl.float32) + (-x2 * s).to(tl.bfloat16).to(tl.float32)).to(tl.bfloat16)
+    o2 = ((x2 * c).to(tl.bfloat16).to(tl.float32) + (x1 * s).to(tl.bfloat16).to(tl.float32)).to(tl.bfloat16)
+    if pid < HQ:
+        dst = q_out + pid * D
+    else:
+        dst = k_cache + ((pid - HQ) * MAXLEN + pos) * D
+    tl.store(dst + d, x)                                          # dims RD.. keep the normed value
+    tl.store(dst + r, o1)
+    tl.store(dst + HALF + r, o2)
+    if pid >= HQ:
+        v = tl.load(qkv_ptr + HQ * 2 * D + HKV * D + (pid - HQ) * D + d)
+        tl.store(v_cache + ((pid - HQ) * MAXLEN + pos) * D + d, v)
+
+
+def attn_prep(qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache, cfg):
+    """qkv [1, HQ*2D + 2*HKV*D] -> q [HQ*D] normed + roped; writes K, V at pos_t."""
+    HQ, HKV, D = cfg.n_heads, cfg.n_kv_heads, cfg.head_dim
+    q = torch.empty(HQ * D, device=qkv.device, dtype=qkv.dtype)
+    _attn_prep_kernel[(HQ + HKV,)](qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache, q, cfg.eps,
+                                   HQ=HQ, HKV=HKV, D=D, RD=cfg.rotary_dim, MAXLEN=k_cache.shape[1], num_warps=1)
+    return q
+
+
+# ------------------------------------------- attention: flash-decoding
+
+
+@triton.jit
+def _attn_split_kernel(q_ptr, k_cache, v_cache, pos_ptr, m_ptr, l_ptr, acc_ptr, scale,
+                       HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, MAXLEN: tl.constexpr,
+                       NSPLIT: tl.constexpr, BLOCK_N: tl.constexpr, ROWS: tl.constexpr):
+    """One program per (kv head, split). The G = HQ // HKV query heads of the kv
+    head are padded to ROWS rows for tensor-core dots. Keys 0..pos are live;
+    the split's block range is derived from pos, so the grid is static."""
+    pid = tl.program_id(0)
+    j = pid // NSPLIT
+    s = pid % NSPLIT
+    G: tl.constexpr = HQ // HKV
+    L = tl.load(pos_ptr) + 1
+    n_blocks = (L + BLOCK_N - 1) // BLOCK_N
+    per_split = (n_blocks + NSPLIT - 1) // NSPLIT
+    b0 = s * per_split
+    b1 = tl.minimum(b0 + per_split, n_blocks)
+    rows = tl.arange(0, ROWS)
+    d = tl.arange(0, D)
+    rmask = rows < G
+    q = tl.load(q_ptr + (j * G + rows)[:, None] * D + d[None, :], mask=rmask[:, None], other=0.0)   # [ROWS, D] bf16
+    m_i = tl.full([ROWS], float("-inf"), tl.float32)
+    l_i = tl.zeros([ROWS], tl.float32)
+    acc = tl.zeros([ROWS, D], tl.float32)
+    kb = k_cache + j * MAXLEN * D
+    vb = v_cache + j * MAXLEN * D
+    for blk in range(b0, b1):
+        kidx = blk * BLOCK_N + tl.arange(0, BLOCK_N)
+        kmask = kidx < L
+        k = tl.load(kb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)            # [BLOCK_N, D]
+        sc = tl.dot(q, tl.trans(k)) * scale                                                          # [ROWS, BLOCK_N] fp32
+        sc = tl.where(kmask[None, :], sc, float("-inf"))
+        m_new = tl.maximum(m_i, tl.max(sc, 1))
+        m_safe = tl.where(m_new == float("-inf"), 0.0, m_new)
+        alpha = tl.exp(m_i - m_safe)
+        p = tl.exp(sc - m_safe[:, None])
+        l_i = l_i * alpha + tl.sum(p, 1)
+        v = tl.load(vb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)
+        acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
+        m_i = m_new
+    h = j * G + rows
+    tl.store(m_ptr + h * NSPLIT + s, m_i, mask=rmask)
+    tl.store(l_ptr + h * NSPLIT + s, l_i, mask=rmask)
+    tl.store(acc_ptr + (h * NSPLIT + s)[:, None] * D + d[None, :], acc, mask=rmask[:, None])
+
+
+@triton.jit
+def _attn_reduce_kernel(m_ptr, l_ptr, acc_ptr, qkv_ptr, out_ptr,
+                        D: tl.constexpr, NSPLIT: tl.constexpr):
+    """One program per query head: combine the splits, normalize, apply the
+    sigmoid output gate (HF: attn_output * sigmoid(gate), in bf16)."""
+    h = tl.program_id(0)
+    s = tl.arange(0, NSPLIT)
+    d = tl.arange(0, D)
+    m = tl.load(m_ptr + h * NSPLIT + s)
+    l = tl.load(l_ptr + h * NSPLIT + s)
+    m_max = tl.max(m, 0)
+    w = tl.exp(m - m_max)                                         # -inf splits -> 0
+    l_tot = tl.sum(w * l, 0)
+    acc = tl.load(acc_ptr + (h * NSPLIT + s)[:, None] * D + d[None, :])   # [NSPLIT, D]
+    o = tl.sum(acc * w[:, None], 0) / l_tot
+    o = o.to(tl.bfloat16).to(tl.float32)
+    gate = tl.load(qkv_ptr + h * 2 * D + D + d).to(tl.float32)
+    g = (1.0 / (1.0 + tl.exp(-gate))).to(tl.bfloat16).to(tl.float32)
+    tl.store(out_ptr + h * D + d, (o * g).to(out_ptr.dtype.element_ty))
+
+
+def attn_decode_fused(q, qkv, k_cache, v_cache, pos_t, cfg, NSPLIT=32, BLOCK_N=32):
+    """q [HQ*D] (from attn_prep), qkv (for the gate) -> gated attention output [1, HQ*D]."""
+    HQ, HKV, D = cfg.n_heads, cfg.n_kv_heads, cfg.head_dim
+    dev = q.device
+    m = torch.empty(HQ, NSPLIT, device=dev, dtype=torch.float32)
+    l = torch.empty_like(m)
+    acc = torch.empty(HQ, NSPLIT, D, device=dev, dtype=torch.float32)
+    out = torch.empty(1, HQ * D, device=dev, dtype=q.dtype)
+    _attn_split_kernel[(HKV * NSPLIT,)](q, k_cache, v_cache, pos_t, m, l, acc, D ** -0.5,
+                                        HQ=HQ, HKV=HKV, D=D, MAXLEN=k_cache.shape[1], NSPLIT=NSPLIT,
+                                        BLOCK_N=BLOCK_N, ROWS=16, num_warps=4, num_stages=2)
+    _attn_reduce_kernel[(HQ,)](m, l, acc, qkv, out, D=D, NSPLIT=NSPLIT, num_warps=1)
+    return out

@@ -80,12 +80,43 @@ def test_engine_fused_matches_unfused_and_graphs():
         eng.forward(toks[:20])
         outs[fused_flag] = torch.cat([eng.decode(toks[t]) for t in range(20, 30)]).float()
     assert rel(outs[True], outs[False]) < 3e-2, rel(outs[True], outs[False])
-    # and the fused step captures and replays bit-exactly
+    # and the fused step captures and replays (one graph: the live length is read on device)
     eng = Engine(CFG, w, max_len=256, fused=True)
-    eng.capture(buckets=[64, 256])
+    eng.capture()
+    assert list(eng.graphs) == [256]
     eng.reset(); eng.forward(toks[:20])
     got = []
     for t in range(20, 30):
         eng.tok.copy_(toks[t:t + 1]); eng.step(); got.append(eng.logits.clone())
     got = torch.cat(got).float()
     assert rel(got, outs[True]) < 3e-2
+
+
+def test_attention_fused_matches_ops_over_steps():
+    """Prefill through the ops path, then decode steps at lengths that cross split and
+    block boundaries: fused prep + flash-decoding vs the ops attention, and the cache
+    rows they write."""
+    from tokenrush.model import AttnWeights, attn_forward
+    from tokenrush.quant import Linear
+    from tokenrush.state import State
+    from tokenrush import ops as _ops
+    cfg = CFG
+    w = AttnWeights(qkv=Linear(rnd(cfg.n_heads * cfg.head_dim * 2 + 2 * cfg.n_kv_heads * cfg.head_dim, cfg.hidden)),
+                    o=Linear(rnd(cfg.hidden, cfg.n_heads * cfg.head_dim)),
+                    q_norm_w=rnd(cfg.head_dim, std=0.5), k_norm_w=rnd(cfg.head_dim, std=0.5))
+    max_len = 4096
+    cos, sin = _ops.rope_table(max_len, cfg.rotary_dim, cfg.rope_theta, DEV)
+    for T0 in (5, 2100):            # short (1 split active) and long (all 32 splits, partial last block)
+        xs = rnd(T0 + 6, cfg.hidden, std=1.0)
+        s_ops, s_f = State(cfg, max_len, DEV), State(cfg, max_len, DEV)
+        attn_forward(xs[:T0], w, cfg, s_ops, 0, cos, sin)
+        attn_forward(xs[:T0], w, cfg, s_f, 0, cos, sin)
+        s_ops.advance(T0); s_f.advance(T0)
+        for t in range(T0, T0 + 6):
+            y_ops = attn_forward(xs[t:t + 1], w, cfg, s_ops, 0, cos, sin, fused=False)
+            y_f = attn_forward(xs[t:t + 1], w, cfg, s_f, 0, cos, sin, fused=True)
+            s_ops.advance(1); s_f.advance(1)
+            assert torch.isfinite(y_f).all()
+            assert rel(y_f, y_ops) < 2e-2, (T0, t, rel(y_f, y_ops))
+            kr, vr = s_ops.k[0, :, :t + 1], s_ops.v[0, :, :t + 1]
+            assert rel(s_f.k[0, :, :t + 1], kr) < 5e-3 and torch.equal(s_f.v[0, :, :t + 1], vr), (T0, t)

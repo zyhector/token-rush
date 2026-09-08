@@ -99,12 +99,18 @@ def gdn_forward(x: torch.Tensor, w: GDNWeights, cfg: ModelConfig, state: State, 
 
 
 def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State, slot: int,
-                 cos: torch.Tensor, sin: torch.Tensor, bucket: int = None) -> torch.Tensor:
+                 cos: torch.Tensor, sin: torch.Tensor, bucket: int = None, fused: bool = False) -> torch.Tensor:
     """bucket: if given (decode only), attend over the first `bucket` cache rows with a
-    mask derived from the device position, so the whole call is shape-static."""
+    mask derived from the device position, so the whole call is shape-static.
+    fused (decode only): prep kernel + flash-decoding over the live length; no bucket."""
     T = x.shape[0]
     pos = state.pos
     hd = cfg.head_dim
+    if T == 1 and fused:
+        qkv = w.qkv(x)
+        q = fused_k.attn_prep(qkv, w.q_norm_w, w.k_norm_w, cos, sin, state.pos_t, state.k[slot], state.v[slot], cfg)
+        o = fused_k.attn_decode_fused(q, qkv, state.k[slot], state.v[slot], state.pos_t, cfg)
+        return w.o(o)
     idx = state.pos_t + torch.arange(T, device=x.device)                          # positions, on device
     kv_dim = cfg.n_kv_heads * hd
     qg, k, v = torch.split(w.qkv(x), [cfg.n_heads * 2 * hd, kv_dim, kv_dim], dim=-1)
@@ -180,7 +186,7 @@ class Engine:
             if cfg.layer_types[li] == "linear_attention":
                 h = gdn_forward(n, lw.mixer, cfg, st, st.gdn_slot[li], fused)
             else:
-                h = attn_forward(n, lw.mixer, cfg, st, st.attn_slot[li], self.cos, self.sin, bucket)
+                h = attn_forward(n, lw.mixer, cfg, st, st.attn_slot[li], self.cos, self.sin, bucket, fused)
             if fused:
                 x, n = fused_k.add_rmsnorm(x, h, lw.ln2, cfg.eps)
             else:
@@ -231,7 +237,7 @@ class Engine:
         clean; call once after loading. Warmup runs the step eagerly on a side stream
         (autotuning, workspaces) and is what mutates the state, so it is reset after."""
         cfg, st = self.cfg, self.state
-        buckets = buckets or self.buckets_for(st.max_len)
+        buckets = buckets or ([st.max_len] if self.fused else self.buckets_for(st.max_len))
         assert all(b <= st.max_len for b in buckets)
         self.logits = torch.empty(1, cfg.vocab, device=self.device, dtype=torch.bfloat16)
         self.pool = torch.cuda.graph_pool_handle()

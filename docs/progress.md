@@ -18,6 +18,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 4. Whole-step CUDA graph | 2026-09-08 | + one graph per context bucket, device position, in-graph argmax feeding the next step; GPU-bound at 14.6 ms/step | 1500 | **68.4** (55% of wall) |
 | 5. Engine-correctness gate vs HF | 2026-09-08 | bf16 path streamed layer by layer against HF transformers 5.16.1: 48/48 greedy tokens identical, residual error <=2% with no jump; engine declared correct | — | — |
 | 6. Phase 2: fused GDN step, fused add+norm | 2026-09-08 | + one Triton kernel per GDN layer (conv, gating, delta rule, gated norm, output gate), one kernel per residual+RMSNorm, silu*mul fused; ring-buffer conv state | 1500 | **83.2** (67% of wall) |
+| 7. Phase 2: fused attention decode | 2026-09-08 | + prep kernel (q/k norm, rope, KV write) and a flash-decoding kernel over the live length with the output gate in its reduce; no context buckets, one graph | 1500 | **99.5** (80% of wall) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -211,6 +212,45 @@ Next inside Phase 2: the attention layer (one prep kernel for q/k norm +
 rope + KV write, then our own decode attention kernel reading the live
 length instead of a bucket, with FP8 KV so 256k fits), then the b|a fold and
 GEMV split-K for the two 5120-row shapes.
+
+## Step 7 — fused attention decode (2026-09-08)
+
+Three kernels in `tokenrush/fused.py` replace SDPA-over-a-bucket and the ~48
+small kernels around it in each attention layer:
+
+- **`attn_prep`**: one program per head (24 q + 4 kv): RMSNorm with the
+  (1 + w) gain, rope on the first 64 dims with HF's bf16 rounding order,
+  query out, key and value written into the cache at the device position.
+- **`attn_split`**: flash-decoding. One program per (kv head, split of the
+  key range), 32 splits; the 6 query heads of a kv head are padded to 16
+  rows so the score and PV products run on tensor cores (`tl.dot`), online
+  softmax in fp32, keys beyond the live length masked. The live length comes
+  from `pos_t`, the grid is static, so it captures into a graph and **the
+  context buckets are gone**: one graph per engine.
+- **`attn_reduce`**: one program per query head combines the splits,
+  normalizes, and applies the sigmoid output gate.
+
+A 64-key block of bf16 K and V triple-buffered exceeded the 101 KB of shared
+memory per block on this card; 32-key blocks with two stages fit.
+
+| | | |
+|---|---|---|
+| decode | **99.5 tok/s**, 10.05 ms/step | 80% of the wall, ceiling 124.6 |
+| GEMVs | 9.06 ms | 90% of the step |
+| attention, 16 layers | 0.09 ms | was 1.8 ms (SDPA 1.19 + small kernels 0.6) |
+| fused norms / GDN / silu / b\|a | 0.32 / 0.30 / 0.07 / 0.20 ms | |
+| launches per step | ~600 | was ~2500 |
+
+The gate through the new path: teacher-forced KL 6.1e-2 vs 6.0e-2 before,
+HF's token in our top-5 48/48, same divergence step. Tests cover short and
+long (2100+) contexts where all splits are active and the last block is
+partial.
+
+The step is now the GEMVs plus 1 ms. What is left inside Phase 2: fold the
+b|a projection into the GDN kernel (0.2 ms), split-K for the two 5120-row
+GEMV shapes (they run at 74–81% against 90%+ for the wide ones: ~0.5 ms),
+sampling in-graph beyond argmax, FP8 KV with a prefill attention kernel
+for 256k.
 
 ## Next
 
