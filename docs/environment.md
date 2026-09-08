@@ -112,7 +112,7 @@ The base image ships **no Python ML stack**. Installed for this project:
 ```bash
 source /venv/main/bin/activate
 uv pip install torch --torch-backend=cu130
-uv pip install numpy transformers einops safetensors huggingface-hub
+uv pip install numpy transformers einops safetensors huggingface-hub accelerate pytest   # accelerate: HF CPU-offload for the reference dump
 uv pip install --no-deps "flash-linear-attention @ git+https://github.com/fla-org/flash-linear-attention"
 ```
 

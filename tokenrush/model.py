@@ -145,12 +145,19 @@ class Engine:
         self.logits = None            # [1, vocab], written by the last graphed step
         self.graphs = {}              # bucket -> CUDAGraph
         self.pool = None
+        self.trace = None             # set to a list to collect the residual stream per layer (eager only)
+
+    def layer(self, li: int) -> LayerWeights:
+        return self.w.layers[li]
 
     def _body(self, tokens: torch.Tensor, bucket=None, all_logits=False) -> torch.Tensor:
         """The forward pass without the position bookkeeping."""
         cfg, st = self.cfg, self.state
         x = self.w.embed[tokens]
-        for li, lw in enumerate(self.w.layers):
+        if self.trace is not None:
+            self.trace.append(x.clone())
+        for li in range(cfg.n_layers):
+            lw = self.layer(li)
             h = ops.rmsnorm(x, lw.ln1, cfg.eps)
             if cfg.layer_types[li] == "linear_attention":
                 h = gdn_forward(h, lw.mixer, cfg, st, st.gdn_slot[li])
@@ -159,6 +166,8 @@ class Engine:
             x = x + h
             h = ops.rmsnorm(x, lw.ln2, cfg.eps)
             x = x + mlp_forward(h, lw)
+            if self.trace is not None:
+                self.trace.append(x.clone())
         if not all_logits:
             x = x[-1:]
         x = ops.rmsnorm(x, self.w.final_norm, cfg.eps)
@@ -244,3 +253,22 @@ class Engine:
 
     def reset(self):
         self.state.reset()
+
+
+class StreamingBF16Engine(Engine):
+    """The same engine in bf16, for the engine-correctness gate: 55.6 GB does not
+    fit the card, so each layer's weights are built from the HF checkpoint on
+    demand and dropped after use. Embedding, final norm and lm_head stay
+    resident (5 GB). Eager only. About 25 s per forward pass from disk."""
+
+    def __init__(self, cfg: ModelConfig, src: str, max_len: int, device="cuda"):
+        from .weights import HFTensors, build_layer
+        self.tensors = HFTensors(src)
+        self._build_layer = build_layer
+        w = ModelWeights(embed=self.tensors["embed_tokens.weight"].to(device), layers=[None] * cfg.n_layers,
+                         final_norm=self.tensors["norm.weight"].to(device),
+                         lm_head=Linear(self.tensors["lm_head.weight"].to(device)))
+        super().__init__(cfg, w, max_len, device)
+
+    def layer(self, li: int) -> LayerWeights:
+        return self._build_layer(self.cfg, self.tensors, li, self.device, backend=None)

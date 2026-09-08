@@ -62,7 +62,7 @@ versions; nothing here is pinned to an old toolkit.
 apt-get install -y nsight-systems-2026.1.3 cuda-toolkit-13-3   # toolkit ≤ driver_max_cuda
 source /venv/main/bin/activate
 uv pip install torch --torch-backend=cu130
-uv pip install numpy transformers einops safetensors huggingface-hub
+uv pip install numpy transformers einops safetensors huggingface-hub accelerate pytest   # accelerate: HF CPU-offload for the reference dump
 uv pip install --no-deps "flash-linear-attention @ git+https://github.com/fla-org/flash-linear-attention"
 ```
 

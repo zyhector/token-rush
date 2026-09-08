@@ -108,13 +108,13 @@ def _linear(tensors, names, device, backend):
     return Linear(torch.cat([tensors[n].to(device) for n in names]))
 
 
-def build_weights(cfg: ModelConfig, tensors: dict, device, backend=DEFAULT_BACKEND) -> ModelWeights:
-    """tensors: our names -> CPU tensors (bf16, or the packed triple)."""
+def build_layer(cfg: ModelConfig, tensors, i: int, device, backend=DEFAULT_BACKEND) -> LayerWeights:
+    """One layer's containers from a name -> CPU tensor mapping (bf16, or the packed triple)."""
     dev = lambda n, dt=None: (tensors[n].to(device) if dt is None else tensors[n].to(device=device, dtype=dt))
     lin = lambda names: _linear(tensors, names, device, backend)
-    layers = []
-    for i, lt in enumerate(cfg.layer_types):
-        p = f"layers.{i}."
+    lt = cfg.layer_types[i]
+    p = f"layers.{i}."
+    if True:
         if lt == "linear_attention":
             m = p + "linear_attn."
             mixer = GDNWeights(
@@ -131,12 +131,38 @@ def build_weights(cfg: ModelConfig, tensors: dict, device, backend=DEFAULT_BACKE
                 qkv=lin([m + "q_proj.weight", m + "k_proj.weight", m + "v_proj.weight"]),
                 o=lin(m + "o_proj.weight"),
                 q_norm_w=dev(m + "q_norm.weight"), k_norm_w=dev(m + "k_norm.weight"))
-        layers.append(LayerWeights(
+        return LayerWeights(
             ln1=dev(p + "input_layernorm.weight"), ln2=dev(p + "post_attention_layernorm.weight"),
             mixer=mixer, gate_up=lin([p + "mlp.gate_proj.weight", p + "mlp.up_proj.weight"]),
-            down=lin(p + "mlp.down_proj.weight")))
+            down=lin(p + "mlp.down_proj.weight"))
+
+
+def build_weights(cfg: ModelConfig, tensors: dict, device, backend=DEFAULT_BACKEND) -> ModelWeights:
+    """tensors: our names -> CPU tensors (bf16, or the packed triple)."""
+    dev = lambda n: tensors[n].to(device)
+    layers = [build_layer(cfg, tensors, i, device, backend) for i in range(cfg.n_layers)]
     return ModelWeights(embed=dev("embed_tokens.weight"), layers=layers, final_norm=dev("norm.weight"),
-                        lm_head=lin("lm_head.weight"))
+                        lm_head=_linear(tensors, "lm_head.weight", device, backend))
+
+
+class HFTensors:
+    """Lazy name -> CPU tensor mapping over the HF bf16 checkpoint, our names."""
+
+    def __init__(self, src: str):
+        self.files = {}
+        for shard in sorted(glob.glob(os.path.join(src, "*.safetensors"))):
+            f = safe_open(shard, framework="pt", device="cpu")
+            for name in f.keys():
+                ours = _rename(name)
+                if ours is not None:
+                    self.files[ours] = (f, name)
+
+    def __contains__(self, name):
+        return name in self.files
+
+    def __getitem__(self, name):
+        f, hf_name = self.files[name]
+        return f.get_tensor(hf_name)
 
 
 def load_packed(path: str, device="cuda", with_mtp: bool = False, backend=DEFAULT_BACKEND):

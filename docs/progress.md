@@ -16,6 +16,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 2. Skeleton runs | 2026-09-08 | full text path, int4 g128 RTN, dequantize-then-matmul GEMV, eager | 1490 | 3.2 |
 | 3. GEMV shootout, kernel swapped in | 2026-09-08 | + own Triton int4 GEMV (92% of wall inside the model), fused q\|k\|v and gate\|up projections; still eager, CPU-bound on ~2500 launches | 1500 | 36 (46 with tinygemm) |
 | 4. Whole-step CUDA graph | 2026-09-08 | + one graph per context bucket, device position, in-graph argmax feeding the next step; GPU-bound at 14.6 ms/step | 1500 | **68.4** (55% of wall) |
+| 5. Engine-correctness gate vs HF | 2026-09-08 | bf16 path streamed layer by layer against HF transformers 5.16.1: 48/48 greedy tokens identical, residual error <=2% with no jump; engine declared correct | — | — |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -136,12 +137,45 @@ GDN-step fusion; at Phase 0's 48-layer measurement (1.4 ms graphed for the
 whole chain) it is worth ~3 ms, i.e. the step goes to ~11.5 ms and ~87 tok/s
 before attention or sampling are touched.
 
+## Step 5 — engine-correctness gate against HF (2026-09-08)
+
+Phase 1b, first half. `bench/hf_reference.py` dumps HF's residual stream
+after every layer, prompt logits and 48 greedy tokens with their logits
+(Qwen3_5ForCausalLM, bf16, CPU-offloaded, `fla` blocked so HF's GDN path is
+pure torch; 1.9 s per decode step). `bench/gate_engine.py` runs our engine
+against the dump; `StreamingBF16Engine` builds each layer's bf16 weights
+from the HF checkpoint on demand since 55.6 GB does not fit the card.
+
+**bf16 path (the gate):**
+
+| | |
+|---|---|
+| residual stream vs HF, after each of 64 layers | 1.7e-3 at layer 1, growing smoothly to 2.0e-2 at layer 64; no jump |
+| prompt logits | top-1 agreement 32/32, KL 1.3e-4 mean, 1.8e-3 max |
+| teacher-forced decode, 48 steps | **top-1 agreement 48/48**, max logprob gap 0.000, KL 3.8e-4 mean |
+| greedy tokens identical | **48 of 48** |
+
+Passes the gate in `CLAUDE.md` with no divergence at all. The 2% residual
+drift over 64 layers is bf16 accumulation through different kernels (fla's
+chunk kernel and SDPA against HF's pure-torch loops), the same order as the
+chunked-vs-stepped drift seen in step 2. The engine is correct; every fused
+kernel from here is tested against these ops.
+
+**int4 g128 RTN path (first quality data point, not yet the quality table):**
+residual error 3.5% after layer 1 rising to 19% at layer 63; prompt top-1
+96.9%; teacher-forced top-1 37/48 with HF's token always in our top-5, KL
+6e-2 mean; greedy diverges at step 4. That is what 4.25-bit round-to-nearest
+with no calibration costs on this model, and it is the number the Phase 1b
+quality table has to beat (ExLlamaV3's 4.00 bpw KL is the bar).
+
 ## Next
 
-- Phase 1a is at its milestone: a running engine, ours, at 68 tok/s. Next
-  is either Phase 1b (correctness gate against HF, quality table,
-  quantization choice) or Phase 2 (fused GDN step: the 4.4 ms of small
-  kernels; then attention decode over the live length instead of a bucket;
-  then fused sampling).
+- Phase 1b, second half: the quantization-quality table (KL vs bf16 over
+  tens of thousands of tokens for our quant and the rivals' quants through
+  the same forward; needs bf16 logits at scale, which is where a second 5090
+  pays for itself) and the quantization choice (GPTQ/AWQ-style calibration
+  at int4 g128, or NVFP4's QAT body).
+- Phase 2: fused GDN step (the 4.4 ms of small kernels), attention decode
+  over the live length instead of a bucket, fused sampling.
 - Phase 1b: engine-correctness gate against HF (per-layer first), quality
   table, quantization choice.
