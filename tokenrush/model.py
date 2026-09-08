@@ -472,20 +472,15 @@ class Engine:
         return logits
 
     @torch.no_grad()
-    def prefill_hidden(self, tokens: torch.Tensor, chunk: int = 4096):
-        """Chunked prefill that keeps the post-final-norm hidden of every position (the
-        MTP head's prompt input) and applies lm_head to the last one only.
-        Returns (logits [1, vocab], hidden [T, hidden])."""
-        hs = []
-        for s in range(0, tokens.shape[0], chunk):
-            t = tokens[s:s + chunk]
-            assert self.state.pos + t.shape[0] <= self.state.max_len, "context exceeds the preallocated cache"
-            hs.append(self._body(t, all_logits=True, no_head=True))
-            self.state.slot.zero_(); self.state.slot_h = 0
-            self.state.advance(t.shape[0])
-        hidden = torch.cat(hs)
-        self.last_hidden = hidden[-1:]
-        return self.w.lm_head(hidden[-1:]), hidden
+    def forward_hidden(self, tokens: torch.Tensor) -> torch.Tensor:
+        """Eager prefill of one chunk returning the post-final-norm hidden of every
+        position [T, hidden] (the MTP head's prompt input), no lm_head. Advances the state."""
+        assert self.state.pos + tokens.shape[0] <= self.state.max_len, "context exceeds the preallocated cache"
+        h = self._body(tokens, all_logits=True, no_head=True)
+        self.state.slot.zero_(); self.state.slot_h = 0
+        self.state.advance(tokens.shape[0])
+        self.last_hidden = h[-1:]
+        return h
 
     def decode(self, token: torch.Tensor) -> torch.Tensor:
         return self.forward(token.view(1))

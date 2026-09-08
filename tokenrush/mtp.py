@@ -102,10 +102,11 @@ class MTPHead:
         return hn
 
     @torch.no_grad()
-    def forward(self, next_tokens: torch.Tensor, target_hidden: torch.Tensor):
+    def forward(self, next_tokens: torch.Tensor, target_hidden: torch.Tensor, logits: bool = True):
         """next_tokens [T], target_hidden [T, hidden] (post-final-norm, one position earlier)
-        -> (logits [T, vocab], normed hidden [T, hidden]). Block positions are state.pos..;
-        advances the cache by T."""
+        -> (logits [T, vocab] or None, normed hidden [T, hidden]). Block positions are
+        state.pos..; advances the cache by T. logits=False for the prompt pass, whose only
+        purpose is filling the cache (T x vocab logits would be gigabytes at long context)."""
         cfg = self.cfg
         e = ops.rmsnorm(self.embed[next_tokens], self.w.pre_norm_emb, cfg.eps)
         h = ops.rmsnorm(target_hidden, self.w.pre_norm_hidden, cfg.eps)
@@ -117,4 +118,4 @@ class MTPHead:
         x = x + mlp_forward(n, lw)
         self.state.advance(next_tokens.shape[0])
         hn = ops.rmsnorm(x, self.w.norm, cfg.eps)
-        return self.lm_head(hn), hn
+        return (self.lm_head(hn) if logits else None), hn

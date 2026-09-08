@@ -34,7 +34,7 @@ def generate_spec(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=T
     nxt = logits[-1].argmax()
     engine.tok.copy_(nxt.view(1))
     mtp.set_pos(1)
-    mtp.forward(ids[1:], H[:-1])                        # rows 1..T-1
+    mtp.forward(ids[1:], H[:-1], logits=False)          # rows 1..T-1
     pending = (nxt.view(1), H[-1:])                     # the pair for row T: (t, h_{T-1})
     torch.cuda.synchronize()
     t_prefill = time.perf_counter() - t0
@@ -148,15 +148,21 @@ def prime_spec(engine, mtp, prompt_ids, chunk=4096):
     engine.reset()
     mtp.reset()
     ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
-    logits, H = engine.prefill_hidden(ids, chunk=chunk)
     T = ids.numel()
-    from .sample import sample
-    nxt = sample(logits[-1:], engine.sampling)[0]
-    engine.tok.copy_(nxt.view(1))
+    # chunk by chunk: the target's hiddens for a chunk feed the MTP rows of the same
+    # chunk (pair (ids[p], H[p-1]) at row p), carrying one hidden across the boundary
     mtp.set_pos(1)
-    for s in range(1, T, chunk):                            # MTP rows 1..T-1: pairs (ids[p], H[p-1])
+    prev_last = None
+    for s in range(0, T, chunk):
         e = min(T, s + chunk)
-        mtp.forward(ids[s:e], H[s - 1:e - 1])
+        H = engine.forward_hidden(ids[s:e])                 # [e-s, hidden]
+        Hp = H[:-1] if prev_last is None else torch.cat([prev_last, H[:-1]])
+        if Hp.shape[0]:
+            mtp.forward(ids[s + (1 if prev_last is None else 0):e], Hp, logits=False)
+        prev_last = H[-1:]
+    from .sample import sample
+    nxt = sample(engine.w.lm_head(prev_last), engine.sampling)[0]
+    engine.tok.copy_(nxt.view(1))
     engine.n_accepted.zero_()
-    engine.spec_hidden[0].copy_(H[-1])                      # row 0 pairs with tok at MTP row T
+    engine.spec_hidden[0].copy_(prev_last[0])               # row 0 pairs with tok at MTP row T
     return nxt, T

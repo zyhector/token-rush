@@ -15,3 +15,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 14,2026-09-08,Phase 3 step 4: MTP chain in graph + int4 head + adaptive depth 3:4: 183/254/258 effective,102.2,82,9.78,1500
 15,2026-09-08,speculation is the default decode (chunked hidden prefill; bounds; fp8 ok),102.2,82,9.78,1500
 16,2026-09-08,speculative sampling (exact): 167/237/239 at T=0.7,102.2,82,9.78,1500
+17,2026-09-08,spec vs context on real text: prose 174 / code 197 at 200k (raw 68),102.2,82,9.78,1500

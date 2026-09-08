@@ -138,6 +138,24 @@ def _gdn_step_fused_kernel(qkvz_ptr, x_ptr, ba_w_ptr, ring_ptr, convw_ptr, A_ptr
     QKVZ: tl.constexpr = 2 * QK_DIM + 2 * VAL_DIM
     p_tile = i_hv * K * V + o_k[:, None] * V + o_v[None, :]
     h = tl.load(rec_ptr + tl.load(slot_ptr) * rec_slot_stride + p_tile)
+    # b and a gate projections for all M tokens in one vectorized pass (they do not
+    # depend on the recurrence), fp32 accumulate, one rounding to bf16 as cuBLAS did
+    MP: tl.constexpr = 8
+    mi = tl.arange(0, MP)
+    mmask = mi < M
+    b_all = tl.zeros([MP], dtype=tl.float32)
+    a_all = tl.zeros([MP], dtype=tl.float32)
+    for h0 in tl.static_range(0, HIDDEN, BLOCK_H):
+        hh = h0 + tl.arange(0, BLOCK_H)
+        xb = tl.load(x_ptr + mi[:, None] * HIDDEN + hh[None, :], mask=mmask[:, None], other=0.0).to(tl.float32)   # [MP, BLOCK_H]
+        wb = tl.load(ba_w_ptr + i_hv * HIDDEN + hh).to(tl.float32)
+        wa = tl.load(ba_w_ptr + (HV + i_hv) * HIDDEN + hh).to(tl.float32)
+        b_all += tl.sum(xb * wb[None, :], axis=1)
+        a_all += tl.sum(xb * wa[None, :], axis=1)
+    b_all = b_all.to(tl.bfloat16).to(tl.float32)
+    a_all = a_all.to(tl.bfloat16).to(tl.float32)
+    A_h = tl.load(A_ptr + i_hv)
+    dtb_h = tl.load(dtb_ptr + i_hv)
     for i in tl.static_range(M):
         c3 = (pos + i) % R
         c0 = (pos + i + R - 3) % R
@@ -147,17 +165,10 @@ def _gdn_step_fused_kernel(qkvz_ptr, x_ptr, ba_w_ptr, ring_ptr, convw_ptr, A_ptr
         q = _conv_ring(row, ring_ptr, convw_ptr, i_h * K + o_k, c0, c1, c2, c3, R)
         k = _conv_ring(row, ring_ptr, convw_ptr, QK_DIM + i_h * K + o_k, c0, c1, c2, c3, R)
         v = _conv_ring(row, ring_ptr, convw_ptr, 2 * QK_DIM + i_hv * V + o_v, c0, c1, c2, c3, R)
-        b = tl.zeros([BLOCK_H], dtype=tl.float32)
-        a = tl.zeros([BLOCK_H], dtype=tl.float32)
-        for h0 in tl.static_range(0, HIDDEN, BLOCK_H):
-            hh = h0 + tl.arange(0, BLOCK_H)
-            xb = tl.load(x_ptr + i * HIDDEN + hh).to(tl.float32)
-            b += xb * tl.load(ba_w_ptr + i_hv * HIDDEN + hh).to(tl.float32)
-            a += xb * tl.load(ba_w_ptr + (HV + i_hv) * HIDDEN + hh).to(tl.float32)
-        b = tl.sum(b).to(tl.bfloat16).to(tl.float32)
-        a = tl.sum(a).to(tl.bfloat16).to(tl.float32)
+        b = tl.sum(tl.where(mi == i, b_all, 0.0))
+        a = tl.sum(tl.where(mi == i, a_all, 0.0))
         beta = (1.0 / (1.0 + tl.exp(-b))).to(tl.bfloat16).to(tl.float32)   # HF: b.sigmoid() in bf16
-        g = tl.load(A_ptr + i_hv) * _softplus(a + tl.load(dtb_ptr + i_hv))
+        g = A_h * _softplus(a + dtb_h)
         q = q / tl.sqrt(tl.sum(q * q) + 1e-6) * scale
         k = k / tl.sqrt(tl.sum(k * k) + 1e-6)
         h = h * tl.exp(g)
