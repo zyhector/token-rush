@@ -1,10 +1,15 @@
 # Environment
 
-The machine Token Rush is being built on. Measured 2026-09-04.
+The machine Phase 0 was measured on (vast **94372**), 2026-09-04. Every
+"% of wall" claim in the project is relative to the 1701 GB/s recorded here.
 
-Re-run the scripts in `scripts/env_check/` on any new instance and update this
-file — every "% of wall" claim in the project is relative to the bandwidth
-recorded here.
+**This file is not re-run per development instance** (decision of
+2026-09-08). Instances are disposable and the engine is built on whichever
+5090 is rented at the time; the Phase 0 numbers below stand until Phase 4,
+which re-runs `scripts/env_check/`, every rival and the engine on the final
+benchmark machine and replaces this file's measurements with that machine's.
+Development-time engine numbers are provisional and are quoted against the
+wall recorded here.
 
 ## Instance
 

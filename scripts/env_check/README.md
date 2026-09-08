@@ -1,7 +1,10 @@
 # env_check
 
-"Is this box usable?" — run once on a newly rented GPU instance, then get on
-with the project.
+"Is this box usable?" — run on the machine whose numbers get reported. It
+was run once on the Phase 0 machine (94372, `docs/environment.md`) and is run
+again in Phase 4 on the final benchmark machine. It is **not** run on every
+development instance in between; those measurements are not re-taken until
+there is an engine to measure alongside them.
 
 These are deliberately **not** in `bench/`. `bench/` measures the engine — tok/s,
 acceptance rate, time-to-first-token — against the real model. Nothing here

@@ -165,14 +165,21 @@ works" risk.
 | 1 (2 wk) | Clean PyTorch reference for the text path (GDN via `fla`), bf16 path passing the engine-correctness gate against HF; pick quantization at ≤4.25 bpw (NVFP4 or int4 groupwise) and pass the quantization-quality gate | Correctness baseline + quality table + first speed number |
 | 2 (3–4 wk) | Own kernels, in payoff order: full-step CUDA graph first, then fused GDN single step, attention decode, fused sampling; GEMV last and only if measurement demands it | Raw decode near the wall |
 | 3 (2–3 wk) | Speculation fused into the graph: MTP chain/tree vs 4-bit DSpark, acceptance-driven dynamic depth; greedy speculative output identical to greedy raw output | Effective-throughput headline |
-| 4 | Fair benchmark matrix + writeup | Report and blog post |
+| 4 (1 wk) | **Final measurement, on one machine, in one sitting**: re-run `scripts/env_check/` to re-anchor the wall, re-run every rival from the recipes in `docs/baselines.md`, measure the engine on the same day; only then the fair benchmark matrix and writeup | The numbers that get reported |
 
 ## Scope
 
 One model, one quantization, one card, bs=1, greedy/top-p, text path. Nothing else.
 
-Environment is provisioned and validated — RTX 5090 (vast machine 94372), driver
-610 / CUDA 13.3, torch 2.14+cu130, CUDA graph capture confirmed on `sm_120`.
+**Phase 0 was measured on vast machine 94372 (RTX 5090, driver 610 / CUDA
+13.3, torch 2.14+cu130, CUDA graph capture confirmed on `sm_120`), and those
+numbers stand as recorded.** Development instances come and go (nothing on a
+vast instance persists), and the Phase 0 measurements are **not** repeated on
+each new one: a re-run buys nothing the project needs before it has an engine.
+Until Phase 4, every speed number the engine produces is a development number
+— quoted against the recorded 1701 GB/s wall, good for deciding what to build
+next, not for the report. Phase 4 re-measures the wall, every rival and the
+engine on one machine on one day, and only those numbers are cited.
 Two constraints to plan around: **`fla`'s fused GDN decode kernel is
 miscompiled here** (the chunk kernel is correct and is the Phase 1 reference
 path; the Phase 2 fused step is ours anyway), and **`ncu` hardware counters
