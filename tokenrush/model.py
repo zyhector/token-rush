@@ -204,8 +204,9 @@ class Engine:
     def layer(self, li: int) -> LayerWeights:
         return self.w.layers[li]
 
-    def _body(self, tokens: torch.Tensor, bucket=None, all_logits=False) -> torch.Tensor:
-        """The forward pass without the position bookkeeping."""
+    def _body(self, tokens: torch.Tensor, bucket=None, all_logits=False, no_head=False) -> torch.Tensor:
+        """The forward pass without the position bookkeeping. no_head: return the
+        post-final-norm hidden of every row instead of logits."""
         cfg, st = self.cfg, self.state
         x = self.w.embed[tokens]
         if self.trace is not None:
@@ -239,6 +240,8 @@ class Engine:
                 x, h = x[-1:], h[-1:]
             n = ops.rmsnorm(x + h, self.w.final_norm, cfg.eps)
         self.last_hidden = n                          # post-final-norm, [T or 1, hidden]: the MTP head's input
+        if no_head:
+            return n
         return self.w.lm_head(n)
 
     @torch.no_grad()
@@ -463,6 +466,22 @@ class Engine:
         for s in range(0, tokens.shape[0], chunk):
             logits = self.forward(tokens[s:s + chunk])
         return logits
+
+    @torch.no_grad()
+    def prefill_hidden(self, tokens: torch.Tensor, chunk: int = 4096):
+        """Chunked prefill that keeps the post-final-norm hidden of every position (the
+        MTP head's prompt input) and applies lm_head to the last one only.
+        Returns (logits [1, vocab], hidden [T, hidden])."""
+        hs = []
+        for s in range(0, tokens.shape[0], chunk):
+            t = tokens[s:s + chunk]
+            assert self.state.pos + t.shape[0] <= self.state.max_len, "context exceeds the preallocated cache"
+            hs.append(self._body(t, all_logits=True, no_head=True))
+            self.state.slot.zero_(); self.state.slot_h = 0
+            self.state.advance(t.shape[0])
+        hidden = torch.cat(hs)
+        self.last_hidden = hidden[-1:]
+        return self.w.lm_head(hidden[-1:]), hidden
 
     def decode(self, token: torch.Tensor) -> torch.Tensor:
         return self.forward(token.view(1))

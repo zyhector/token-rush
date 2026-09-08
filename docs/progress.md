@@ -26,6 +26,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 12. Phase 3 step 1: MTP head acceptance rate | 2026-09-08 | + MTP head implemented eagerly (`tokenrush/mtp.py`); chained drafts teacher-forced against the target's greedy: accepted tokens per verify step at depth 3 = 2.58 prose / 3.35 code / 3.50 math | — | — |
 | 13. Phase 3 steps 2–3: verify step in one graph, accept/commit on device | 2026-09-08 | + M-row kernels (tensor-core int4 GEMM, M-token GDN with per-prefix state slots, M-query attention), a graphed verify step per K with device-side accept/commit; eager MTP drafts. K=3 verify = 1.22x a raw step. Spec greedy == raw greedy 200/200 with shared numerics | — | **172 / 212 / 204 effective** (essay / code / math), raw 102 |
 | 14. Phase 3 step 4: MTP draft chain inside the graph, int4 head, adaptive depth | 2026-09-08 | + one graph per depth runs the MTP batched pass over the accepted rows, the chained drafts and the verify; depth = clamp(n_prev+2, 3, 4) | — | **183 / 254 / 258 effective** (essay / code / math), raw 102 |
+| 15. Speculation is the default decode | 2026-09-08 | + `run.py` decodes speculatively by default (`--no-spec` for raw; temperature > 0 falls back to raw until spec sampling lands); chunked prefill keeps every position's hidden for the MTP prompt pass; the loop stops before a step could overrun the cache; works with fp8 KV | — | 154 on a short haiku (2.1 tokens/step), 280 on a 30k needle answer |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -578,14 +579,37 @@ stops at 183 because prose accepts 2.56 tokens per step and each step costs
 rows GEMV: ~2 ms), the K lm_head reads (~1.2 ms), and a tree instead of a
 chain for prose.
 
+## Step 15 — speculation is the default decode (2026-09-08)
+
+`python -m tokenrush.run` now loads the MTP head (int4), captures the raw
+graph plus spec graphs for depths 3..4, and generates through
+`generate_spec_graph`; `--no-spec` keeps the raw path, `--spec-depth
+Kmin:Kmax` sets the range. Temperature > 0 falls back to the raw sampled
+graph until speculative sampling exists (next step).
+
+Plumbing that had to change: `Engine.prefill_hidden` prefills in chunks
+while keeping every position's post-norm hidden (the MTP head's prompt
+input) and applies `lm_head` only to the last row — the earlier one-shot
+`forward(all_logits=True)` would have built 15 GB of logits for a 30k prompt;
+`prime_spec` runs the MTP prompt pass in chunks too; the loop stops when a
+step of up to Kmax+1 tokens would overrun the cache (checked on the real
+model at max_len - 6: stops at 8190 of 8192); eos inside an accepted chain
+truncates the output at the stop token.
+
+Checked: chat streaming (haiku prompt: 154 tok/s at 2.1 accepted per step —
+short, low-acceptance text), the 30k needle with fp8 KV through the spec
+path (retrieved, 4.3 accepted per step on the predictable answer), sampled
+fallback, and the max_len edge. 36 tests.
+
 ## Next
 
-- **Phase 3**, steps 1–4 done: 183 / 254 / 258 tok/s effective. Remaining
-  Phase 3 items: shave the verify overhead (1.22x -> ~1.1x: GDN M-token loop,
-  rows GEMV tuning), fewer lm_head reads per chain, a draft tree for prose
-  (needs a tree mask in attention), and speculative sampling for temperature
-  > 0 (today's spec path is greedy only). Then `run.py` gets the spec path as
-  its default decode.
+- **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
+  258 tok/s effective. Remaining, in order: speculative sampling for
+  temperature > 0 (sample at each verify position, accept a draft only when
+  it equals the sample: exact, simple); spec at 200k context (the
+  feasibility row); verify overhead 1.22x -> ~1.1x (GDN M-token loop, rows
+  GEMV tuning); a truncated-vocab lm_head for drafting; a draft tree for
+  prose; DSpark as an alternative draft.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are

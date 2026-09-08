@@ -97,20 +97,10 @@ def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, st
     dev = engine.device
     Ks = list(range(dynamic[0], dynamic[1] + 1)) if dynamic else [K]
     assert all(("spec", k) in engine.spec_graphs for k in Ks)
-    engine.reset()
-    mtp.reset()
-    ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
+    kmax = max(Ks)
     torch.cuda.synchronize()
     t0 = time.perf_counter()
-    logits = engine.forward(ids, all_logits=True)          # eager prefill with all hiddens
-    H = engine.last_hidden
-    T = ids.numel()
-    nxt = logits[-1].argmax()
-    engine.tok.copy_(nxt.view(1))
-    mtp.set_pos(1)
-    mtp.forward(ids[1:], H[:-1])                            # MTP rows 1..T-1 (eager)
-    engine.n_accepted.zero_()
-    engine.spec_hidden[0].copy_(H[-1])                      # row 0 pairs with tok at MTP row T
+    nxt, T = prime_spec(engine, mtp, prompt_ids, chunk)
     torch.cuda.synchronize()
     t_prefill = time.perf_counter() - t0
 
@@ -121,6 +111,8 @@ def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, st
     t1 = time.perf_counter()
     while len(out) < max_new:
         k = min(max(n + 2, dynamic[0]), dynamic[1]) if dynamic else K     # n=0 -> Kmin.., n>=2 -> deeper
+        if engine.state.pos + kmax + 1 > engine.state.max_len:             # a step processes up to K+1 tokens
+            break
         depth_hist[k] = depth_hist.get(k, 0) + 1
         n = engine.spec_step(k)
         steps += 1
@@ -144,3 +136,23 @@ def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, st
                  "decode_tok_s": len(out) / t_dec, "verify_steps": steps,
                  "accepted_per_step": len(out) / max(steps, 1), "ms_per_step": t_dec / max(steps, 1) * 1e3,
                  "depths": depth_hist}
+
+
+def prime_spec(engine, mtp, prompt_ids, chunk=4096):
+    """Prefill the engine (chunked, keeping every position's hidden), run the MTP head over
+    the prompt rows, and set up the spec-step inputs. Returns (first token, prompt length)."""
+    dev = engine.device
+    engine.reset()
+    mtp.reset()
+    ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
+    logits, H = engine.prefill_hidden(ids, chunk=chunk)
+    T = ids.numel()
+    nxt = logits[-1].argmax()
+    engine.tok.copy_(nxt.view(1))
+    mtp.set_pos(1)
+    for s in range(1, T, chunk):                            # MTP rows 1..T-1: pairs (ids[p], H[p-1])
+        e = min(T, s + chunk)
+        mtp.forward(ids[s:e], H[s - 1:e - 1])
+    engine.n_accepted.zero_()
+    engine.spec_hidden[0].copy_(H[-1])                      # row 0 pairs with tok at MTP row T
+    return nxt, T

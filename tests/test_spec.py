@@ -49,3 +49,23 @@ def test_spec_graph_matches_raw_greedy():
         tok_prev = int(eng.tok)
     # out[0] is toks[-1] itself (the committed token), then the generated ones
     assert out[1:17] == ref[:16], (out[1:17], ref[:16])
+
+
+def test_spec_loop_respects_max_len():
+    """A step processes up to Kmax+1 tokens; the loop must stop before the cache ends."""
+    from tokenrush.spec import generate_spec_graph
+    w = random_weights(CFG, "triton")
+    eng = Engine(CFG, w, max_len=64, fused=True, max_spec=3)
+    eng.capture()
+    mtp = MTPHead(CFG, _random_mtp(CFG), w.embed, w.lm_head, 64)
+    eng.attach_mtp(mtp)
+    for k in (3,):
+        eng.capture_spec(k)
+
+    class _Tok:                      # minimal tokenizer stand-in for the loop's decode calls
+        def decode(self, ids):
+            return ""
+    ids = torch.randint(0, CFG.vocab, (58,)).tolist()
+    out, st = generate_spec_graph(eng, mtp, _Tok(), ids, 100, set(), K=3, stream=False, dynamic=None)
+    # stops exactly when the next step (up to 4 tokens) would not fit
+    assert eng.state.pos <= 64 and eng.state.pos + 4 > 64 and st["verify_steps"] >= 1
