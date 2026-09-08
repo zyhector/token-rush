@@ -83,13 +83,13 @@ class Linear:
 # The winners of a 108-config sweep over the model's six decode shapes
 # (scripts/gemv_shootout, bench/decode.py --profile); a full sweep costs
 # 15 s on lm_head alone, this handful costs under a second per shape.
+# Re-picked with an L2-proof sweep (cycling >400 MB of weight copies, since the
+# autotuner's own timing keeps a 30-90 MB matrix resident in the 96 MB L2).
 _GEMV_CONFIGS = [
-    triton.Config({"BLOCK_N": 8, "BLOCK_K": 1024}, num_warps=4, num_stages=3),    # lm_head 248320x5120
-    triton.Config({"BLOCK_N": 8, "BLOCK_K": 1024}, num_warps=4, num_stages=4),    # qkv 14336x5120
-    triton.Config({"BLOCK_N": 8, "BLOCK_K": 1024}, num_warps=8, num_stages=2),    # out 5120x6144
-    triton.Config({"BLOCK_N": 8, "BLOCK_K": 1024}, num_warps=8, num_stages=3),    # down 5120x17408
-    triton.Config({"BLOCK_N": 16, "BLOCK_K": 1024}, num_warps=4, num_stages=4),   # gate_up 34816x5120
-    triton.Config({"BLOCK_N": 32, "BLOCK_K": 512}, num_warps=4, num_stages=4),    # in_qkvz 16384x5120
+    triton.Config({"BLOCK_N": 8, "BLOCK_K": 1024}, num_warps=4, num_stages=3),    # lm_head 248320x5120 (99%)
+    triton.Config({"BLOCK_N": 8, "BLOCK_K": 512}, num_warps=2, num_stages=2),     # qkv 14336x5120 (87%)
+    triton.Config({"BLOCK_N": 8, "BLOCK_K": 256}, num_warps=2, num_stages=3),     # in_qkvz 16384x5120 (87%)
+    triton.Config({"BLOCK_N": 16, "BLOCK_K": 1024}, num_warps=4, num_stages=2),   # gate_up 34816x5120 (93.5%)
 ]
 
 
@@ -134,9 +134,10 @@ def int4_gemv(x, packed, scale, mn):
 # K range is cut into SPLIT_K pieces, each program writes an fp32 partial row
 # block, and the consumer (fused add+RMSNorm) sums the partials as it reads
 # them, so the reduction costs no launch.
-_SPLITK_CONFIGS = [
-    triton.Config({"BLOCK_N": bn, "BLOCK_K": bk}, num_warps=nw, num_stages=ns)
-    for bn in (8, 16) for bk in (512, 1024) for nw in (4, 8) for ns in (2, 3, 4)]
+_SPLITK_CONFIGS = [                                                              # L2-proof sweep picks
+    triton.Config({"BLOCK_N": 8, "BLOCK_K": 512}, num_warps=4, num_stages=2),     # out/o 5120x6144 (80.5%)
+    triton.Config({"BLOCK_N": 8, "BLOCK_K": 512}, num_warps=4, num_stages=3),     # down 5120x17408 (91%)
+]
 
 
 @triton.autotune(configs=_SPLITK_CONFIGS, key=["N", "K", "SPLIT_K"])

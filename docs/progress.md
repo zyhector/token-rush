@@ -21,6 +21,8 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 7. Phase 2: fused attention decode | 2026-09-08 | + prep kernel (q/k norm, rope, KV write) and a flash-decoding kernel over the live length with the output gate in its reduce; no context buckets, one graph | 1500 | **99.5** (80% of wall) |
 | 8. Phase 2: b\|a folded into the GDN kernel, split-K GEMV for the hidden-sized outputs | 2026-09-08 | + no cuBLAS launches left in the step; out/o/down projections at split-K 4 write fp32 partials that the fused add+RMSNorm sums | 1500 | **102.5** (82% of wall) |
 | 9. Phase 2: FP8 KV cache + own prefill attention kernel | 2026-09-08 | + e4m3 cache with per-(head, token) scales; prep/decode kernels read it; a Triton flash-attention prefill kernel replaces SDPA for fp8. **256k usable**: needle at 128k and 256k; decode at 200k = 69.2 tok/s, 82.6% of wall | 1160–1640 at 128k–256k | 101.9 short, **69.2 at 200k** |
+| 10. Phase 2: sampling in graph | 2026-09-08 | + temperature / top-k / top-p on a fixed top-64 candidate set, branch-free, parameters as device tensors | 1500 | 101.9 (no change) |
+| 11. Phase 2: GEMV config re-pick (L2-proof sweep) | 2026-09-08 | + configs re-picked with weights cycled through >400 MB; **no measurable change** in the step. Phase 2 closed | 1500 | 102.2 (82% of wall) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -350,8 +352,58 @@ greedy equals argmax exactly; top-k/top-p masks hold; empirical frequencies
 match the truncated softmax within 2%; in-graph replay samples valid tokens
 and two seeds differ.
 
+## Step 11 — GEMV config re-pick, and Phase 2 closed (2026-09-08)
+
+Suspicion: Triton's autotuner times each config on the same inputs, so a
+30–90 MB layer matrix sits in the 96 MB L2 during tuning and the picks are
+"L2-optimal", while `lm_head` (675 MB, cannot be resident) is the one shape
+at 99%. An L2-proof sweep (cycling >400 MB of weight copies per shape, 240
+configs per wide shape, 54 per split-K shape) found the pinned wide-shape
+configs within 0.4–1.3 points of the best and the split-K shapes 2–3 points
+short. Re-pinned all of them (`_GEMV_CONFIGS`, `_SPLITK_CONFIGS`).
+
+Whole-step result: 102.2 tok/s vs 102.5 before, 8.85 vs 8.90 ms of GEMV time
+— inside noise. The isolated gains do not survive interleaving with the
+rest of the step. What holds the layer matrices at 87–93% (vs 99% on
+`lm_head`) is the kernel's structure — one program streams a few rows
+through the whole K with a sequential loop — not its parameters. A
+different design (wider per-program tiles with more loads in flight, or a
+cooperative reduction over K) is the remaining GEMV headroom, worth ~0.5 ms
+= 5 tok/s, and it is the "do not start by chasing the last 5%" item in
+`docs/feasibility.md`. Left for after Phase 3.
+
+### Phase 2 close-out
+
+| | |
+|---|---|
+| decode, short context | **102.2 tok/s**, 9.78 ms/step, **82% of the wall** (ceiling 124.6 at 4.25 bpw) |
+| decode at 200k, fp8 KV | **69.2 tok/s**, 82.6% of the wall (ceiling 83.8) |
+| context | **256k usable**: needle at 128k and 256k, 26 GB peak |
+| launches per step | ~600 (was ~2500): 257 GEMVs, 129 norms, 48 GDN, 64 silu, 48 attention, ~10 sampling |
+| where the step goes | GEMVs 8.85 ms (91%), everything else 0.93 ms |
+| correctness | bf16 path 48/48 greedy tokens vs HF; every fused kernel differential-tested; graph replay bit-exact vs eager |
+
+Against the plan's Phase 2 list (`CLAUDE.md`): full-step graph, fused GDN
+step, attention decode, fused sampling — all done; GEMV "last and only if
+measurement demands it" — measured, and it demands a redesign rather than
+tuning, deferred. The raw-decode target (110–120 tok/s, 90–95% of the
+wall) is not met: 82%. The gap is the GEMV kernel (~5 tok/s) and, beyond
+that, bytes: the quality table (Phase 1b) decides whether 4.0 bpw is
+allowed, which alone is worth +7 tok/s of ceiling.
+
+Rivals, same yardstick, Phase 0 numbers: llama.cpp 78% / 82.8 tok/s, vLLM
+88% (~76% recounted) / 80.0, SGLang 70% / 63.2, ExLlamaV3 60% / 77.0; at
+200k: vLLM 61.0, SGLang 49.9, llama.cpp 44.3. Token Rush raw decode is now
+the fastest in absolute tok/s at short and long context, on fewer bytes;
+the rivals' speculative modes (104–205 tok/s) are what Phase 3 is for.
+
 ## Next
 
+- **Phase 3**: speculation inside the graph. The MTP head is packed in the
+  checkpoint (`load_packed(..., with_mtp=True)`); first measure its
+  acceptance rate on prose / code / math, then a K-token verify step in one
+  graph (the GDN step kernel needs a T=K variant; the attention prep/decode
+  kernels a K-query variant), then chain/tree drafting with dynamic depth.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are
