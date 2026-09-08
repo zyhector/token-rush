@@ -246,6 +246,19 @@ HF's token in our top-5 48/48, same divergence step. Tests cover short and
 long (2100+) contexts where all splits are active and the last block is
 partial.
 
+Decode vs. context (`bench/decode.py --context N`, bf16 KV, 32k cache;
+bytes per step = weights + live KV at 64 KB/token):
+
+| context | ms/step | tok/s | ceiling | % of wall |
+|---|---|---|---|---|
+| 0 | 10.05 | 99.5 | 124.6 | 79.9% |
+| 22k | 10.93 | 91.5 | 112.7 | 81.2% |
+| 30k | 11.26 | 88.8 | 108.9 | 81.5% |
+
+Flat, slightly rising: the attention kernel keeps up with the KV read, as
+SGLang's and vLLM's do (llama.cpp's falls 17 points over this range). Needle
+retrieval passes at 5k and 30k tokens through the fused path.
+
 The step is now the GEMVs plus 1 ms. What is left inside Phase 2: fold the
 b|a projection into the GDN kernel (0.2 ms), split-K for the two 5120-row
 GEMV shapes (they run at 74–81% against 90%+ for the wide ones: ~0.5 ms),

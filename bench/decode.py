@@ -29,6 +29,7 @@ def main():
     ap.add_argument("--max-len", type=int, default=8192)
     ap.add_argument("--profile", action="store_true")
     ap.add_argument("--eager", action="store_true", help="eager decode instead of graph replay")
+    ap.add_argument("--context", type=int, default=0, help="prefill this many random tokens first")
     a = ap.parse_args()
 
     cfg, w, _ = load_packed(a.model, backend=a.backend)
@@ -39,6 +40,8 @@ def main():
         print(f"captured graphs for buckets {sorted(eng.graphs)} in {time.perf_counter() - t0:.1f}s")
     print(f"weights {w.nbytes / 1e9:.2f} GB, cuda allocated {torch.cuda.memory_allocated() / 1e9:.2f} GB")
     prompt = torch.tensor([760, 6511, 314, 9338, 369], device="cuda")   # "The capital of France is"
+    if a.context:
+        prompt = torch.cat([torch.randint(1000, 200000, (a.context,), device="cuda"), prompt])
     torch.cuda.synchronize()
     t0 = time.perf_counter()
     logits = eng.prefill(prompt)
@@ -59,7 +62,8 @@ def main():
     torch.cuda.synchronize()
     dt = (time.perf_counter() - t0) / a.steps
     read = w.nbytes - w.embed.numel() * w.embed.element_size()   # the embedding table is not streamed
-    print(f"decode: {dt * 1e3:.2f} ms/step = {1 / dt:.1f} tok/s   ({read / 1e9:.2f} GB read per step -> "
+    read += eng.state.pos * len(cfg.attn_layers) * 2 * cfg.n_kv_heads * cfg.head_dim * eng.state.k.element_size()   # live KV
+    print(f"decode at context {eng.state.pos}: {dt * 1e3:.2f} ms/step = {1 / dt:.1f} tok/s   ({read / 1e9:.2f} GB read per step -> "
           f"{read / dt / 1e9:.0f} GB/s, {read / dt / 1e9 / 1701 * 100:.1f}% of the wall; ceiling {1701e9 / read:.1f} tok/s)")
     print(f"peak cuda {torch.cuda.max_memory_allocated() / 1e9:.2f} GB")
 
