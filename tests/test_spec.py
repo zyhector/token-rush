@@ -128,3 +128,25 @@ def test_spec_graph_with_fp8_mtp_cache_runs():
     # fp8 drafts need not equal bf16 drafts (rounding), but the first one usually does on a
     # peaked random head; at minimum they are valid tokens
     assert all(0 <= d < CFG.vocab for d in drafts[torch.float8_e4m3fn])
+
+
+def test_draft_vocab_restricts_drafts():
+    """With a draft vocabulary the drafted ids come from the subset; the committed tokens
+    still equal raw greedy (drafts never touch the output)."""
+    w = random_weights(CFG, "triton")
+    eng = Engine(CFG, w, max_len=128, fused=True, max_spec=3, consistent=True)
+    eng.capture()
+    mtp = MTPHead(CFG, _random_mtp(CFG), w.embed, w.lm_head, 128)
+    subset = torch.arange(0, CFG.vocab, 4, device=DEV)        # every 4th id
+    eng.attach_mtp(mtp, draft_vocab=subset)
+    eng.capture_spec(3)
+    toks = torch.randint(0, CFG.vocab, (12,), device=DEV)
+    ref = _raw_greedy(eng, toks, 12)
+    from tokenrush.spec import prime_spec
+    prime_spec(eng, mtp, toks.tolist())
+    out, tok_prev = [], int(toks[-1])
+    for _ in range(6):
+        n = eng.spec_step(3)
+        assert all(int(d) % 4 == 0 for d in eng.drafts[:3])
+        out.extend([tok_prev] + eng.drafts[:n].tolist()); tok_prev = int(eng.tok)
+    assert out[1:13] == ref[:len(out[1:13])]

@@ -18,3 +18,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 17,2026-09-08,spec vs context on real text: prose 174 / code 197 at 200k (raw 68),102.2,82,9.78,1500
 18,2026-09-08,fp8 cache for the MTP head: prose 180 / code 199 at 200k,102.2,82,9.78,1500
 19,2026-09-08,rows-GEMM config re-pick (neutral; verify 1.20x is structural),102.2,82,9.78,1500
+20,2026-09-08,truncated 64k draft vocabulary: 192/256/267 effective,102.2,82,9.78,1500

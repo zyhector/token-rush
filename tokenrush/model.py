@@ -306,12 +306,30 @@ class Engine:
 
     # ------------------------------------------------- speculative step
 
-    def attach_mtp(self, mtp):
-        """The MTP head whose draft chain runs inside the spec graph."""
+    def attach_mtp(self, mtp, draft_vocab: torch.Tensor = None):
+        """The MTP head whose draft chain runs inside the spec graph.
+        draft_vocab: optional [N] tensor of token ids; the drafts' lm_head is then the
+        N rows of lm_head for those ids (int4 rows gathered), so each draft argmax reads
+        N/vocab of the full head. A token outside the subset can never be drafted (it is
+        simply rejected), so this trades a little acceptance for ~0.6 GB less read per
+        draft; the output is unaffected."""
         self.mtp = mtp
         K = self.max_spec
         self.drafts = torch.zeros(max(K, 1), device=self.device, dtype=torch.long)
         self.draft_hidden = torch.empty(1, self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
+        if draft_vocab is None:
+            self.draft_head, self.draft_map = self.w.lm_head, None
+        else:
+            ids = draft_vocab.to(self.device)
+            h = self.w.lm_head
+            assert isinstance(h, QLinear) and h.qweight is not None, "draft vocab needs the int4 lm_head"
+            self.draft_head = QLinear(h.qweight.index_select(0, ids), h.scale.index_select(0, ids),
+                                      h.mn.index_select(0, ids), backend=h.backend)
+            self.draft_map = ids
+
+    def _draft_argmax(self, h: torch.Tensor) -> torch.Tensor:
+        d = self.draft_head(h).argmax(-1)
+        return d if self.draft_map is None else self.draft_map.index_select(0, d)
 
     def _spec_step(self, K: int):
         """Draft chain + verify in one shape-static step. Enters with: tok = the token
@@ -333,13 +351,13 @@ class Engine:
         mtp.state.pos_t.copy_(st.pos_t - n)                                   # MTP row of d_1 .. is pos-n
         hn = mtp.hidden_rows(toks_a, self.spec_hidden[:K + 1])                # [K+1, hidden]
         h_sel = hn.index_select(0, n)                                         # row n: after (tok, h_{pos-1})
-        d = self.w.lm_head(h_sel).argmax(-1)                                  # d'_1
+        d = self._draft_argmax(h_sel)                                         # d'_1
         mtp.state.pos_t.copy_(st.pos_t + 1)                                   # chain rows pos+1 ..
         new_drafts = [d]
         for _ in range(K - 1):
             hn = mtp.hidden_rows(d, h_sel)
             h_sel = hn
-            d = self.w.lm_head(h_sel).argmax(-1)
+            d = self._draft_argmax(h_sel)
             new_drafts.append(d)
         self.drafts[:K].copy_(torch.cat(new_drafts))
         # C. verify
