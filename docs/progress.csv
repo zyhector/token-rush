@@ -1,0 +1,8 @@
+step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
+1,2026-09-08,environment + weights,,,,
+2,2026-09-08,skeleton runs (int4 RTN; dequant-then-matmul),3.2,2.6,312,1490
+3,2026-09-08,own Triton int4 GEMV; fused projections (eager),36.0,29,27.7,1500
+4,2026-09-08,whole-step CUDA graph,68.4,55,14.62,1500
+5,2026-09-08,engine-correctness gate vs HF (no speed change),68.4,55,14.62,1500
+6,2026-09-08,fused GDN step + fused add/RMSNorm,83.2,67,12.02,1500
+7,2026-09-08,fused attention decode (flash-decoding),99.5,80,10.05,1500
