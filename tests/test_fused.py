@@ -62,12 +62,115 @@ def test_gdn_step_fused_matches_ops_over_steps():
             y_ops = gdn_forward(xs[t:t + 1], w, cfg, s_ops, 0, fused=False)
             qkvz = w.in_qkvz(xs[t:t + 1])
             y_f = w.out(fused.gdn_step_fused(qkvz, xs[t:t + 1], w.in_ba, s_fused.conv[0], w.conv_w, w.A, w.dt_bias,
-                                             s_fused.rec[0], w.norm_w, s_fused.pos_t, cfg, cfg.eps, BV=BV))
+                                             s_fused.rec[:, 0], s_fused.slot, w.norm_w, s_fused.pos_t, cfg, cfg.eps, BV=BV))
             s_ops.advance(1); s_fused.advance(1)
             assert torch.isfinite(y_f).all()
             assert rel(y_f, y_ops) < 2e-2, (BV, t, rel(y_f, y_ops))
             torch.testing.assert_close(s_fused.conv, s_ops.conv, rtol=0, atol=0)
             assert rel(s_fused.rec, s_ops.rec) < 1e-3, (BV, t, rel(s_fused.rec, s_ops.rec))
+
+
+def test_gdn_multi_token_step_matches_sequential():
+    """An M-token fused step equals M single-token steps: outputs, ring, and the state
+    snapshot in slot i equals the sequential state after token i."""
+    from tokenrush.state import State
+    cfg, w = _gdn_layer_inputs()
+    M = 5
+    xs = rnd(7 + M, cfg.hidden, std=1.0)
+    s_seq, s_multi = State(cfg, 64, DEV, n_slots=M), State(cfg, 64, DEV, n_slots=M)
+    for st in (s_seq, s_multi):
+        gdn_forward(xs[:7], w, cfg, st, 0)
+        st.advance(7)
+    ys, snaps = [], []
+    for t in range(7, 7 + M):
+        ys.append(gdn_forward(xs[t:t + 1], w, cfg, s_seq, 0, fused=True).sum(0))
+        s_seq.slot.zero_(); s_seq.slot_h = 0                       # single-token steps leave the state in slot 0
+        snaps.append(s_seq.rec[0].clone())
+        s_seq.advance(1)
+    y_multi = gdn_forward(xs[7:7 + M], w, cfg, s_multi, 0, fused=True).sum(0)   # [M, hidden]
+    for i in range(M):
+        assert rel(y_multi[i], ys[i]) < 1e-2, (i, rel(y_multi[i], ys[i]))
+        assert rel(s_multi.rec[i], snaps[i]) < 1e-3, (i, rel(s_multi.rec[i], snaps[i]))   # M-row vs 1-row GEMV rounding
+    assert rel(s_multi.conv, s_seq.conv) < 1e-3                                             # ring holds the GEMV output
+
+
+def test_attention_multi_query_matches_sequential():
+    from tokenrush.model import AttnWeights, attn_forward
+    from tokenrush.quant import Linear
+    from tokenrush.state import State
+    from tokenrush import ops as _ops
+    cfg = CFG
+    w = AttnWeights(qkv=Linear(rnd(cfg.n_heads * cfg.head_dim * 2 + 2 * cfg.n_kv_heads * cfg.head_dim, cfg.hidden)),
+                    o=Linear(rnd(cfg.hidden, cfg.n_heads * cfg.head_dim)),
+                    q_norm_w=rnd(cfg.head_dim, std=0.5), k_norm_w=rnd(cfg.head_dim, std=0.5))
+    max_len = 2048
+    cos, sin = _ops.rope_table(max_len, cfg.rotary_dim, cfg.rope_theta, DEV)
+    for T0 in (5, 1100):
+        M = 5
+        xs = rnd(T0 + M, cfg.hidden, std=1.0)
+        s_seq, s_multi = State(cfg, max_len, DEV), State(cfg, max_len, DEV)
+        for st in (s_seq, s_multi):
+            attn_forward(xs[:T0], w, cfg, st, 0, cos, sin, fused=True)
+            st.advance(T0)
+        ys = []
+        for t in range(T0, T0 + M):
+            ys.append(attn_forward(xs[t:t + 1], w, cfg, s_seq, 0, cos, sin, fused=True).sum(0))
+            s_seq.advance(1)
+        y_multi = attn_forward(xs[T0:T0 + M], w, cfg, s_multi, 0, cos, sin, fused=True).sum(0)
+        for i in range(M):
+            assert rel(y_multi[i], ys[i]) < 2e-2, (T0, i, rel(y_multi[i], ys[i]))
+        assert rel(s_multi.k[0, :, :T0 + M], s_seq.k[0, :, :T0 + M]) < 1e-3   # M-row vs 1-row GEMV rounding
+
+
+def test_rows_gemv_matches_dequant():
+    from tokenrush.quant import QLinear, quantize_int4
+    for out, inp, sk in ((5120, 6144, 4), (34816, 5120, 1), (1024, 5120, 1)):
+        q, s, m = quantize_int4(rnd(out, inp))
+        x = rnd(5, inp, std=1.0)
+        ref = QLinear(q, s, m, backend="dequant")(x).float()
+        ql = QLinear(q, s, m, backend="triton", split_k=sk)
+        assert rel(ql(x), ref) < 1e-2, (out, inp)
+        parts = ql.partials(x)
+        assert parts.shape[1:] == (5, out) and rel(parts.sum(0), ref) < 1e-2
+
+
+def test_verify_step_matches_sequential_decode_and_commits():
+    """A K-draft verify step: its K+1 logits equal K+1 sequential decode steps' logits
+    (teacher-forced on the same tokens), the accepted count is the leading-match
+    count, and after the commit the engine continues exactly as the sequential one."""
+    w = random_weights(CFG, "triton")
+    K = 3
+    eng = Engine(CFG, w, max_len=256, fused=True, max_spec=K)
+    eng.capture()
+    eng.capture_verify([0, K])
+    ref = Engine(CFG, w, max_len=256, fused=True)
+    ref.capture()
+    toks = torch.randint(0, CFG.vocab, (40,), device=DEV)
+    # reference: teacher-forced sequential greedy logits after a 20-token prefix
+    ref.reset(); ref.forward(toks[:20])
+    seq_logits, seq_argmax = [], []
+    for t in range(20, 20 + K + 1):
+        ref.tok.copy_(toks[t:t + 1]); ref.step()
+        seq_logits.append(ref.logits.clone()); seq_argmax.append(int(ref.logits.argmax()))
+    # verify step on the same K+1 tokens: drafts = toks[21:21+K]; n = leading matches of argmaxes
+    eng.reset(); eng.forward(toks[:20]); eng.tok.copy_(toks[20:21])
+    n = eng.verify(toks[21:21 + K])
+    expect = 0
+    for i in range(K):
+        if seq_argmax[i] == int(toks[21 + i]):
+            expect += 1
+        else:
+            break
+    assert n == expect
+    got = eng.spec_logits[:K + 1].float()
+    for i in range(K + 1):
+        assert rel(got[i], seq_logits[i].float()) < 2e-2, (i, rel(got[i], seq_logits[i].float()))
+    assert int(eng.tok) == seq_argmax[n] and eng.state.pos == 20 + n + 1 and int(eng.state.pos_t) == eng.state.pos
+    # continue: a plain K=0 verify step after the commit equals the sequential engine's next step
+    ref.reset(); ref.forward(toks[:20 + n + 1]); ref.tok.copy_(torch.tensor([seq_argmax[n]], device=DEV)); ref.step()
+    eng.verify(torch.empty(0, dtype=torch.long, device=DEV))
+    assert rel(eng.spec_logits[0].float(), ref.logits.float()) < 2e-2
+    assert int(eng.tok) == int(ref.tok)
 
 
 def test_engine_fused_matches_unfused_and_graphs():
@@ -132,13 +235,13 @@ def test_splitk_gemv_and_partial_norm():
     for sk in (2, 4, 8):
         ql = QLinear(q, s, m, backend="triton", split_k=sk)
         parts = ql.partials(x)
-        assert parts.shape == (sk, 5120)
+        assert parts.shape == (sk, 1, 5120)
         assert rel(parts.sum(0), ref) < 1e-2
         assert rel(ql(x), ref) < 1e-2
         # add_rmsnorm over the partials == add_rmsnorm over the summed bf16 value
         xr, w = rnd(1, 5120, std=1.0), rnd(5120, std=0.5)
         xo1, y1 = fused.add_rmsnorm(xr, parts, w, 1e-6)
-        xo2, y2 = fused.add_rmsnorm(xr, parts.sum(0, keepdim=True).to(torch.bfloat16), w, 1e-6)
+        xo2, y2 = fused.add_rmsnorm(xr, parts.sum(0).to(torch.bfloat16), w, 1e-6)
         torch.testing.assert_close(xo1, xo2, rtol=0, atol=0)
         torch.testing.assert_close(y1, y2, rtol=0, atol=0)
 

@@ -157,9 +157,12 @@ def test_int4_pack_roundtrip():
     step = (w.float().view(64, 4, 128).amax(-1) - w.float().view(64, 4, 128).amin(-1)) / 15
     err = (wq.float() - w.float()).abs().view(64, 4, 128).amax(-1)
     assert (err <= step * 0.5 + 0.02 * w.float().abs().max()).all()   # half a step plus bf16 rounding
-    # a QLinear and its dequantized bf16 Linear agree exactly
+    # the dequant backend and the dequantized bf16 Linear agree exactly; the Triton
+    # rows path agrees to accumulation-order rounding
     x = rnd(3, 512, std=1.0)
-    torch.testing.assert_close(QLinear(q, s, m)(x), Linear(wq)(x), rtol=0, atol=0)
+    torch.testing.assert_close(QLinear(q, s, m, backend="dequant")(x), Linear(wq)(x), rtol=0, atol=0)
+    y = QLinear(q, s, m, backend="triton")(x)
+    assert ((y.float() - Linear(wq)(x).float()).norm() / Linear(wq)(x).float().norm()).item() < 1e-2
 
 
 # --------------------------------------------------- engine, structurally

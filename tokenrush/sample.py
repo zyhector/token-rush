@@ -30,7 +30,8 @@ class SamplingParams:
 def sample(logits: torch.Tensor, params: SamplingParams, u: torch.Tensor = None) -> torch.Tensor:
     """logits [1, V] -> token [1] (long). u: uniform [1] in [0, 1), drawn if None."""
     vals, idx = logits.float().topk(CANDIDATES, dim=-1)                  # descending
-    greedy = idx[:, 0]
+    greedy = logits.argmax(-1)          # not idx[:, 0]: topk breaks ties arbitrarily, argmax by index,
+                                        # and the verify step uses argmax; greedy must agree with it
     temp = torch.clamp(params.temperature, min=1e-6)
     p = torch.softmax(vals / temp, dim=-1)
     cum = p.cumsum(-1)

@@ -60,7 +60,7 @@ class Linear:
         self.weight = weight
 
     def partials(self, x: torch.Tensor) -> torch.Tensor:
-        return self(x).float()
+        return self(x).float()[None]                      # [1, T, N]
 
     @property
     def shape(self):
@@ -183,10 +183,90 @@ def int4_gemv_splitk(x, packed, scale, mn, split_k: int):
     return y
 
 
+# M-row variants for the speculative verify step (M = K+1 tokens, M <= 8): the
+# weights are read once and dotted with M input rows. Same packing, same
+# per-group folding; the accumulator is [M, BLOCK_N].
+MAX_ROWS = 8
+
+
+# Picks of a 36-config sweep at the model's shapes for M = 2..5 (bench/spec_run.py
+# --profile); a full sweep on lm_head costs seconds per M and stalls generation.
+_ROWS_CONFIGS = [
+    triton.Config({"BLOCK_N": 32, "BLOCK_K": 512}, num_warps=4, num_stages=2),    # lm_head, qkv 14336
+    triton.Config({"BLOCK_N": 64, "BLOCK_K": 512}, num_warps=4, num_stages=2),    # in_qkvz 16384, down 5120x17408
+    triton.Config({"BLOCK_N": 64, "BLOCK_K": 256}, num_warps=4, num_stages=2),    # gate_up 34816
+    triton.Config({"BLOCK_N": 32, "BLOCK_K": 256}, num_warps=4, num_stages=2),    # out/o 5120x6144
+]
+
+
+@triton.autotune(configs=_ROWS_CONFIGS, key=["N", "K", "M"])
+@triton.jit
+def _int4_gemm_rows_kernel(x_ptr, w_ptr, s_ptr, m_ptr, y_ptr, N, K,
+                           M: tl.constexpr, SPLIT_K: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr,
+                           GROUP_SIZE: tl.constexpr):
+    """y[s, m, n] partials (SPLIT_K > 1, fp32) or y[m, n] (SPLIT_K == 1, bf16).
+    Each weight block is dequantized once to bf16 and multiplied against all M
+    input rows (padded to 16) on the tensor cores, so the per-row cost is a dot,
+    not another pass over the packed bytes."""
+    pid_n = tl.program_id(0)
+    pid_k = tl.program_id(1)
+    rows = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+    row_mask = rows < N
+    KB: tl.constexpr = BLOCK_K // 2
+    G: tl.constexpr = BLOCK_K // GROUP_SIZE
+    n_groups = K // GROUP_SIZE
+    n_blocks = (K + BLOCK_K - 1) // BLOCK_K
+    per = (n_blocks + SPLIT_K - 1) // SPLIT_K
+    b0 = pid_k * per
+    b1 = tl.minimum(b0 + per, n_blocks)
+    MP: tl.constexpr = 16                                 # tl.dot needs 16 rows
+    mi = tl.arange(0, MP)
+    mmask = mi < M
+    kk = tl.arange(0, BLOCK_K)
+    acc = tl.zeros([MP, BLOCK_N], dtype=tl.float32)
+    for blk in range(b0, b1):
+        k0 = blk * BLOCK_K
+        kb = k0 // 2 + tl.arange(0, KB)
+        kmask = kb < K // 2
+        pk = tl.load(w_ptr + rows[:, None] * (K // 2) + kb[None, :], mask=row_mask[:, None] & kmask[None, :], other=0)   # [BLOCK_N, KB]
+        codes = tl.reshape(tl.join(pk & 0xF, pk >> 4), [BLOCK_N, BLOCK_K]).to(tl.float32)    # element order 2j, 2j+1
+        gi = k0 // GROUP_SIZE + tl.arange(0, G)
+        gm = row_mask[:, None] & (gi[None, :] < n_groups)
+        sc = tl.load(s_ptr + rows[:, None] * n_groups + gi[None, :], mask=gm, other=0).to(tl.float32)   # [BLOCK_N, G]
+        mn = tl.load(m_ptr + rows[:, None] * n_groups + gi[None, :], mask=gm, other=0).to(tl.float32)
+        wq = tl.reshape(codes, [BLOCK_N, G, GROUP_SIZE]) * sc[:, :, None] + mn[:, :, None]
+        wb = tl.reshape(wq, [BLOCK_N, BLOCK_K]).to(tl.bfloat16)                                # dequantized block
+        x = tl.load(x_ptr + mi[:, None] * K + k0 + kk[None, :], mask=mmask[:, None] & ((k0 + kk) < K)[None, :], other=0.0)   # [MP, BLOCK_K] bf16
+        acc += tl.dot(x, tl.trans(wb))
+    omask = mmask[:, None] & row_mask[None, :]
+    if SPLIT_K == 1:
+        tl.store(y_ptr + mi[:, None] * N + rows[None, :], acc.to(y_ptr.dtype.element_ty), mask=omask)
+    else:
+        tl.store(y_ptr + (pid_k * M + mi[:, None]) * N + rows[None, :], acc, mask=omask)
+
+
+def int4_gemm_rows(x, packed, scale, mn, split_k: int = 1):
+    """x [M, K] bf16, 2 <= M <= MAX_ROWS -> [M, N] bf16 (split_k == 1) or fp32 partials [split_k, M, N]."""
+    M, K = x.shape
+    N = packed.shape[0]
+    assert 1 <= M <= MAX_ROWS
+    if split_k == 1:
+        y = torch.empty(M, N, device=x.device, dtype=x.dtype)
+    else:
+        y = torch.empty(split_k, M, N, device=x.device, dtype=torch.float32)
+    grid = lambda meta: (triton.cdiv(N, meta["BLOCK_N"]), split_k)
+    _int4_gemm_rows_kernel[grid](x, packed, scale, mn, y, N, K, M=M, SPLIT_K=split_k, GROUP_SIZE=K // scale.shape[1])
+    return y
+
+
 # --------------------------------------------------------------- QLinear
 
 BACKENDS = ("triton", "tinygemm", "dequant")
 DEFAULT_BACKEND = "triton"
+
+
+ROWS_FOR_ONE = False      # use the M-row (tensor-core) kernel for T == 1 as well, so single-token
+                          # and multi-token steps share bit-identical numerics
 
 
 class QLinear:
@@ -242,14 +322,20 @@ class QLinear:
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         if self.backend == "tinygemm":
             return torch.ops.aten._weight_int4pack_mm(x, self.tg_w, self.group, self.tg_sz)
-        if x.shape[0] != 1 or self.backend == "dequant":
+        T = x.shape[0]
+        if self.backend == "dequant" or T > MAX_ROWS:
             return F.linear(x, self.dequantize())
         if self.split_k > 1:
-            return self.partials(x).sum(0, keepdim=True).to(x.dtype)
-        return int4_gemv(x, self.qweight, self.scale, self.mn)
+            return self.partials(x).sum(0).to(x.dtype)
+        if T == 1 and not ROWS_FOR_ONE:
+            return int4_gemv(x, self.qweight, self.scale, self.mn)
+        return int4_gemm_rows(x, self.qweight, self.scale, self.mn)
 
     def partials(self, x: torch.Tensor) -> torch.Tensor:
-        """x [1, K] -> [S, N] fp32 whose sum over S is the GEMV (S == 1 unless split-K)."""
-        if self.backend == "triton" and self.split_k > 1 and x.shape[0] == 1:
-            return int4_gemv_splitk(x, self.qweight, self.scale, self.mn, self.split_k)
-        return self(x).float()
+        """x [T, K] -> [S, T, N] fp32 whose sum over S is the product (S == 1 unless split-K)."""
+        T = x.shape[0]
+        if self.backend == "triton" and self.split_k > 1 and T <= MAX_ROWS:
+            if T == 1 and not ROWS_FOR_ONE:
+                return int4_gemv_splitk(x, self.qweight, self.scale, self.mn, self.split_k)[:, None, :]
+            return int4_gemm_rows(x, self.qweight, self.scale, self.mn, self.split_k)
+        return self(x).float()[None]

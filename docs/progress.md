@@ -24,6 +24,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 10. Phase 2: sampling in graph | 2026-09-08 | + temperature / top-k / top-p on a fixed top-64 candidate set, branch-free, parameters as device tensors | 1500 | 101.9 (no change) |
 | 11. Phase 2: GEMV config re-pick (L2-proof sweep) | 2026-09-08 | + configs re-picked with weights cycled through >400 MB; **no measurable change** in the step. Phase 2 closed | 1500 | 102.2 (82% of wall) |
 | 12. Phase 3 step 1: MTP head acceptance rate | 2026-09-08 | + MTP head implemented eagerly (`tokenrush/mtp.py`); chained drafts teacher-forced against the target's greedy: accepted tokens per verify step at depth 3 = 2.58 prose / 3.35 code / 3.50 math | — | — |
+| 13. Phase 3 steps 2–3: verify step in one graph, accept/commit on device | 2026-09-08 | + M-row kernels (tensor-core int4 GEMM, M-token GDN with per-prefix state slots, M-query attention), a graphed verify step per K with device-side accept/commit; eager MTP drafts. K=3 verify = 1.22x a raw step. Spec greedy == raw greedy 200/200 with shared numerics | — | **172 / 212 / 204 effective** (essay / code / math), raw 102 |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -442,15 +443,89 @@ Cost of the MTP head: 0.85 GB bf16 (0.425B params); the eager chained draft
 costs 3.5–4.7 ms today through ~150 launches, which is the Phase 3 step-2/3
 work (T=K verify kernels, in-graph accept/commit).
 
+## Step 13 — Phase 3 steps 2 and 3: the verify step in one graph (2026-09-08)
+
+**What a verify step is.** The engine holds a committed-but-unprocessed token
+t at position pos; K drafts follow. One graph replay processes all K+1 tokens
+at pos..pos+K, takes the argmax at every position, counts the leading drafts
+that match (n), and commits on the device: `tok` = the argmax after the last
+accepted token (the correction or bonus), `pos += n+1`, recurrent state =
+the snapshot after n+1 tokens. Nothing returns to the host except n.
+
+**Every kernel got an M-row variant** (M = K+1 <= 8):
+
+- GEMV: `_int4_gemm_rows_kernel` dequantizes each weight block once to bf16
+  and multiplies all rows against it on the tensor cores (`tl.dot`), so a row
+  costs a dot, not another pass over the bytes. The first version did per-row
+  masked reductions inside the loop and cost 3 ms per extra row (K=3 at
+  1.92x a raw step); the dot version is at **1.22x**.
+- GDN: the fused step loops the M tokens inside the program; the state is
+  read from slot `slot` and the state after token i is written to slot i, so
+  any prefix can be committed by naming its slot. No copies: the next step
+  reads from whichever slot was committed. The conv ring grew from 4 to 16
+  columns, because K rejected tokens' inputs would otherwise wrap around and
+  overwrite the true ones.
+- Attention: the prep kernel runs (heads x M) programs; the flash-decoding
+  kernel takes G x M query rows (padded to 32) with a per-row causal limit
+  `pos + i`; the reduce kernel one program per (query, head).
+- Norms and silu take M rows; partials are `[S, M, N]`.
+
+| verify step, real model | ms | x raw (9.73) | tok/s if all accepted |
+|---|---|---|---|
+| K=0 | 9.73 | 1.00 | 103 |
+| K=1 | 10.91 | 1.12 | 183 |
+| K=2 | 11.41 | 1.17 | 263 |
+| **K=3** | **11.87** | **1.22** | 337 |
+| K=4 | 12.25 | 1.26 | 408 |
+
+Where the K=3 step's extra 2.1 ms goes: rows GEMV +1.3 ms over the M=1
+kernel (bf16 dequant + dot per block), GDN +0.6 ms (the sequential M-token
+loop with the b|a dot products per token), silu +0.2 (now one launch).
+`docs/feasibility.md` assumed 1.1x; 1.22x costs ~10% of the projected
+speculative number.
+
+**Exactness.** `tokenrush/spec.py` runs the loop with eager MTP drafts.
+Speculative greedy vs raw greedy over 200 tokens: with K=0 identical on all
+prompts (the loop logic is right); with K=3, identical only for 22 / 165 / 20
+tokens — and the trace showed every accept/commit correct, the logits at the
+divergence agreeing across paths, and the first divergent token a 0.125-logit
+runner-up. The cause is numerics: the M-row GEMV rounds dequantized weights
+to bf16 before a tensor-core dot, the single-row GEMV folds scales in fp32,
+and twenty tokens of that drift flip a near-tie. With `Engine(consistent=True)`
+(single-token steps on the M-row kernel too) K=3 is **identical 200/200** on
+all three prompts. Raw decode on that kernel is 9% slower (92.9 vs 102.3
+tok/s), so the default keeps the fast kernel for raw and accepts near-tie
+disagreement; the exactness check runs with the flag. A second consistency
+bug found on the way: greedy picked `topk(...)[0]` while verify used
+`argmax`, and they break exact bf16 ties differently (math diverged on a
+'\n\n' vs '\n' tie); greedy now uses `argmax` everywhere.
+
+**Effective throughput, eager drafts** (3.5–4.7 ms of ~150 launches per
+chain, the Phase 3 step-4 work):
+
+| | essay | code | math |
+|---|---|---|---|
+| tokens per verify step | 2.63 | 3.24 | 3.12 |
+| ms per step (verify + eager draft) | ~15 | 15.5 | 15.5 |
+| **effective tok/s** | **172** | **212** | **204** |
+| raw | 102 | 102 | 102 |
+
+Already above every rival's speculative mode on code and math (SGLang +
+DSpark 137 / 205, llama.cpp + MTP 128 / 162, ExLlamaV3 142 / 160) and above
+all but llama.cpp's 130 on prose, with the draft still eager. In-graph
+drafting (step 4) removes ~2 ms per step: ~220 / 275 / 265 projected.
+
+Autotune note: the rows kernel's picks are pinned (`_ROWS_CONFIGS`); a sweep
+firing on `lm_head` at M=2..4 mid-generation had cost 134 ms/step on the
+first prompt.
+
 ## Next
 
-- **Phase 3**, step 1 done (acceptance measured). Step 2: a K-token verify
-  step in one graph (GEMV with M=K rows, GDN step kernel looping K tokens
-  with per-prefix state snapshots, attention prep/decode for K queries with
-  a causal mask among them). Step 3: in-graph accept/commit (pos, tok, GDN
-  state selected by the accepted length). Step 4: the MTP chain in-graph
-  (int4 head), dynamic depth, effective tok/s on the three families; greedy
-  speculative output must equal greedy raw output exactly.
+- **Phase 3**, steps 1–3 done. Step 4: the MTP draft chain inside the graph
+  (its attention block through the fused kernels, its own K-row cache
+  writes, the chain of K MTP calls and the verify in one replay; int4 head
+  optional), then dynamic depth per content, then the effective-throughput
+  table on the three families with the draft in-graph.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are

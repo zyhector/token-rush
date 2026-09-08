@@ -7,8 +7,12 @@ import torch
 from .config import ModelConfig
 
 
+RING = 16          # conv ring columns; must exceed the longest verify step by 3 (see fused.py)
+
+
 class State:
-    def __init__(self, cfg: ModelConfig, max_len: int, device, kv_dtype=torch.bfloat16):
+    def __init__(self, cfg: ModelConfig, max_len: int, device, kv_dtype=torch.bfloat16, n_slots: int = 1):
+        """n_slots: recurrent-state snapshot slots, K+1 for verify steps of K drafts."""
         n_attn = len(cfg.attn_layers)
         n_gdn = len(cfg.gdn_layers)
         self.max_len = max_len
@@ -23,10 +27,16 @@ class State:
             self.v_scale = torch.ones_like(self.k_scale)
         else:
             self.k_scale = self.v_scale = None
-        # GDN: a ring of the last K pre-conv inputs and the fp32 recurrent state
-        self.conv = torch.zeros(n_gdn, cfg.conv_dim, cfg.conv_k, device=device, dtype=torch.bfloat16)   # ring, col = pos % 4
-        self.rec = torch.zeros(n_gdn, cfg.gdn_v_heads, cfg.gdn_k_dim, cfg.gdn_v_dim, device=device,
+        # GDN: a ring of recent pre-conv inputs (col = pos % RING) and the fp32 recurrent
+        # state in n_slots snapshot slots; `slot` (device, with a host mirror) names the
+        # slot holding the committed state. A verify step of M tokens writes slots 0..M-1
+        # (state after each prefix) and the commit picks slot n = accepted drafts.
+        self.conv = torch.zeros(n_gdn, cfg.conv_dim, RING, device=device, dtype=torch.bfloat16)
+        self.n_slots = n_slots
+        self.rec = torch.zeros(n_slots, n_gdn, cfg.gdn_v_heads, cfg.gdn_k_dim, cfg.gdn_v_dim, device=device,
                                dtype=torch.float32)
+        self.slot = torch.zeros(1, device=device, dtype=torch.long)
+        self.slot_h = 0
         # position: a host mirror for slicing in prefill and choosing a graph bucket,
         # and the device tensor every in-graph index derives from
         self.pos = 0
@@ -40,6 +50,12 @@ class State:
         self.rec.zero_()
         self.pos = 0
         self.pos_t.zero_()
+        self.slot.zero_()
+        self.slot_h = 0
+
+    def rec_live(self, layer_slot: int):
+        """The committed recurrent state of a GDN layer (host-indexed; eager paths)."""
+        return self.rec[self.slot_h, layer_slot]
 
     def advance(self, T: int):
         self.pos += T

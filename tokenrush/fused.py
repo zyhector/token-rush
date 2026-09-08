@@ -27,11 +27,12 @@ def _add_rmsnorm_kernel(x_ptr, h_ptr, w_ptr, xo_ptr, y_ptr, N, eps, HAS_H: tl.co
     row = tl.program_id(0)
     offs = tl.arange(0, BLOCK)
     m = offs < N
+    T = tl.num_programs(0)
     x = tl.load(x_ptr + row * N + offs, mask=m, other=0.0).to(tl.float32)
     if HAS_H:
-        h = tl.load(h_ptr + row * NSPLIT * N + offs, mask=m, other=0.0).to(tl.float32)
+        h = tl.load(h_ptr + row * N + offs, mask=m, other=0.0).to(tl.float32)                 # split 0
         for sidx in tl.static_range(1, NSPLIT):
-            h += tl.load(h_ptr + (row * NSPLIT + sidx) * N + offs, mask=m, other=0.0).to(tl.float32)
+            h += tl.load(h_ptr + (sidx * T + row) * N + offs, mask=m, other=0.0).to(tl.float32)
         x = x + h.to(tl.bfloat16).to(tl.float32)
         x = x.to(tl.bfloat16)                       # the residual stream is bf16
         tl.store(xo_ptr + row * N + offs, x, mask=m)
@@ -44,12 +45,12 @@ def _add_rmsnorm_kernel(x_ptr, h_ptr, w_ptr, xo_ptr, y_ptr, N, eps, HAS_H: tl.co
 
 
 def add_rmsnorm(x: torch.Tensor, h, weight: torch.Tensor, eps: float):
-    """x [T, N] bf16; h None, [T, N] bf16, or [S, N] fp32 partials (T == 1) ->
+    """x [T, N] bf16; h None, [T, N] bf16, or [S, T, N] fp32 partials ->
     (x + h as bf16, rmsnorm(x + h)); with h None -> (x, rmsnorm(x))."""
     T, N = x.shape
     y = torch.empty_like(x)
     xo = torch.empty_like(x) if h is not None else x
-    nsplit = 1 if h is None or h.dtype != torch.float32 else h.shape[0]
+    nsplit = 1 if h is None or h.dim() == 2 else h.shape[0]
     _add_rmsnorm_kernel[(T,)](x, h if h is not None else x, weight, xo, y, N, eps,
                               HAS_H=h is not None, NSPLIT=nsplit, BLOCK=triton.next_power_of_2(N), num_warps=8)
     return xo, y
@@ -59,25 +60,26 @@ def add_rmsnorm(x: torch.Tensor, h, weight: torch.Tensor, eps: float):
 
 
 @triton.jit
-def _silu_mul_kernel(g_ptr, u_ptr, y_ptr, N, BLOCK: tl.constexpr):
+def _silu_mul_kernel(gu_ptr, y_ptr, F, BLOCK: tl.constexpr):
+    """Row t of gate_up is [gate (F) | up (F)]; one program per (row, block)."""
+    t = tl.program_id(1)
     offs = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
-    m = offs < N
-    g = tl.load(g_ptr + offs, mask=m, other=0.0).to(tl.float32)
-    u = tl.load(u_ptr + offs, mask=m, other=0.0).to(tl.float32)
+    m = offs < F
+    g = tl.load(gu_ptr + t * 2 * F + offs, mask=m, other=0.0).to(tl.float32)
+    u = tl.load(gu_ptr + t * 2 * F + F + offs, mask=m, other=0.0).to(tl.float32)
     y = g / (1.0 + tl.exp(-g)) * u
-    tl.store(y_ptr + offs, y.to(y_ptr.dtype.element_ty), mask=m)
+    tl.store(y_ptr + t * F + offs, y.to(y_ptr.dtype.element_ty), mask=m)
 
 
 def silu_mul(gate_up: torch.Tensor) -> torch.Tensor:
-    """gate_up [T, 2F] -> silu(gate) * up [T, F]. Rows are contiguous so a row's
-    gate and up halves are two strided views."""
+    """gate_up [T, 2F] -> silu(gate) * up [T, F], one launch."""
     T, F2 = gate_up.shape
     F = F2 // 2
-    y = torch.empty(T, F, device=gate_up.device, dtype=gate_up.dtype)
-    if T != 1:
+    if T > 8:
         g, u = gate_up.chunk(2, -1)
         return torch.nn.functional.silu(g) * u
-    _silu_mul_kernel[(triton.cdiv(F, 2048),)](gate_up, gate_up[:, F:], y, F, BLOCK=2048)
+    y = torch.empty(T, F, device=gate_up.device, dtype=gate_up.dtype)
+    _silu_mul_kernel[(triton.cdiv(F, 2048), T)](gate_up.contiguous(), y, F, BLOCK=2048)
     return y
 
 
@@ -90,83 +92,90 @@ def _softplus(x):
 
 
 @triton.jit
-def _conv_ring(x_ptr, ring_ptr, w_ptr, ch, c0, c1, c2, c3):
+def _conv_ring(x_ptr, ring_ptr, w_ptr, ch, c0, c1, c2, c3, R: tl.constexpr):
     """Causal conv (kernel 4) + silu for the channels `ch` of the new input at x_ptr,
     reading the three older inputs from ring columns c0..c2 and writing the new one
-    into c3. Returns fp32."""
+    into c3 (R columns per channel). Returns fp32."""
     xn = tl.load(x_ptr + ch).to(tl.float32)
-    s0 = tl.load(ring_ptr + ch * 4 + c0).to(tl.float32)
-    s1 = tl.load(ring_ptr + ch * 4 + c1).to(tl.float32)
-    s2 = tl.load(ring_ptr + ch * 4 + c2).to(tl.float32)
+    s0 = tl.load(ring_ptr + ch * R + c0).to(tl.float32)
+    s1 = tl.load(ring_ptr + ch * R + c1).to(tl.float32)
+    s2 = tl.load(ring_ptr + ch * R + c2).to(tl.float32)
     w0 = tl.load(w_ptr + ch * 4 + 0).to(tl.float32)
     w1 = tl.load(w_ptr + ch * 4 + 1).to(tl.float32)
     w2 = tl.load(w_ptr + ch * 4 + 2).to(tl.float32)
     w3 = tl.load(w_ptr + ch * 4 + 3).to(tl.float32)
     y = s0 * w0 + s1 * w1 + s2 * w2 + xn * w3
-    tl.store(ring_ptr + ch * 4 + c3, xn.to(ring_ptr.dtype.element_ty))
+    tl.store(ring_ptr + ch * R + c3, xn.to(ring_ptr.dtype.element_ty))
     y = y.to(tl.bfloat16).to(tl.float32)            # HF's conv returns bf16; silu is applied to that
     y = y / (1.0 + tl.exp(-y))
     return y.to(tl.bfloat16).to(tl.float32)         # and its silu output is bf16 too
 
 
 @triton.jit
-def _gdn_step_fused_kernel(qkvz_ptr, x_ptr, ba_w_ptr, ring_ptr, convw_ptr, A_ptr, dtb_ptr, rec_ptr, o_ptr, y_ptr,
-                           normw_ptr, pos_ptr, scale, eps,
+def _gdn_step_fused_kernel(qkvz_ptr, x_ptr, ba_w_ptr, ring_ptr, convw_ptr, A_ptr, dtb_ptr, rec_ptr, slot_ptr,
+                           o_ptr, y_ptr, normw_ptr, pos_ptr, scale, eps, rec_slot_stride,
+                           M: tl.constexpr, R: tl.constexpr,
                            H: tl.constexpr, HV: tl.constexpr, K: tl.constexpr, V: tl.constexpr,
                            BV: tl.constexpr, QK_DIM: tl.constexpr, VAL_DIM: tl.constexpr,
                            HIDDEN: tl.constexpr, BLOCK_H: tl.constexpr):
-    """One program per (V head, BV-column block). qkvz is the in_proj output
-    [2*QK_DIM + 2*VAL_DIM]: q | k | v | z. The gate projections b and a for this
-    head are two bf16 dot products of the layer input x [HIDDEN] with rows i_hv and
-    HV + i_hv of ba_w [2*HV, HIDDEN], computed here (fp32 accumulate, one rounding
-    to bf16, as cuBLAS does). When BV == V the program owns a whole head and also
-    applies the gated norm and output gate, writing y; otherwise it writes the raw
-    head output o for a second kernel."""
+    """M consecutive tokens (M == 1 is plain decode) for one (V head, BV-column
+    block). qkvz is the in_proj output [M, 2*QK_DIM + 2*VAL_DIM] (q | k | v | z per
+    row), x the layer input [M, HIDDEN] (for the b/a gate dot products, fp32
+    accumulate, one rounding to bf16 as cuBLAS did). The recurrent state is read
+    from slot *slot_ptr of rec_ptr (slot stride rec_slot_stride) and the state
+    after token i is written to slot i, so a verify step can commit any prefix by
+    naming its slot. The ring column for token i is (pos + i) mod R. When
+    BV == V the program owns a whole head and also applies the gated norm and
+    output gate, writing y; otherwise it writes the raw head output o."""
     pid = tl.program_id(0)
     NV: tl.constexpr = V // BV
     i_v = pid % NV
     i_hv = pid // NV
     i_h = i_hv // (HV // H)
     pos = tl.load(pos_ptr)
-    c3 = pos % 4
-    c0 = (pos + 1) % 4
-    c1 = (pos + 2) % 4
-    c2 = (pos + 3) % 4
     o_k = tl.arange(0, K)
     o_v = i_v * BV + tl.arange(0, BV)
-    q = _conv_ring(qkvz_ptr, ring_ptr, convw_ptr, i_h * K + o_k, c0, c1, c2, c3)
-    k = _conv_ring(qkvz_ptr, ring_ptr, convw_ptr, QK_DIM + i_h * K + o_k, c0, c1, c2, c3)
-    v = _conv_ring(qkvz_ptr, ring_ptr, convw_ptr, 2 * QK_DIM + i_hv * V + o_v, c0, c1, c2, c3)
-    b = tl.zeros([BLOCK_H], dtype=tl.float32)
-    a = tl.zeros([BLOCK_H], dtype=tl.float32)
-    for h0 in tl.static_range(0, HIDDEN, BLOCK_H):
-        hh = h0 + tl.arange(0, BLOCK_H)
-        xb = tl.load(x_ptr + hh).to(tl.float32)
-        b += xb * tl.load(ba_w_ptr + i_hv * HIDDEN + hh).to(tl.float32)
-        a += xb * tl.load(ba_w_ptr + (HV + i_hv) * HIDDEN + hh).to(tl.float32)
-    b = tl.sum(b).to(tl.bfloat16).to(tl.float32)
-    a = tl.sum(a).to(tl.bfloat16).to(tl.float32)
-    beta = (1.0 / (1.0 + tl.exp(-b))).to(tl.bfloat16).to(tl.float32)   # HF: b.sigmoid() in bf16
-    g = tl.load(A_ptr + i_hv) * _softplus(a + tl.load(dtb_ptr + i_hv))
-    q = q / tl.sqrt(tl.sum(q * q) + 1e-6) * scale
-    k = k / tl.sqrt(tl.sum(k * k) + 1e-6)
-    p_h = rec_ptr + i_hv * K * V + o_k[:, None] * V + o_v[None, :]
-    h = tl.load(p_h) * tl.exp(g)
-    v = beta * (v - tl.sum(h * k[:, None], 0))
-    h += k[:, None] * v[None, :]
-    tl.store(p_h, h)
-    o = tl.sum(h * q[:, None], 0)                                   # [BV] fp32
-    if BV == V:
-        ob = o.to(tl.bfloat16).to(tl.float32)                       # the ops path rounds o to bf16 here
-        var = tl.sum(ob * ob) / V
-        n = (ob * tl.math.rsqrt(var + eps)).to(tl.bfloat16)
-        w = tl.load(normw_ptr + o_v)
-        n = (w * n).to(tl.float32)
-        z = tl.load(qkvz_ptr + 2 * QK_DIM + VAL_DIM + i_hv * V + o_v).to(tl.float32)
-        n = n * (z / (1.0 + tl.exp(-z)))
-        tl.store(y_ptr + i_hv * V + o_v, n.to(y_ptr.dtype.element_ty))
-    else:
-        tl.store(o_ptr + i_hv * V + o_v, o.to(o_ptr.dtype.element_ty))
+    QKVZ: tl.constexpr = 2 * QK_DIM + 2 * VAL_DIM
+    p_tile = i_hv * K * V + o_k[:, None] * V + o_v[None, :]
+    h = tl.load(rec_ptr + tl.load(slot_ptr) * rec_slot_stride + p_tile)
+    for i in tl.static_range(M):
+        c3 = (pos + i) % R
+        c0 = (pos + i + R - 3) % R
+        c1 = (pos + i + R - 2) % R
+        c2 = (pos + i + R - 1) % R
+        row = qkvz_ptr + i * QKVZ
+        q = _conv_ring(row, ring_ptr, convw_ptr, i_h * K + o_k, c0, c1, c2, c3, R)
+        k = _conv_ring(row, ring_ptr, convw_ptr, QK_DIM + i_h * K + o_k, c0, c1, c2, c3, R)
+        v = _conv_ring(row, ring_ptr, convw_ptr, 2 * QK_DIM + i_hv * V + o_v, c0, c1, c2, c3, R)
+        b = tl.zeros([BLOCK_H], dtype=tl.float32)
+        a = tl.zeros([BLOCK_H], dtype=tl.float32)
+        for h0 in tl.static_range(0, HIDDEN, BLOCK_H):
+            hh = h0 + tl.arange(0, BLOCK_H)
+            xb = tl.load(x_ptr + i * HIDDEN + hh).to(tl.float32)
+            b += xb * tl.load(ba_w_ptr + i_hv * HIDDEN + hh).to(tl.float32)
+            a += xb * tl.load(ba_w_ptr + (HV + i_hv) * HIDDEN + hh).to(tl.float32)
+        b = tl.sum(b).to(tl.bfloat16).to(tl.float32)
+        a = tl.sum(a).to(tl.bfloat16).to(tl.float32)
+        beta = (1.0 / (1.0 + tl.exp(-b))).to(tl.bfloat16).to(tl.float32)   # HF: b.sigmoid() in bf16
+        g = tl.load(A_ptr + i_hv) * _softplus(a + tl.load(dtb_ptr + i_hv))
+        q = q / tl.sqrt(tl.sum(q * q) + 1e-6) * scale
+        k = k / tl.sqrt(tl.sum(k * k) + 1e-6)
+        h = h * tl.exp(g)
+        v = beta * (v - tl.sum(h * k[:, None], 0))
+        h += k[:, None] * v[None, :]
+        tl.store(rec_ptr + i * rec_slot_stride + p_tile, h)
+        o = tl.sum(h * q[:, None], 0)                                   # [BV] fp32
+        if BV == V:
+            ob = o.to(tl.bfloat16).to(tl.float32)                       # the ops path rounds o to bf16 here
+            var = tl.sum(ob * ob) / V
+            n = (ob * tl.math.rsqrt(var + eps)).to(tl.bfloat16)
+            w = tl.load(normw_ptr + o_v)
+            n = (w * n).to(tl.float32)
+            z = tl.load(row + 2 * QK_DIM + VAL_DIM + i_hv * V + o_v).to(tl.float32)
+            n = n * (z / (1.0 + tl.exp(-z)))
+            tl.store(y_ptr + i * VAL_DIM + i_hv * V + o_v, n.to(y_ptr.dtype.element_ty))
+        else:
+            tl.store(o_ptr + i * VAL_DIM + i_hv * V + o_v, o.to(o_ptr.dtype.element_ty))
 
 
 @triton.jit
@@ -184,20 +193,24 @@ def _gated_norm_kernel(o_ptr, z_ptr, w_ptr, y_ptr, eps, V: tl.constexpr):
     tl.store(y_ptr + i_hv * V + o_v, n.to(y_ptr.dtype.element_ty))
 
 
-def gdn_step_fused(qkvz, x, ba_w, ring, conv_w, A, dt_bias, rec, norm_w, pos_t, cfg, eps, BV=128):
-    """One GDN decode step: qkvz [1, 2*qk+2*val] bf16 (in_proj output), x [1, hidden]
-    the layer input, ba_w [2*HV, hidden] -> y [1, val_dim] bf16, ready for out_proj.
-    Updates ring and rec in place."""
+def gdn_step_fused(qkvz, x, ba_w, ring, conv_w, A, dt_bias, rec, slot, norm_w, pos_t, cfg, eps, BV=128):
+    """M-token GDN step (M = qkvz.shape[0] <= 8): qkvz [M, 2*qk+2*val] bf16 (in_proj
+    output), x [M, hidden] the layer input, ba_w [2*HV, hidden], rec [n_slots, HV, K, V]
+    with the committed state in slot *slot -> y [M, val_dim] bf16, ready for out_proj.
+    Updates the ring in place and writes rec slots 0..M-1."""
+    M = qkvz.shape[0]
     H, HV, K, V = cfg.gdn_k_heads, cfg.gdn_v_heads, cfg.gdn_k_dim, cfg.gdn_v_dim
     QK, VAL = cfg.gdn_qk_dim, cfg.gdn_val_dim
-    y = torch.empty(1, VAL, device=qkvz.device, dtype=qkvz.dtype)
+    assert rec.shape[0] >= M, "not enough recurrent-state slots for this many tokens"
+    y = torch.empty(M, VAL, device=qkvz.device, dtype=qkvz.dtype)
     o = y if BV == V else torch.empty_like(y)
     _gdn_step_fused_kernel[(HV * (V // BV),)](
-        qkvz, x, ba_w, ring, conv_w, A, dt_bias, rec, o, y, norm_w, pos_t, K ** -0.5, eps,
-        H=H, HV=HV, K=K, V=V, BV=BV, QK_DIM=QK, VAL_DIM=VAL, HIDDEN=cfg.hidden, BLOCK_H=1024,
+        qkvz, x, ba_w, ring, conv_w, A, dt_bias, rec, slot, o, y, norm_w, pos_t, K ** -0.5, eps, rec.stride(0),
+        M=M, R=ring.shape[1], H=H, HV=HV, K=K, V=V, BV=BV, QK_DIM=QK, VAL_DIM=VAL, HIDDEN=cfg.hidden, BLOCK_H=1024,
         num_warps=4 if BV == V else 1)
     if BV != V:
-        _gated_norm_kernel[(HV,)](o, qkvz[:, 2 * QK + VAL:], norm_w, y, eps, V=V, num_warps=1)
+        for i in range(M):
+            _gated_norm_kernel[(HV,)](o[i], qkvz[i, 2 * QK + VAL:], norm_w, y[i], eps, V=V, num_warps=1)
     return y
 
 
@@ -216,15 +229,17 @@ def _attn_prep_kernel(qkv_ptr, qn_ptr, kn_ptr, cos_ptr, sin_ptr, pos_ptr, k_cach
     cache at position pos. qkv is the fused projection [HQ*2D (q|gate per head) | HKV*D | HKV*D].
     Rounding mirrors ops.rmsnorm / ops.apply_rope in bf16."""
     pid = tl.program_id(0)
-    pos = tl.load(pos_ptr)
+    i = tl.program_id(1)                                          # token index within the step
+    pos = tl.load(pos_ptr) + i
+    QKV: tl.constexpr = HQ * 2 * D + 2 * HKV * D
     d = tl.arange(0, D)
     HALF: tl.constexpr = RD // 2
     r = tl.arange(0, HALF)
     if pid < HQ:
-        src = qkv_ptr + pid * 2 * D
+        src = qkv_ptr + i * QKV + pid * 2 * D
         w_ptr = qn_ptr
     else:
-        src = qkv_ptr + HQ * 2 * D + (pid - HQ) * D
+        src = qkv_ptr + i * QKV + HQ * 2 * D + (pid - HQ) * D
         w_ptr = kn_ptr
     x = tl.load(src + d).to(tl.float32)
     var = tl.sum(x * x) / D
@@ -243,9 +258,10 @@ def _attn_prep_kernel(qkv_ptr, qn_ptr, kn_ptr, cos_ptr, sin_ptr, pos_ptr, k_cach
     o1 = ((x1 * c).to(tl.bfloat16).to(tl.float32) + (-x2 * s).to(tl.bfloat16).to(tl.float32)).to(tl.bfloat16)
     o2 = ((x2 * c).to(tl.bfloat16).to(tl.float32) + (x1 * s).to(tl.bfloat16).to(tl.float32)).to(tl.bfloat16)
     if pid < HQ:
-        tl.store(q_out + pid * D + d, x)                          # dims RD.. keep the normed value
-        tl.store(q_out + pid * D + r, o1)
-        tl.store(q_out + pid * D + HALF + r, o2)
+        qo = q_out + (i * HQ + pid) * D
+        tl.store(qo + d, x)                                       # dims RD.. keep the normed value
+        tl.store(qo + r, o1)
+        tl.store(qo + HALF + r, o2)
     else:
         j = pid - HQ
         koff = (j * MAXLEN + pos) * D
@@ -262,7 +278,7 @@ def _attn_prep_kernel(qkv_ptr, qn_ptr, kn_ptr, cos_ptr, sin_ptr, pos_ptr, k_cach
             tl.store(k_cache + koff + d, x)
             tl.store(k_cache + koff + r, o1)
             tl.store(k_cache + koff + HALF + r, o2)
-        v = tl.load(qkv_ptr + HQ * 2 * D + HKV * D + j * D + d)
+        v = tl.load(qkv_ptr + i * QKV + HQ * 2 * D + HKV * D + j * D + d)
         if FP8:
             vf = v.to(tl.float32)
             sv = tl.maximum(tl.max(tl.abs(vf)), 1e-6) / 448.0
@@ -276,11 +292,12 @@ def attn_prep(qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache, cfg, k
     """qkv [1, HQ*2D + 2*HKV*D] -> q [HQ*D] normed + roped; writes K, V (and their fp8
     scales when the cache is fp8) at pos_t."""
     HQ, HKV, D = cfg.n_heads, cfg.n_kv_heads, cfg.head_dim
+    M = qkv.shape[0]
     fp8 = k_cache.dtype == torch.float8_e4m3fn
-    q = torch.empty(HQ * D, device=qkv.device, dtype=qkv.dtype)
-    _attn_prep_kernel[(HQ + HKV,)](qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache,
-                                   k_scale if fp8 else q, v_scale if fp8 else q, q, cfg.eps,
-                                   HQ=HQ, HKV=HKV, D=D, RD=cfg.rotary_dim, MAXLEN=k_cache.shape[1], FP8=fp8, num_warps=1)
+    q = torch.empty(M, HQ * D, device=qkv.device, dtype=qkv.dtype)
+    _attn_prep_kernel[(HQ + HKV, M)](qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache,
+                                     k_scale if fp8 else q, v_scale if fp8 else q, q, cfg.eps,
+                                     HQ=HQ, HKV=HKV, D=D, RD=cfg.rotary_dim, MAXLEN=k_cache.shape[1], FP8=fp8, num_warps=1)
     return q
 
 
@@ -306,7 +323,8 @@ def kv_write_prefill(k, v, state, slot, pos):
 @triton.jit
 def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, l_ptr, acc_ptr, scale,
                        HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, MAXLEN: tl.constexpr,
-                       NSPLIT: tl.constexpr, BLOCK_N: tl.constexpr, ROWS: tl.constexpr, FP8: tl.constexpr):
+                       NSPLIT: tl.constexpr, BLOCK_N: tl.constexpr, ROWS: tl.constexpr, FP8: tl.constexpr,
+                       M: tl.constexpr):
     """One program per (kv head, split). The G = HQ // HKV query heads of the kv
     head are padded to ROWS rows for tensor-core dots. Keys 0..pos are live;
     the split's block range is derived from pos, so the grid is static."""
@@ -314,15 +332,19 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, 
     j = pid // NSPLIT
     s = pid % NSPLIT
     G: tl.constexpr = HQ // HKV
-    L = tl.load(pos_ptr) + 1
+    pos = tl.load(pos_ptr)
+    L = pos + M                                                   # live keys: the cache plus the M new ones
     n_blocks = (L + BLOCK_N - 1) // BLOCK_N
     per_split = (n_blocks + NSPLIT - 1) // NSPLIT
     b0 = s * per_split
     b1 = tl.minimum(b0 + per_split, n_blocks)
     rows = tl.arange(0, ROWS)
     d = tl.arange(0, D)
-    rmask = rows < G
-    q = tl.load(q_ptr + (j * G + rows)[:, None] * D + d[None, :], mask=rmask[:, None], other=0.0)   # [ROWS, D] bf16
+    qi = rows // G                                                # query index of each row
+    hq = j * G + rows % G                                         # query head of each row
+    rmask = rows < G * M
+    q = tl.load(q_ptr + (qi * HQ + hq)[:, None] * D + d[None, :], mask=rmask[:, None], other=0.0)   # [ROWS, D] bf16
+    qlimit = pos + qi                                             # row sees keys <= pos + query index
     m_i = tl.full([ROWS], float("-inf"), tl.float32)
     l_i = tl.zeros([ROWS], tl.float32)
     acc = tl.zeros([ROWS, D], tl.float32)
@@ -336,7 +358,7 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, 
             ksc = tl.load(ks_ptr + j * MAXLEN + kidx, mask=kmask, other=0.0)
             k = (k.to(tl.float32) * ksc[:, None]).to(tl.bfloat16)
         sc = tl.dot(q, tl.trans(k)) * scale                                                          # [ROWS, BLOCK_N] fp32
-        sc = tl.where(kmask[None, :], sc, float("-inf"))
+        sc = tl.where(kmask[None, :] & (kidx[None, :] <= qlimit[:, None]), sc, float("-inf"))
         m_new = tl.maximum(m_i, tl.max(sc, 1))
         m_safe = tl.where(m_new == float("-inf"), 0.0, m_new)
         alpha = tl.exp(m_i - m_safe)
@@ -349,7 +371,7 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, 
             v = v.to(tl.bfloat16)
         acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
         m_i = m_new
-    h = j * G + rows
+    h = qi * HQ + hq                                              # (query, head) slot in the partial buffers
     tl.store(m_ptr + h * NSPLIT + s, m_i, mask=rmask)
     tl.store(l_ptr + h * NSPLIT + s, l_i, mask=rmask)
     tl.store(acc_ptr + (h * NSPLIT + s)[:, None] * D + d[None, :], acc, mask=rmask[:, None])
@@ -357,10 +379,10 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, 
 
 @triton.jit
 def _attn_reduce_kernel(m_ptr, l_ptr, acc_ptr, qkv_ptr, out_ptr,
-                        D: tl.constexpr, NSPLIT: tl.constexpr):
+                        D: tl.constexpr, NSPLIT: tl.constexpr, HQ: tl.constexpr, QKV: tl.constexpr):
     """One program per query head: combine the splits, normalize, apply the
     sigmoid output gate (HF: attn_output * sigmoid(gate), in bf16)."""
-    h = tl.program_id(0)
+    h = tl.program_id(0)                                          # = query * HQ + head
     s = tl.arange(0, NSPLIT)
     d = tl.arange(0, D)
     m = tl.load(m_ptr + h * NSPLIT + s)
@@ -371,25 +393,31 @@ def _attn_reduce_kernel(m_ptr, l_ptr, acc_ptr, qkv_ptr, out_ptr,
     acc = tl.load(acc_ptr + (h * NSPLIT + s)[:, None] * D + d[None, :])   # [NSPLIT, D]
     o = tl.sum(acc * w[:, None], 0) / l_tot
     o = o.to(tl.bfloat16).to(tl.float32)
-    gate = tl.load(qkv_ptr + h * 2 * D + D + d).to(tl.float32)
+    i = h // HQ
+    hh = h % HQ
+    gate = tl.load(qkv_ptr + i * QKV + hh * 2 * D + D + d).to(tl.float32)
     g = (1.0 / (1.0 + tl.exp(-gate))).to(tl.bfloat16).to(tl.float32)
     tl.store(out_ptr + h * D + d, (o * g).to(out_ptr.dtype.element_ty))
 
 
 def attn_decode_fused(q, qkv, k_cache, v_cache, pos_t, cfg, k_scale=None, v_scale=None, NSPLIT=32, BLOCK_N=32):
-    """q [HQ*D] (from attn_prep), qkv (for the gate) -> gated attention output [1, HQ*D]."""
+    """q [M, HQ*D] (from attn_prep) for the M new tokens at pos.., qkv [M, ..] (for the gates)
+    -> gated attention output [M, HQ*D]; query i sees cache rows <= pos + i."""
     HQ, HKV, D = cfg.n_heads, cfg.n_kv_heads, cfg.head_dim
+    M = q.shape[0]
+    G = HQ // HKV
+    rows = max(16, triton.next_power_of_2(G * M))
     dev = q.device
     fp8 = k_cache.dtype == torch.float8_e4m3fn
-    m = torch.empty(HQ, NSPLIT, device=dev, dtype=torch.float32)
+    m = torch.empty(M * HQ, NSPLIT, device=dev, dtype=torch.float32)
     l = torch.empty_like(m)
-    acc = torch.empty(HQ, NSPLIT, D, device=dev, dtype=torch.float32)
-    out = torch.empty(1, HQ * D, device=dev, dtype=q.dtype)
+    acc = torch.empty(M * HQ, NSPLIT, D, device=dev, dtype=torch.float32)
+    out = torch.empty(M, HQ * D, device=dev, dtype=q.dtype)
     _attn_split_kernel[(HKV * NSPLIT,)](q, k_cache, v_cache, k_scale if fp8 else m, v_scale if fp8 else m, pos_t,
                                         m, l, acc, D ** -0.5,
                                         HQ=HQ, HKV=HKV, D=D, MAXLEN=k_cache.shape[1], NSPLIT=NSPLIT,
-                                        BLOCK_N=BLOCK_N, ROWS=16, FP8=fp8, num_warps=4, num_stages=2)
-    _attn_reduce_kernel[(HQ,)](m, l, acc, qkv, out, D=D, NSPLIT=NSPLIT, num_warps=1)
+                                        BLOCK_N=BLOCK_N, ROWS=rows, FP8=fp8, M=M, num_warps=4, num_stages=2)
+    _attn_reduce_kernel[(M * HQ,)](m, l, acc, qkv, out, D=D, NSPLIT=NSPLIT, HQ=HQ, QKV=qkv.shape[1], num_warps=1)
     return out
 
 

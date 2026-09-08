@@ -74,10 +74,10 @@ def gdn_forward(x: torch.Tensor, w: GDNWeights, cfg: ModelConfig, state: State, 
                 fused: bool = False) -> torch.Tensor:
     T = x.shape[0]
     qkvz = w.in_qkvz(x)                                                              # [T, conv_dim + val_dim]
-    if T == 1 and fused:
-        y = fused_k.gdn_step_fused(qkvz, x, w.in_ba, state.conv[slot], w.conv_w, w.A, w.dt_bias, state.rec[slot],
-                                   w.norm_w, state.pos_t, cfg, cfg.eps)
-        return w.out.partials(y)                                                     # [S, hidden] fp32
+    if fused and T <= state.n_slots:
+        y = fused_k.gdn_step_fused(qkvz, x, w.in_ba, state.conv[slot], w.conv_w, w.A, w.dt_bias,
+                                   state.rec[:, slot], state.slot, w.norm_w, state.pos_t, cfg, cfg.eps)
+        return w.out.partials(y)                                                     # [S, T, hidden] fp32
     ba = F.linear(x, w.in_ba)                                                        # [T, 2*HV]
     qkv, z = torch.split(qkvz, [cfg.conv_dim, cfg.gdn_val_dim], dim=-1)
     b, a = torch.split(ba, [cfg.gdn_v_heads, cfg.gdn_v_heads], dim=-1)
@@ -91,10 +91,14 @@ def gdn_forward(x: torch.Tensor, w: GDNWeights, cfg: ModelConfig, state: State, 
     v = v.view(T, cfg.gdn_v_heads, cfg.gdn_v_dim)
     beta = torch.sigmoid(b)                                      # [T, HV] bf16
     g = w.A * F.softplus(a.float() + w.dt_bias)                  # [T, HV] fp32
+    # eager paths read the committed slot and leave the result in slot 0
+    rec = state.rec_live(slot)
     if T == 1:
-        o = ops.gdn_step(q[0], k[0], v[0], g[0], beta[0], state.rec[slot])[None]
+        o = ops.gdn_step(q[0], k[0], v[0], g[0], beta[0], rec)[None]
     else:
-        o = ops.gdn_prefill(q, k, v, g, beta, state.rec[slot])
+        o = ops.gdn_prefill(q, k, v, g, beta, rec)
+    if state.slot_h != 0:
+        state.rec[0, slot].copy_(rec)
     o = ops.gated_rmsnorm(o.reshape(-1, cfg.gdn_v_dim), w.norm_w, z.reshape(-1, cfg.gdn_v_dim), cfg.eps)
     return w.out(o.view(T, cfg.gdn_val_dim))
 
@@ -109,11 +113,11 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
     hd = cfg.head_dim
     ks = state.k_scale[slot] if state.fp8 else None
     vs = state.v_scale[slot] if state.fp8 else None
-    if T == 1 and fused:
+    if fused and T <= 8:
         qkv = w.qkv(x)
         q = fused_k.attn_prep(qkv, w.q_norm_w, w.k_norm_w, cos, sin, state.pos_t, state.k[slot], state.v[slot], cfg, ks, vs)
         o = fused_k.attn_decode_fused(q, qkv, state.k[slot], state.v[slot], state.pos_t, cfg, ks, vs)
-        return w.o.partials(o)                                                       # [S, hidden] fp32
+        return w.o.partials(o)                                                       # [S, T, hidden] fp32
     idx = state.pos_t + torch.arange(T, device=x.device)                          # positions, on device
     kv_dim = cfg.n_kv_heads * hd
     qg, k, v = torch.split(w.qkv(x), [cfg.n_heads * 2 * hd, kv_dim, kv_dim], dim=-1)
@@ -128,7 +132,7 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
     k = ops.apply_rope(k, c, s_)
     if state.fp8:
         # fp8 cache: write quantized, attend with the Triton prefill kernel (SDPA cannot read it)
-        assert T > 1 or fused is False, "fp8 decode goes through the fused path"
+        # (short fused steps never reach here; this is the T > 8 prefill path)
         fused_k.kv_write_prefill(k, v, state, slot, pos)
         o = fused_k.attn_prefill_fused(q.transpose(0, 1).contiguous(), state.k[slot], state.v[slot], pos, cfg, ks, vs)
         o = o.transpose(0, 1)                                                         # [Hq, T, D]
@@ -149,7 +153,7 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
 def mlp_forward(x: torch.Tensor, w: LayerWeights, fused: bool = False) -> torch.Tensor:
     gu = w.gate_up(x)
     if fused:
-        return w.down.partials(fused_k.silu_mul(gu))                                 # [S, hidden] fp32
+        return w.down.partials(fused_k.silu_mul(gu))                                 # [S, T, hidden] fp32
     gate, up = torch.chunk(gu, 2, dim=-1)
     return w.down(F.silu(gate) * up)
 
@@ -162,12 +166,22 @@ class Engine:
     either eagerly or as one CUDA graph per context bucket."""
 
     def __init__(self, cfg: ModelConfig, weights: ModelWeights, max_len: int, device="cuda", fused: bool = True,
-                 kv_dtype=torch.bfloat16):
+                 kv_dtype=torch.bfloat16, max_spec: int = 0, consistent: bool = False):
+        """max_spec: the longest draft chain a verify step must hold (K); the recurrent
+        state gets K+1 snapshot slots and the ring must exceed K+3 columns.
+        consistent: run single-token steps on the same M-row GEMV kernel the verify
+        step uses, so speculative and raw greedy output are bit-identical (raw decode
+        is ~9% slower on that kernel; without it the two agree except at bf16 near-ties)."""
         self.cfg = cfg
         self.w = weights
-        self.fused = fused            # Phase 2 fused kernels on the decode path (T == 1)
+        import tokenrush.quant as _q
+        _q.ROWS_FOR_ONE = consistent
+        self.fused = fused            # Phase 2 fused kernels on the short (T <= 8) path
         self.device = torch.device(device)
-        self.state = State(cfg, max_len, self.device, kv_dtype=kv_dtype)
+        from .state import RING
+        assert max_spec + 3 < RING and max_spec + 1 <= 8
+        self.max_spec = max_spec
+        self.state = State(cfg, max_len, self.device, kv_dtype=kv_dtype, n_slots=max_spec + 1)
         if self.state.fp8:
             assert fused, "the fp8 cache is read only by the fused kernels"
         self.cos, self.sin = ops.rope_table(max_len, cfg.rotary_dim, cfg.rope_theta, self.device)
@@ -177,6 +191,13 @@ class Engine:
         self.logits = None            # [1, vocab], written by the last graphed step
         self.graphs = {}              # bucket -> CUDAGraph
         self.pool = None
+        # verify-step I/O: the committed-but-unprocessed token followed by K drafts,
+        # the logits of all K+1 positions, the number of accepted drafts
+        self.spec_toks = torch.zeros(max_spec + 1, device=self.device, dtype=torch.long)
+        self.spec_logits = None       # [K+1, vocab]
+        self.spec_hidden = None       # [K+1, hidden], post-final-norm (the MTP head's input)
+        self.n_accepted = torch.zeros(1, device=self.device, dtype=torch.long)
+        self.spec_graphs = {}         # K -> CUDAGraph
         self.trace = None             # set to a list to collect the residual stream per layer (eager only)
         self.last_hidden = None       # post-final-norm hidden of the last forward
 
@@ -189,7 +210,7 @@ class Engine:
         x = self.w.embed[tokens]
         if self.trace is not None:
             self.trace.append(x.clone())
-        fused = self.fused and tokens.shape[0] == 1
+        fused = self.fused and tokens.shape[0] <= self.state.n_slots
         h = None                                     # pending residual contribution
         for li in range(cfg.n_layers):
             lw = self.layer(li)
@@ -209,13 +230,13 @@ class Engine:
                 n = ops.rmsnorm(x, lw.ln2, cfg.eps)
             h = mlp_forward(n, lw, fused)
             if self.trace is not None:
-                hs = h.sum(0, keepdim=True).to(x.dtype) if h.dtype == torch.float32 else h   # split-K partials
+                hs = h.sum(0).to(x.dtype) if h.dim() == 3 else h                     # split-K partials [S, T, N]
                 self.trace.append(x + hs)
-        if not all_logits and not fused:
-            x, h = x[-1:], h[-1:]
-        if fused:                                    # T == 1; h may be split-K partials [S, N]
+        if fused:                                    # short step: all T rows are wanted; h may be [S, T, N]
             _, n = fused_k.add_rmsnorm(x, h, self.w.final_norm, cfg.eps)
         else:
+            if not all_logits:
+                x, h = x[-1:], h[-1:]
             n = ops.rmsnorm(x + h, self.w.final_norm, cfg.eps)
         self.last_hidden = n                          # post-final-norm, [T or 1, hidden]: the MTP head's input
         return self.w.lm_head(n)
@@ -227,6 +248,16 @@ class Engine:
         T = tokens.shape[0]
         assert self.state.pos + T <= self.state.max_len, "context exceeds the preallocated cache"
         logits = self._body(tokens, all_logits=all_logits)
+        if self.fused and T <= self.state.n_slots:
+            # the fused GDN kernel wrote slots 0..T-1; the state after the last token is slot T-1
+            self.state.slot.fill_(T - 1)
+            self.state.slot_h = T - 1
+            if not all_logits:
+                logits = logits[-1:]
+                self.last_hidden = self.last_hidden[-1:]
+        else:
+            self.state.slot.zero_()
+            self.state.slot_h = 0
         self.state.advance(T)
         return logits
 
@@ -239,6 +270,24 @@ class Engine:
         self.logits.copy_(logits)
         self.tok.copy_(sample(logits, self.sampling))
         self.state.pos_t += 1
+        self.state.slot.zero_()
+
+    def _verify_step(self, K: int):
+        """One greedy verify step for K drafts, shape-static: process spec_toks[:K+1]
+        (the committed token and K drafts) at pos.., compare each position's argmax
+        with the next draft, commit the accepted prefix: n_accepted, tok (the first
+        wrong or bonus token), pos += n+1, recurrent-state slot = n."""
+        M = K + 1
+        logits = self._body(self.spec_toks[:M])                    # [M, vocab]
+        self.spec_logits[:M].copy_(logits)
+        self.spec_hidden[:M].copy_(self.last_hidden)
+        pred = logits.argmax(-1)                                   # [M]
+        match = (pred[:K] == self.spec_toks[1:M]).long()
+        n = match.cumprod(0).sum().view(1)                         # leading accepted drafts, 0..K (device)
+        self.n_accepted.copy_(n)
+        self.tok.copy_(pred.gather(0, n))                          # no host read: graph-safe
+        self.state.pos_t += n + 1
+        self.state.slot.copy_(n)
 
     @staticmethod
     def buckets_for(max_len: int, smallest: int = 1024):
@@ -247,6 +296,48 @@ class Engine:
             out.append(b)
             b *= 2
         return out + [max_len]
+
+    @torch.no_grad()
+    def capture_verify(self, Ks, warmup: int = 2):
+        """Record one graph per draft length K (K = 0 is a plain greedy step)."""
+        cfg, st = self.cfg, self.state
+        assert all(0 <= K <= self.max_spec for K in Ks)
+        if self.spec_logits is None:
+            self.spec_logits = torch.empty(self.max_spec + 1, cfg.vocab, device=self.device, dtype=torch.bfloat16)
+            self.spec_hidden = torch.empty(self.max_spec + 1, cfg.hidden, device=self.device, dtype=torch.bfloat16)
+        self.pool = self.pool or torch.cuda.graph_pool_handle()
+        side = torch.cuda.Stream()
+        side.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(side):
+            for K in Ks:
+                for _ in range(warmup):
+                    st.reset()
+                    self._verify_step(K)
+        torch.cuda.current_stream().wait_stream(side)
+        torch.cuda.synchronize()
+        for K in Ks:
+            st.reset()
+            g = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(g, pool=self.pool):
+                self._verify_step(K)
+            self.spec_graphs[K] = g
+        st.reset()
+        self.tok.zero_()
+        torch.cuda.synchronize()
+
+    def verify(self, drafts: torch.Tensor) -> int:
+        """Replay the verify step for these K drafts (device tensor [K]); the committed
+        token is self.tok. Returns K after syncing the host position mirror from the
+        device count; reads back n_accepted (one sync)."""
+        K = drafts.numel()
+        self.spec_toks[0].copy_(self.tok[0])
+        if K:
+            self.spec_toks[1:K + 1].copy_(drafts)
+        self.spec_graphs[K].replay()
+        n = int(self.n_accepted)
+        self.state.pos += n + 1
+        self.state.slot_h = n
+        return n
 
     @torch.no_grad()
     def capture(self, buckets=None, warmup: int = 2):
@@ -287,6 +378,7 @@ class Engine:
         Returns self.tok, now holding the argmax of this step's logits."""
         self.graphs[self.bucket(self.state.pos)].replay()
         self.state.pos += 1
+        self.state.slot_h = 0
         return self.tok
 
     def prefill(self, tokens: torch.Tensor, chunk: int = 4096) -> torch.Tensor:
