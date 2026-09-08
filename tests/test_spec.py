@@ -143,10 +143,10 @@ def test_draft_vocab_restricts_drafts():
     toks = torch.randint(0, CFG.vocab, (12,), device=DEV)
     ref = _raw_greedy(eng, toks, 12)
     from tokenrush.spec import prime_spec
-    prime_spec(eng, mtp, toks.tolist())
-    out, tok_prev = [], int(toks[-1])
+    prime_spec(eng, mtp, toks.tolist())                        # primes on the whole prompt: tok = first generated
+    out, tok_prev = [], int(eng.tok)
     for _ in range(6):
         n = eng.spec_step(3)
         assert all(int(d) % 4 == 0 for d in eng.drafts[:3])
         out.extend([tok_prev] + eng.drafts[:n].tolist()); tok_prev = int(eng.tok)
-    assert out[1:13] == ref[:len(out[1:13])]
+    assert out[:12] == ref[:len(out[:12])]

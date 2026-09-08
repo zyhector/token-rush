@@ -70,14 +70,16 @@ def generate_spec(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=T
         # 3. next pending pairs: the accepted drafts (true now) then the new token
         hid = engine.spec_hidden[:n + 1]                # target hiddens at pos..pos+n
         pending = (torch.cat([drafts[:n], engine.tok]), hid)
-        if stream:
-            text = tok.decode(out[printed:])
-            if not text.endswith("�"):
-                print(text, end="", flush=True)
-                printed = len(out)
-        if any(t in stop_ids for t in new_tokens):
+        done = any(t in stop_ids for t in new_tokens)
+        if done:
             cut = next(i for i, t in enumerate(out) if t in stop_ids) + 1
             out = out[:cut]
+        if stream:
+            text = tok.decode(out[printed:])
+            if done or not text.endswith("�"):
+                print(text, end="", flush=True)
+                printed = len(out)
+        if done:
             break
     torch.cuda.synchronize()
     t_dec = time.perf_counter() - t1
@@ -122,14 +124,16 @@ def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, st
         new_tokens = [tok_prev] + engine.drafts[:n].tolist()
         tok_prev = int(engine.tok)
         out.extend(new_tokens)
-        if stream:
-            text = tok.decode(out[printed:])
-            if not text.endswith("\ufffd"):
-                print(text, end="", flush=True)
-                printed = len(out)
-        if any(t in stop_ids for t in new_tokens):
+        done = any(t in stop_ids for t in new_tokens)
+        if done:                                            # cut before printing: drafts past eos are garbage
             cut = next(i for i, t in enumerate(out) if t in stop_ids) + 1
             out = out[:cut]
+        if stream:
+            text = tok.decode(out[printed:])
+            if done or not text.endswith("\ufffd"):
+                print(text, end="", flush=True)
+                printed = len(out)
+        if done:
             break
     torch.cuda.synchronize()
     t_dec = time.perf_counter() - t1
