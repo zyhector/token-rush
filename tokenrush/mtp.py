@@ -33,20 +33,29 @@ class MTPWeights:
     pre_norm_hidden: torch.Tensor
 
 
-def build_mtp(cfg: ModelConfig, mtp: dict, device) -> MTPWeights:
-    """mtp: 'mtp.*' name -> CPU bf16 tensor (from load_packed(..., with_mtp=True))."""
+def build_mtp(cfg: ModelConfig, mtp: dict, device, int4: bool = False) -> MTPWeights:
+    """mtp: 'mtp.*' name -> CPU bf16 tensor (from load_packed(..., with_mtp=True)).
+    int4: quantize the projections on the fly (same packing as the body; 0.85 -> 0.21 GB)."""
+    from .quant import QLinear, quantize_int4
     dev = lambda n: mtp[n].to(device)
+
+    def lin(names, split_k=1):
+        w = torch.cat([dev(n) for n in names])
+        if not int4:
+            return Linear(w)
+        return QLinear(*quantize_int4(w), backend="triton", split_k=split_k)
+
     p = "mtp.layers.0."
     m = p + "self_attn."
     mixer = AttnWeights(
-        qkv=Linear(torch.cat([dev(m + "q_proj.weight"), dev(m + "k_proj.weight"), dev(m + "v_proj.weight")])),
-        o=Linear(dev(m + "o_proj.weight")),
+        qkv=lin([m + "q_proj.weight", m + "k_proj.weight", m + "v_proj.weight"]),
+        o=lin([m + "o_proj.weight"], 4),
         q_norm_w=dev(m + "q_norm.weight"), k_norm_w=dev(m + "k_norm.weight"))
     layer = LayerWeights(
         ln1=dev(p + "input_layernorm.weight"), ln2=dev(p + "post_attention_layernorm.weight"), mixer=mixer,
-        gate_up=Linear(torch.cat([dev(p + "mlp.gate_proj.weight"), dev(p + "mlp.up_proj.weight")])),
-        down=Linear(dev(p + "mlp.down_proj.weight")))
-    return MTPWeights(fc=Linear(dev("mtp.fc.weight")), layer=layer, norm=dev("mtp.norm.weight"),
+        gate_up=lin([p + "mlp.gate_proj.weight", p + "mlp.up_proj.weight"]),
+        down=lin([p + "mlp.down_proj.weight"], 4))
+    return MTPWeights(fc=lin(["mtp.fc.weight"]), layer=layer, norm=dev("mtp.norm.weight"),
                       pre_norm_emb=dev("mtp.pre_fc_norm_embedding.weight"),
                       pre_norm_hidden=dev("mtp.pre_fc_norm_hidden.weight"))
 
@@ -72,6 +81,25 @@ class MTPHead:
         """Rewind or advance the cache position (rows beyond are simply overwritten)."""
         self.state.pos = pos
         self.state.pos_t.fill_(pos)
+
+    def hidden_rows(self, next_tokens: torch.Tensor, target_hidden: torch.Tensor) -> torch.Tensor:
+        """Graph-capable M-row (M <= 8) pass through the fused kernels: rows at the device
+        position state.pos_t.. ; returns the normed hidden [M, hidden] (no logits) and
+        advances pos_t by M. The caller applies lm_head to the rows it needs."""
+        from . import fused as fused_k
+        cfg = self.cfg
+        M = next_tokens.shape[0]
+        e = ops.rmsnorm(self.embed[next_tokens], self.w.pre_norm_emb, cfg.eps)
+        h = ops.rmsnorm(target_hidden, self.w.pre_norm_hidden, cfg.eps)
+        x = self.w.fc(torch.cat([e, h], dim=-1))
+        lw = self.w.layer
+        x, n = fused_k.add_rmsnorm(x, None, lw.ln1, cfg.eps)
+        hres = attn_forward(n, lw.mixer, cfg, self.state, 0, self.cos, self.sin, fused=True)   # [S, M, hidden]
+        x, n = fused_k.add_rmsnorm(x, hres, lw.ln2, cfg.eps)
+        hres = mlp_forward(n, lw, fused=True)
+        _, hn = fused_k.add_rmsnorm(x, hres, self.w.norm, cfg.eps)
+        self.state.pos_t += M
+        return hn
 
     @torch.no_grad()
     def forward(self, next_tokens: torch.Tensor, target_hidden: torch.Tensor):

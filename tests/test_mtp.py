@@ -11,6 +11,16 @@ from tokenrush.model import AttnWeights, LayerWeights  # noqa: E402
 from tokenrush.quant import Linear  # noqa: E402
 
 
+def _random_mtp(cfg):
+    mixer = AttnWeights(qkv=Linear(rnd(cfg.n_heads * cfg.head_dim * 2 + 2 * cfg.n_kv_heads * cfg.head_dim, cfg.hidden)),
+                        o=Linear(rnd(cfg.hidden, cfg.n_heads * cfg.head_dim)),
+                        q_norm_w=rnd(cfg.head_dim, std=0.5), k_norm_w=rnd(cfg.head_dim, std=0.5))
+    layer = LayerWeights(ln1=rnd(cfg.hidden, std=0.5), ln2=rnd(cfg.hidden, std=0.5), mixer=mixer,
+                         gate_up=Linear(rnd(2 * cfg.ffn, cfg.hidden)), down=Linear(rnd(cfg.hidden, cfg.ffn)))
+    return MTPWeights(fc=Linear(rnd(cfg.hidden, 2 * cfg.hidden)), layer=layer, norm=rnd(cfg.hidden, std=0.5),
+                      pre_norm_emb=rnd(cfg.hidden, std=0.5), pre_norm_hidden=rnd(cfg.hidden, std=0.5))
+
+
 def test_mtp_head_runs_and_chains():
     cfg = CFG
     mixer = AttnWeights(qkv=Linear(rnd(cfg.n_heads * cfg.head_dim * 2 + 2 * cfg.n_kv_heads * cfg.head_dim, cfg.hidden)),

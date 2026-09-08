@@ -12,3 +12,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 11,2026-09-08,GEMV config re-pick (L2-proof); Phase 2 closed,102.2,82,9.78,1500
 12,2026-09-08,Phase 3 step 1: MTP acceptance (2.58/3.35/3.50 at depth 3); no speed change,102.2,82,9.78,1500
 13,2026-09-08,Phase 3 steps 2-3: graphed verify step + device accept/commit (eager MTP drafts): 172/212/204 effective,102.2,82,9.78,1500
+14,2026-09-08,Phase 3 step 4: MTP chain in graph + int4 head + adaptive depth 3:4: 183/254/258 effective,102.2,82,9.78,1500

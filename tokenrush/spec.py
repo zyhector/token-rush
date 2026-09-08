@@ -86,3 +86,61 @@ def generate_spec(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=T
     return out, {"prompt_tokens": T, "prefill_s": t_prefill, "new_tokens": len(out), "decode_s": t_dec,
                  "decode_tok_s": len(out) / t_dec, "verify_steps": steps,
                  "accepted_per_step": (len(out)) / max(steps, 1), "ms_per_step": t_dec / max(steps, 1) * 1e3}
+
+
+def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=True, chunk=4096,
+                        dynamic=(3, 4)):
+    """Same as generate_spec, with the draft chain inside the graph (Engine.capture_spec(K)).
+    dynamic=(Kmin, Kmax): pick each step's depth as clamp(n_prev + 2, Kmin, Kmax) — deeper
+    after a well-accepted chain, shallower after an early rejection; needs graphs for every
+    K in the range. The previous step's n accepted drafts are always <= the new K."""
+    dev = engine.device
+    Ks = list(range(dynamic[0], dynamic[1] + 1)) if dynamic else [K]
+    assert all(("spec", k) in engine.spec_graphs for k in Ks)
+    engine.reset()
+    mtp.reset()
+    ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
+    torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    logits = engine.forward(ids, all_logits=True)          # eager prefill with all hiddens
+    H = engine.last_hidden
+    T = ids.numel()
+    nxt = logits[-1].argmax()
+    engine.tok.copy_(nxt.view(1))
+    mtp.set_pos(1)
+    mtp.forward(ids[1:], H[:-1])                            # MTP rows 1..T-1 (eager)
+    engine.n_accepted.zero_()
+    engine.spec_hidden[0].copy_(H[-1])                      # row 0 pairs with tok at MTP row T
+    torch.cuda.synchronize()
+    t_prefill = time.perf_counter() - t0
+
+    out, printed, steps = [], 0, 0
+    tok_prev = int(nxt)
+    n = 0
+    depth_hist = {}
+    t1 = time.perf_counter()
+    while len(out) < max_new:
+        k = min(max(n + 2, dynamic[0]), dynamic[1]) if dynamic else K     # n=0 -> Kmin.., n>=2 -> deeper
+        depth_hist[k] = depth_hist.get(k, 0) + 1
+        n = engine.spec_step(k)
+        steps += 1
+        new_tokens = [tok_prev] + engine.drafts[:n].tolist()
+        tok_prev = int(engine.tok)
+        out.extend(new_tokens)
+        if stream:
+            text = tok.decode(out[printed:])
+            if not text.endswith("\ufffd"):
+                print(text, end="", flush=True)
+                printed = len(out)
+        if any(t in stop_ids for t in new_tokens):
+            cut = next(i for i, t in enumerate(out) if t in stop_ids) + 1
+            out = out[:cut]
+            break
+    torch.cuda.synchronize()
+    t_dec = time.perf_counter() - t1
+    if stream:
+        print(tok.decode(out[printed:]))
+    return out, {"prompt_tokens": T, "prefill_s": t_prefill, "new_tokens": len(out), "decode_s": t_dec,
+                 "decode_tok_s": len(out) / t_dec, "verify_steps": steps,
+                 "accepted_per_step": len(out) / max(steps, 1), "ms_per_step": t_dec / max(steps, 1) * 1e3,
+                 "depths": depth_hist}

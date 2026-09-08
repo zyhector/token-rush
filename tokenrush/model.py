@@ -297,6 +297,83 @@ class Engine:
             b *= 2
         return out + [max_len]
 
+    # ------------------------------------------------- speculative step
+
+    def attach_mtp(self, mtp):
+        """The MTP head whose draft chain runs inside the spec graph."""
+        self.mtp = mtp
+        K = self.max_spec
+        self.drafts = torch.zeros(max(K, 1), device=self.device, dtype=torch.long)
+        self.draft_hidden = torch.empty(1, self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
+
+    def _spec_step(self, K: int):
+        """Draft chain + verify in one shape-static step. Enters with: tok = the token
+        to process at pos (device), n_accepted and drafts from the previous step, and
+        spec_hidden[0..K] = the previous verify's target hiddens at pos-n-1 .. pos-1+K-n.
+
+        A. MTP pass over K+1 rows at MTP positions pos-n .. pos-n+K: tokens
+           [d_1..d_n, tok, pad...] paired with spec_hidden[0..K]; row n is the true
+           (tok, hidden at pos-1) pair whose output drafts d'_1.
+        B. K-1 chained single-row MTP calls at pos+1.. for d'_2..d'_K.
+        C. verify(tok, d'_1..d'_K); commit n, tok, pos, state slot."""
+        mtp, st = self.mtp, self.state
+        n = self.n_accepted                                                   # [1]
+        idx = torch.arange(K + 1, device=self.device)
+        prev_drafts = torch.cat([self.drafts[:K], self.tok])                  # [K+1]: d_1..d_K, tok
+        toks_a = torch.where(idx < n, self.drafts[:K + 1] if K + 1 <= self.drafts.numel() else prev_drafts,
+                             torch.where(idx == n, self.tok.expand(K + 1), self.tok.expand(K + 1)))
+        toks_a = torch.where(idx < n, prev_drafts, self.tok.expand(K + 1))    # rows > n carry tok (garbage rows)
+        mtp.state.pos_t.copy_(st.pos_t - n)                                   # MTP row of d_1 .. is pos-n
+        hn = mtp.hidden_rows(toks_a, self.spec_hidden[:K + 1])                # [K+1, hidden]
+        h_sel = hn.index_select(0, n)                                         # row n: after (tok, h_{pos-1})
+        d = self.w.lm_head(h_sel).argmax(-1)                                  # d'_1
+        mtp.state.pos_t.copy_(st.pos_t + 1)                                   # chain rows pos+1 ..
+        new_drafts = [d]
+        for _ in range(K - 1):
+            hn = mtp.hidden_rows(d, h_sel)
+            h_sel = hn
+            d = self.w.lm_head(h_sel).argmax(-1)
+            new_drafts.append(d)
+        self.drafts[:K].copy_(torch.cat(new_drafts))
+        # C. verify
+        M = K + 1
+        self.spec_toks[0].copy_(self.tok[0])
+        self.spec_toks[1:M].copy_(self.drafts[:K])
+        self._verify_step(K)
+
+    @torch.no_grad()
+    def capture_spec(self, K: int, warmup: int = 2):
+        """Record the draft-chain + verify graph for K drafts (needs attach_mtp)."""
+        assert 1 <= K <= self.max_spec and hasattr(self, "mtp")
+        if self.spec_logits is None:
+            self.spec_logits = torch.empty(self.max_spec + 1, self.cfg.vocab, device=self.device, dtype=torch.bfloat16)
+            self.spec_hidden = torch.empty(self.max_spec + 1, self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
+        self.pool = self.pool or torch.cuda.graph_pool_handle()
+        side = torch.cuda.Stream()
+        side.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(side):
+            for _ in range(warmup):
+                self.state.reset(); self.mtp.reset(); self.n_accepted.zero_()
+                self._spec_step(K)
+        torch.cuda.current_stream().wait_stream(side)
+        torch.cuda.synchronize()
+        self.state.reset(); self.mtp.reset(); self.n_accepted.zero_()
+        g = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(g, pool=self.pool):
+            self._spec_step(K)
+        self.spec_graphs[("spec", K)] = g
+        self.state.reset(); self.mtp.reset(); self.n_accepted.zero_(); self.tok.zero_()
+        torch.cuda.synchronize()
+
+    def spec_step(self, K: int) -> int:
+        """Replay the draft + verify graph; returns n (one host read). The tokens produced
+        are [the tok before the call] + drafts[:n] (drafts as left by this call)."""
+        self.spec_graphs[("spec", K)].replay()
+        n = int(self.n_accepted)
+        self.state.pos += n + 1
+        self.state.slot_h = n
+        return n
+
     @torch.no_grad()
     def capture_verify(self, Ks, warmup: int = 2):
         """Record one graph per draft length K (K = 0 is a plain greedy step)."""
