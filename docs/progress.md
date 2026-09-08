@@ -15,6 +15,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 1. Environment and weights | 2026-09-08 | no engine yet | — | — |
 | 2. Skeleton runs | 2026-09-08 | full text path, int4 g128 RTN, dequantize-then-matmul GEMV, eager | 1490 | 3.2 |
 | 3. GEMV shootout, kernel swapped in | 2026-09-08 | + own Triton int4 GEMV (92% of wall inside the model), fused q\|k\|v and gate\|up projections; still eager, CPU-bound on ~2500 launches | 1500 | 36 (46 with tinygemm) |
+| 4. Whole-step CUDA graph | 2026-09-08 | + one graph per context bucket, device position, in-graph argmax feeding the next step; GPU-bound at 14.6 ms/step | 1500 | **68.4** (55% of wall) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -109,12 +110,38 @@ the whole model, and it is what step 4's CUDA graph removes. With the GEMVs at
 chain) ms; the eager non-GEMV GPU time of 9 ms is the next thing to shrink
 after that.
 
+## Step 4 — whole-step CUDA graph (2026-09-08)
+
+What changed (`state.py`, `model.py`, `ops.py`): the position is a device
+tensor; rotary lookup and KV writes index with it; decode attention runs over
+a fixed context bucket (1k, 2k, 4k, ... , max_len) with a mask derived from
+the position, so a step is shape-static; `Engine.capture()` records one graph
+per bucket into a shared pool, and a step is `graph.replay()` with the argmax
+written back into the step's own input token. Nothing returns to the host.
+Test: replay matches the eager bucketed step bit for bit.
+
+| | | note |
+|---|---|---|
+| decode | **68.4 tok/s**, 14.62 ms/step | equals the step's GPU time: CPU launch cost is gone |
+| bytes read per step | 13.65 GB | 25.6B streamed params at 4.25 bpw; the 2.5 GB embedding table is not read (earlier "16.19 GB" figures counted it) |
+| ceiling | 124.6 tok/s | 1701 / 13.65 |
+| % of wall | 55% | |
+| capture | 4 graphs, 4.8 s, +0.6 GB | max_len 8192 in the bench |
+
+Where the 14.6 ms of GPU time goes now: GEMVs 9.06 ms (92% of the wall on
+their bytes), memory-efficient SDPA over the 1024 bucket 1.18 ms for 16
+layers, and **~4.4 ms in about 2200 elementwise, reduce and copy kernels**
+of the GDN chain, the norms and the gating. That last item is Phase 2's
+GDN-step fusion; at Phase 0's 48-layer measurement (1.4 ms graphed for the
+whole chain) it is worth ~3 ms, i.e. the step goes to ~11.5 ms and ~87 tok/s
+before attention or sampling are touched.
+
 ## Next
 
-- Step 4: first CUDA graph over a whole decode step (positions as device
-  tensors, attention over a fixed-length masked cache or a bucketed set of
-  graphs, argmax in-graph). Expect the 30 ms of CPU launch time to vanish
-  and the step to approach its 18 ms of GPU time, then the ~9 ms of
-  non-GEMV GPU time to become the target (GDN chain fusion, Phase 2).
+- Phase 1a is at its milestone: a running engine, ours, at 68 tok/s. Next
+  is either Phase 1b (correctness gate against HF, quality table,
+  quantization choice) or Phase 2 (fused GDN step: the 4.4 ms of small
+  kernels; then attention decode over the live length instead of a bucket;
+  then fused sampling).
 - Phase 1b: engine-correctness gate against HF (per-layer first), quality
   table, quantization choice.

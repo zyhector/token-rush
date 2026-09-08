@@ -5,14 +5,18 @@ import time
 import torch
 
 
-def generate(engine, tok, prompt_ids, max_new: int, stop_ids, stream: bool = True, chunk: int = 4096):
+def generate(engine, tok, prompt_ids, max_new: int, stop_ids, stream: bool = True, chunk: int = 4096,
+             graphed: bool = True):
     dev = engine.device
+    graphed = graphed and bool(engine.graphs)
     engine.reset()
     ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
     torch.cuda.synchronize()
     t0 = time.perf_counter()
     logits = engine.prefill(ids, chunk=chunk)
     nxt = logits[-1].argmax()
+    if graphed:
+        engine.tok.copy_(nxt.view(1))
     torch.cuda.synchronize()
     t_prefill = time.perf_counter() - t0
 
@@ -30,8 +34,10 @@ def generate(engine, tok, prompt_ids, max_new: int, stop_ids, stream: bool = Tru
                 printed = len(out)
         if tid in stop_ids:
             break
-        logits = engine.decode(nxt)
-        nxt = logits[-1].argmax()
+        if graphed:
+            nxt = engine.step()[0]
+        else:
+            nxt = engine.decode(nxt)[-1].argmax()
     torch.cuda.synchronize()
     t_decode = time.perf_counter() - t1
     if stream:

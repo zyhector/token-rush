@@ -1,6 +1,7 @@
 """python -m tokenrush.run --model <packed dir> --prompt "..." [--chat] [--max-new N]"""
 import argparse
 import json
+import time
 
 import torch
 from transformers import AutoTokenizer
@@ -20,6 +21,7 @@ def main():
     ap.add_argument("--max-len", type=int, default=32768, help="preallocated context")
     ap.add_argument("--chunk", type=int, default=4096, help="prefill chunk")
     ap.add_argument("--backend", default="triton", choices=("triton", "tinygemm", "dequant"), help="int4 GEMV")
+    ap.add_argument("--eager", action="store_true", help="decode eagerly instead of replaying CUDA graphs")
     a = ap.parse_args()
     if not is_packed(a.model):
         raise SystemExit(f"{a.model} is not a packed checkpoint; run python -m tokenrush.quantize first")
@@ -27,6 +29,10 @@ def main():
     cfg, w, _ = load_packed(a.model, backend=a.backend)
     tok = AutoTokenizer.from_pretrained(a.model)
     engine = Engine(cfg, w, max_len=a.max_len)
+    if not a.eager:
+        t0 = time.perf_counter()
+        engine.capture()
+        print(f"captured {len(engine.graphs)} decode graphs (buckets {sorted(engine.graphs)}) in {time.perf_counter() - t0:.1f}s")
     print(f"weights {w.nbytes / 1e9:.2f} GB, state {engine.state.nbytes / 1e9:.2f} GB, "
           f"cuda allocated {torch.cuda.memory_allocated() / 1e9:.2f} GB")
 
@@ -38,7 +44,7 @@ def main():
     ids = tok.encode(text)
     stop = set(cfg.eos_ids) | {tok.eos_token_id}
     print(f"--- prompt ({len(ids)} tokens) ---\n{text}\n--- output ---")
-    _, st = generate(engine, tok, ids, a.max_new, stop, chunk=a.chunk)
+    _, st = generate(engine, tok, ids, a.max_new, stop, chunk=a.chunk, graphed=not a.eager)
     print("---")
     print(json.dumps({k: (round(v, 3) if isinstance(v, float) else v) for k, v in st.items()}))
 

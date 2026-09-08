@@ -233,3 +233,44 @@ def test_engine_prefill_chunks_and_decode_agree(quant):
     assert row[10:].mean() < 2 * row[:10].mean(), row.tolist()
     row = ((stepped - full[4:]).norm(dim=-1) / full[4:].norm(dim=-1))
     assert row[8:].mean() < 2 * row[:8].mean(), row.tolist()
+
+
+def test_graph_replay_matches_eager_bucketed_step():
+    """A captured decode step reproduces the eager bucketed step bit for bit, and
+    the bucketed step agrees with the sliced eager decode to bf16 noise."""
+    w = random_weights(CFG, "triton")
+    eng = Engine(CFG, w, max_len=256)
+    eng.capture(buckets=[64, 256])
+    toks = torch.randint(0, CFG.vocab, (40,), device=DEV)
+
+    # eager reference: sliced decode
+    eng.reset()
+    eng.forward(toks[:30])
+    ref = torch.cat([eng.decode(toks[t]) for t in range(30, 40)]).float()
+
+    # graph replay, fed the same tokens (not its own argmax)
+    eng.reset()
+    eng.forward(toks[:30])
+    outs = []
+    for t in range(30, 40):
+        eng.tok.copy_(toks[t:t + 1])
+        eng.step()
+        outs.append(eng.logits.clone())
+    got = torch.cat(outs).float()
+    assert eng.state.pos == 40 and int(eng.state.pos_t) == 40
+    assert eng.bucket(30) == 64 and eng.bucket(64) == 256
+
+    # eager execution of the very same bucketed function, for the bit-exact check
+    eng.reset()
+    eng.forward(toks[:30])
+    eag = []
+    for t in range(30, 40):
+        eng.tok.copy_(toks[t:t + 1])
+        with torch.no_grad():
+            eng._graph_step(eng.bucket(eng.state.pos))
+        eng.state.pos += 1
+        eag.append(eng.logits.clone())
+    eag = torch.cat(eag).float()
+
+    torch.testing.assert_close(got, eag, rtol=0, atol=0)
+    assert ((got - ref).norm() / ref.norm()).item() < 0.05

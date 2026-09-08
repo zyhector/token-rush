@@ -154,6 +154,14 @@ def attn_decode(q, K, V):
     return F.scaled_dot_product_attention(q[None], K[None], V[None], enable_gqa=True)[0]
 
 
+def attn_decode_bucket(q, K, V, pos_t):
+    """q [Hq, 1, D]; K, V [Hkv, S, D] where S is a fixed bucket >= pos+1; keys beyond
+    pos_t (a device tensor) are masked. Shape-static, so it captures into a graph."""
+    S = K.shape[1]
+    mask = torch.arange(S, device=q.device)[None, :] <= pos_t[:, None]        # [1, S]
+    return F.scaled_dot_product_attention(q[None], K[None], V[None], attn_mask=mask, enable_gqa=True)[0]
+
+
 def attn_prefill(q, K, V, pos: int, block: int = 1024):
     """q [Hq, T, D] for positions pos..pos+T-1; K, V [Hkv, pos+T, D].
     Causal over the whole cache: query i sees keys <= pos+i. Queries go through in

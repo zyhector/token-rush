@@ -19,7 +19,10 @@ class State:
         self.conv = torch.zeros(n_gdn, cfg.conv_dim, cfg.conv_k - 1, device=device, dtype=torch.bfloat16)
         self.rec = torch.zeros(n_gdn, cfg.gdn_v_heads, cfg.gdn_k_dim, cfg.gdn_v_dim, device=device,
                                dtype=torch.float32)
+        # position: a host mirror for slicing in prefill and choosing a graph bucket,
+        # and the device tensor every in-graph index derives from
         self.pos = 0
+        self.pos_t = torch.zeros(1, device=device, dtype=torch.long)
         # layer index -> slot in the per-type tensors
         self.attn_slot = {l: i for i, l in enumerate(cfg.attn_layers)}
         self.gdn_slot = {l: i for i, l in enumerate(cfg.gdn_layers)}
@@ -28,6 +31,11 @@ class State:
         self.conv.zero_()
         self.rec.zero_()
         self.pos = 0
+        self.pos_t.zero_()
+
+    def advance(self, T: int):
+        self.pos += T
+        self.pos_t += T
 
     @property
     def nbytes(self):
