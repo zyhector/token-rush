@@ -10,6 +10,22 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
+## Where things stand (after step 18, 2026-09-08)
+
+| | | |
+|---|---|---|
+| raw greedy decode, short context | **102 tok/s**, 9.8 ms/step, 82% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6) | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
+| speculative greedy (MTP chain in-graph, depth 3:4), essay / code / math | **183 / 254 / 258 tok/s** | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
+| speculative sampled, T=0.7 top-p 0.9 | 167 / 237 / 239 | output distribution identical to raw sampling |
+| speculative at 200k context, fp8 KV, prose / code | **180 / 199 tok/s** (raw 68) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
+| context | 256k usable (needle at 128k and 256k), 26 GB peak | |
+| correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 39 tests | |
+| quantization | int4 g128 RTN, uncalibrated: teacher-forced KL 0.06 vs bf16, 2–4x a calibrated quant's; **the quality gate is not met** (`docs/quality_plan.md`, deferred to a two-GPU box) | |
+| phases | 0 done (frozen), 1a done, 1b half (gate done, quality owed), 2 done, 3 in progress (chain done; tree, DSpark, GEMV tuning open), 4 not started | |
+
+Every number above is a development number on this instance; Phase 4
+re-measures everything on one machine.
+
 | Step | Date | State of the engine | prefill tok/s | decode tok/s |
 |---|---|---|---|---|
 | 1. Environment and weights | 2026-09-08 | no engine yet | — | — |
