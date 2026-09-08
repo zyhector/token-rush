@@ -15,8 +15,8 @@ class State:
         # attention KV: [layer, kv_head, position, head_dim]
         self.k = torch.zeros(n_attn, cfg.n_kv_heads, max_len, cfg.head_dim, device=device, dtype=kv_dtype)
         self.v = torch.zeros_like(self.k)
-        # GDN: the last K-1 pre-conv inputs and the fp32 recurrent state
-        self.conv = torch.zeros(n_gdn, cfg.conv_dim, cfg.conv_k - 1, device=device, dtype=torch.bfloat16)
+        # GDN: a ring of the last K pre-conv inputs and the fp32 recurrent state
+        self.conv = torch.zeros(n_gdn, cfg.conv_dim, cfg.conv_k, device=device, dtype=torch.bfloat16)   # ring, col = pos % 4
         self.rec = torch.zeros(n_gdn, cfg.gdn_v_heads, cfg.gdn_k_dim, cfg.gdn_v_dim, device=device,
                                dtype=torch.float32)
         # position: a host mirror for slicing in prefill and choosing a graph bucket,

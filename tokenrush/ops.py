@@ -57,23 +57,35 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
 
 
 # ------------------------------------------------------- GDN causal conv1d
-# conv_state holds the last (K-1) pre-conv inputs, [conv_dim, K-1].
+# conv_state is a ring of the last 4 pre-conv inputs per channel, [conv_dim, 4],
+# column = position mod 4. Column (pos - 3) mod 4 .. pos mod 4 is the window
+# for position pos; unwritten columns are zero, which is the causal padding.
 
 
-def conv_prefill(x: torch.Tensor, conv_state: torch.Tensor, weight: torch.Tensor):
-    """x [T, conv_dim] -> silu(conv(x)) [T, conv_dim]; updates conv_state in place."""
+def conv_prefill(x: torch.Tensor, conv_state: torch.Tensor, weight: torch.Tensor, pos: int):
+    """x [T, conv_dim] at positions pos..pos+T-1 -> silu(conv(x)) [T, conv_dim]; updates the ring."""
+    T = x.shape[0]
     xt = x.t()                                                     # [conv_dim, T]
-    window = torch.cat([conv_state, xt], dim=-1)                   # [conv_dim, K-1+T]
+    cols = torch.tensor([(pos - 3 + j) % 4 for j in range(3)], device=x.device)
+    prev = conv_state.index_select(1, cols)                        # [conv_dim, 3]
+    if pos < 3:
+        prev = prev.clone()
+        prev[:, :3 - pos] = 0
+    window = torch.cat([prev, xt], dim=-1)
     y = F.conv1d(window[None].to(weight.dtype), weight[:, None, :], groups=weight.shape[0])[0]
-    conv_state.copy_(window[:, -conv_state.shape[-1]:])
+    for t in range(max(0, T - 4), T):
+        conv_state[:, (pos + t) % 4] = xt[:, t]
     return F.silu(y).t().to(x.dtype)
 
 
-def conv_step(x: torch.Tensor, conv_state: torch.Tensor, weight: torch.Tensor):
-    """x [1, conv_dim] -> [1, conv_dim]; updates conv_state in place."""
-    window = torch.cat([conv_state, x.t()], dim=-1)                # [conv_dim, K]
-    y = (window.to(weight.dtype) * weight).sum(-1)
-    conv_state.copy_(window[:, 1:])
+def conv_step(x: torch.Tensor, conv_state: torch.Tensor, weight: torch.Tensor, pos_t: torch.Tensor):
+    """x [1, conv_dim] at device position pos_t -> [1, conv_dim]; updates the ring. Graph-safe."""
+    cols = (pos_t + torch.arange(1, 5, device=x.device)) % 4       # (pos-3 .. pos) mod 4
+    window = conv_state.index_select(1, cols)                      # [conv_dim, 4]
+    window[:, 3] = x[0]
+    # fp32 products, one rounding: bit-identical to the cuDNN conv1d HF runs
+    y = (window.float() * weight.float()).sum(-1).to(weight.dtype)
+    conv_state.index_copy_(1, cols[3:], x.t())
     return F.silu(y)[None].to(x.dtype)
 
 

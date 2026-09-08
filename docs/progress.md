@@ -17,6 +17,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 3. GEMV shootout, kernel swapped in | 2026-09-08 | + own Triton int4 GEMV (92% of wall inside the model), fused q\|k\|v and gate\|up projections; still eager, CPU-bound on ~2500 launches | 1500 | 36 (46 with tinygemm) |
 | 4. Whole-step CUDA graph | 2026-09-08 | + one graph per context bucket, device position, in-graph argmax feeding the next step; GPU-bound at 14.6 ms/step | 1500 | **68.4** (55% of wall) |
 | 5. Engine-correctness gate vs HF | 2026-09-08 | bf16 path streamed layer by layer against HF transformers 5.16.1: 48/48 greedy tokens identical, residual error <=2% with no jump; engine declared correct | — | — |
+| 6. Phase 2: fused GDN step, fused add+norm | 2026-09-08 | + one Triton kernel per GDN layer (conv, gating, delta rule, gated norm, output gate), one kernel per residual+RMSNorm, silu*mul fused; ring-buffer conv state | 1500 | **83.2** (67% of wall) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -167,6 +168,49 @@ residual error 3.5% after layer 1 rising to 19% at layer 63; prompt top-1
 6e-2 mean; greedy diverges at step 4. That is what 4.25-bit round-to-nearest
 with no calibration costs on this model, and it is the number the Phase 1b
 quality table has to beat (ExLlamaV3's 4.00 bpw KL is the bar).
+
+## Step 6 — Phase 2 begins: fused GDN step and fused norms (2026-09-08)
+
+`tokenrush/fused.py`, tests in `tests/test_fused.py`. Kernel anatomy of one
+decode step at the start: a GDN layer ran 26 kernels (2 GEMVs, 1 small
+cuBLAS GEMV for b|a, 1 delta-rule step, 22 elementwise/reduce/copy kernels),
+every residual+RMSNorm 11 kernels, an attention layer 51.
+
+Three fused kernels, each differential-tested against the ops it replaces
+(which step 5 verified against HF):
+
+- **`gdn_step_fused`**: conv step, sigmoid/softplus gating, L2 norms, delta
+  rule state update, gated RMSNorm and silu output gate for one GDN layer in
+  one launch, one program per V head (BV=128; splitting the head into more
+  programs plus a second norm kernel was measured slower). 22 kernels -> 1.
+  It needed the conv state to become a **4-column ring** (column = position
+  mod 4) so a program can write the new input while others still read the
+  older columns.
+- **`add_rmsnorm`**: residual add (rounded to bf16, as the residual stream is)
+  and RMSNorm with the (1 + w) gain in one launch. 11 kernels -> 1, 129 per step.
+- **`silu_mul`**: 2 -> 1.
+
+A finding on the way: the eager `conv_step` multiplied in bf16 and rounded
+every product; HF's cuDNN conv1d accumulates in fp32 and rounds once, and so
+does the fused kernel. The fused kernel matched HF exactly; the eager op was
+the odd one out and was fixed. The fused path reproduces the int4 gate
+numbers of step 5 to three digits (teacher-forced KL 6.04e-2 vs 6.05e-2,
+same divergence step).
+
+| | | |
+|---|---|---|
+| decode | **83.2 tok/s**, 12.02 ms/step | 67% of the wall, ceiling 124.6 |
+| GEMVs | 9.06 ms | unchanged, 92% of the wall on their bytes |
+| attention (SDPA over the 1024 bucket) | 1.19 ms | 16 layers, 74 us each |
+| fused norms | 0.32 ms | 129 launches |
+| fused GDN steps | 0.31 ms | 48 launches, 6.4 us each |
+| b\|a GEMV (cuBLAS) | 0.20 ms | 48 launches; foldable into the fused kernel |
+| attention layer small kernels | ~0.6 ms | ~48 launches per attention layer: q/k norm, rope, cat, index ops, mask, gate |
+
+Next inside Phase 2: the attention layer (one prep kernel for q/k norm +
+rope + KV write, then our own decode attention kernel reading the live
+length instead of a bucket, with FP8 KV so 256k fits), then the b|a fold and
+GEMV split-K for the two 5120-row shapes.
 
 ## Next
 

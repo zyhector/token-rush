@@ -81,16 +81,22 @@ def test_conv_step_matches_prefill():
     cd, K, T = CFG.conv_dim, CFG.conv_k, 6
     w = rnd(cd, K, std=0.3)
     x = rnd(T, cd, std=1.0)
-    s1 = torch.zeros(cd, K - 1, device=DEV, dtype=BF)
+    s1 = torch.zeros(cd, K, device=DEV, dtype=BF)
     s2 = torch.zeros_like(s1)
-    y_pre = ops.conv_prefill(x, s1, w)
-    y_step = torch.cat([ops.conv_step(x[t:t + 1], s2, w) for t in range(T)])
+    pos = lambda p: torch.tensor([p], device=DEV)
+    y_pre = ops.conv_prefill(x, s1, w, 0)
+    y_step = torch.cat([ops.conv_step(x[t:t + 1], s2, w, pos(t)) for t in range(T)])
     torch.testing.assert_close(y_pre, y_step, rtol=1e-2, atol=1e-2)
     torch.testing.assert_close(s1, s2, rtol=0, atol=0)
-    # and a second prefill continues from the state the steps left behind
+    # a second prefill continues from the ring the steps left behind, at an arbitrary phase
     x2 = rnd(3, cd, std=1.0)
-    torch.testing.assert_close(ops.conv_prefill(x2, s1, w),
-                               torch.cat([ops.conv_step(x2[t:t + 1], s2, w) for t in range(3)]), rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(ops.conv_prefill(x2, s1, w, T),
+                               torch.cat([ops.conv_step(x2[t:t + 1], s2, w, pos(T + t)) for t in range(3)]), rtol=1e-2, atol=1e-2)
+    # against a plain causal conv over the whole sequence
+    xa = torch.cat([x, x2])
+    ref = F.silu(F.conv1d(xa.t()[None], w[:, None, :], padding=3, groups=cd)[0, :, :T + 3]).t()
+    s3 = torch.zeros_like(s1)
+    torch.testing.assert_close(ops.conv_prefill(xa, s3, w, 0), ref, rtol=1e-2, atol=1e-2)
 
 
 def _gdn_inputs(T=1):
@@ -207,7 +213,7 @@ def test_qlinear_cat_matches_separate():
 @pytest.mark.parametrize("quant", [None, "dequant", "triton", "tinygemm"])
 def test_engine_prefill_chunks_and_decode_agree(quant):
     w = random_weights(CFG, quant)
-    eng = Engine(CFG, w, max_len=256)
+    eng = Engine(CFG, w, max_len=256, fused=False)
     toks = torch.randint(0, CFG.vocab, (23,), device=DEV)
 
     eng.reset()
@@ -239,7 +245,7 @@ def test_graph_replay_matches_eager_bucketed_step():
     """A captured decode step reproduces the eager bucketed step bit for bit, and
     the bucketed step agrees with the sliced eager decode to bf16 noise."""
     w = random_weights(CFG, "triton")
-    eng = Engine(CFG, w, max_len=256)
+    eng = Engine(CFG, w, max_len=256, fused=False)
     eng.capture(buckets=[64, 256])
     toks = torch.randint(0, CFG.vocab, (40,), device=DEV)
 

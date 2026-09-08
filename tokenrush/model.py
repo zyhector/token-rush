@@ -9,6 +9,7 @@ from typing import Union
 import torch
 import torch.nn.functional as F
 
+from . import fused as fused_k
 from . import ops
 from .config import ModelConfig
 from .quant import Linear, QLinear
@@ -68,14 +69,21 @@ class ModelWeights:
 # ----------------------------------------------------------------- layers
 
 
-def gdn_forward(x: torch.Tensor, w: GDNWeights, cfg: ModelConfig, state: State, slot: int) -> torch.Tensor:
+def gdn_forward(x: torch.Tensor, w: GDNWeights, cfg: ModelConfig, state: State, slot: int,
+                fused: bool = False) -> torch.Tensor:
     T = x.shape[0]
-    qkv, z = torch.split(w.in_qkvz(x), [cfg.conv_dim, cfg.gdn_val_dim], dim=-1)   # [T, conv_dim], [T, val_dim]
-    b, a = torch.split(F.linear(x, w.in_ba), [cfg.gdn_v_heads, cfg.gdn_v_heads], dim=-1)   # [T, HV] each
+    qkvz = w.in_qkvz(x)                                                              # [T, conv_dim + val_dim]
+    ba = F.linear(x, w.in_ba)                                                        # [T, 2*HV]
+    if T == 1 and fused:
+        y = fused_k.gdn_step_fused(qkvz, ba, state.conv[slot], w.conv_w, w.A, w.dt_bias, state.rec[slot],
+                                   w.norm_w, state.pos_t, cfg, cfg.eps)
+        return w.out(y)
+    qkv, z = torch.split(qkvz, [cfg.conv_dim, cfg.gdn_val_dim], dim=-1)
+    b, a = torch.split(ba, [cfg.gdn_v_heads, cfg.gdn_v_heads], dim=-1)
     if T == 1:
-        qkv = ops.conv_step(qkv, state.conv[slot], w.conv_w)
+        qkv = ops.conv_step(qkv, state.conv[slot], w.conv_w, state.pos_t)
     else:
-        qkv = ops.conv_prefill(qkv, state.conv[slot], w.conv_w)
+        qkv = ops.conv_prefill(qkv, state.conv[slot], w.conv_w, state.pos)
     q, k, v = torch.split(qkv, [cfg.gdn_qk_dim, cfg.gdn_qk_dim, cfg.gdn_val_dim], dim=-1)
     q = q.view(T, cfg.gdn_k_heads, cfg.gdn_k_dim)
     k = k.view(T, cfg.gdn_k_heads, cfg.gdn_k_dim)
@@ -122,8 +130,11 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
     return w.o(o)
 
 
-def mlp_forward(x: torch.Tensor, w: LayerWeights) -> torch.Tensor:
-    gate, up = torch.chunk(w.gate_up(x), 2, dim=-1)
+def mlp_forward(x: torch.Tensor, w: LayerWeights, fused: bool = False) -> torch.Tensor:
+    gu = w.gate_up(x)
+    if fused:
+        return w.down(fused_k.silu_mul(gu))
+    gate, up = torch.chunk(gu, 2, dim=-1)
     return w.down(F.silu(gate) * up)
 
 
@@ -134,9 +145,10 @@ class Engine:
     """Holds weights, state and rotary tables; runs prefill eagerly and decode
     either eagerly or as one CUDA graph per context bucket."""
 
-    def __init__(self, cfg: ModelConfig, weights: ModelWeights, max_len: int, device="cuda"):
+    def __init__(self, cfg: ModelConfig, weights: ModelWeights, max_len: int, device="cuda", fused: bool = True):
         self.cfg = cfg
         self.w = weights
+        self.fused = fused            # Phase 2 fused kernels on the decode path (T == 1)
         self.device = torch.device(device)
         self.state = State(cfg, max_len, self.device)
         self.cos, self.sin = ops.rope_table(max_len, cfg.rotary_dim, cfg.rope_theta, self.device)
@@ -156,22 +168,34 @@ class Engine:
         x = self.w.embed[tokens]
         if self.trace is not None:
             self.trace.append(x.clone())
+        fused = self.fused and tokens.shape[0] == 1
+        h = None                                     # pending residual contribution
         for li in range(cfg.n_layers):
             lw = self.layer(li)
-            h = ops.rmsnorm(x, lw.ln1, cfg.eps)
-            if cfg.layer_types[li] == "linear_attention":
-                h = gdn_forward(h, lw.mixer, cfg, st, st.gdn_slot[li])
+            if fused:
+                x, n = fused_k.add_rmsnorm(x, h, lw.ln1, cfg.eps)
             else:
-                h = attn_forward(h, lw.mixer, cfg, st, st.attn_slot[li], self.cos, self.sin, bucket)
-            x = x + h
-            h = ops.rmsnorm(x, lw.ln2, cfg.eps)
-            x = x + mlp_forward(h, lw)
+                x = x if h is None else x + h
+                n = ops.rmsnorm(x, lw.ln1, cfg.eps)
+            if cfg.layer_types[li] == "linear_attention":
+                h = gdn_forward(n, lw.mixer, cfg, st, st.gdn_slot[li], fused)
+            else:
+                h = attn_forward(n, lw.mixer, cfg, st, st.attn_slot[li], self.cos, self.sin, bucket)
+            if fused:
+                x, n = fused_k.add_rmsnorm(x, h, lw.ln2, cfg.eps)
+            else:
+                x = x + h
+                n = ops.rmsnorm(x, lw.ln2, cfg.eps)
+            h = mlp_forward(n, lw, fused)
             if self.trace is not None:
-                self.trace.append(x.clone())
+                self.trace.append((x + h).clone())
         if not all_logits:
-            x = x[-1:]
-        x = ops.rmsnorm(x, self.w.final_norm, cfg.eps)
-        return self.w.lm_head(x)
+            x, h = x[-1:], h[-1:]
+        if fused:
+            _, n = fused_k.add_rmsnorm(x, h, self.w.final_norm, cfg.eps)
+        else:
+            n = ops.rmsnorm(x + h, self.w.final_norm, cfg.eps)
+        return self.w.lm_head(n)
 
     @torch.no_grad()
     def forward(self, tokens: torch.Tensor, all_logits: bool = False) -> torch.Tensor:
