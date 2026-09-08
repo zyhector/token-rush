@@ -191,11 +191,13 @@ MAX_ROWS = 8
 
 # Picks of a 36-config sweep at the model's shapes for M = 2..5 (bench/spec_run.py
 # --profile); a full sweep on lm_head costs seconds per M and stalls generation.
-_ROWS_CONFIGS = [
-    triton.Config({"BLOCK_N": 32, "BLOCK_K": 512}, num_warps=4, num_stages=2),    # lm_head, qkv 14336
-    triton.Config({"BLOCK_N": 64, "BLOCK_K": 512}, num_warps=4, num_stages=2),    # in_qkvz 16384, down 5120x17408
-    triton.Config({"BLOCK_N": 64, "BLOCK_K": 256}, num_warps=4, num_stages=2),    # gate_up 34816
-    triton.Config({"BLOCK_N": 32, "BLOCK_K": 256}, num_warps=4, num_stages=2),    # out/o 5120x6144
+_ROWS_CONFIGS = [                                                                 # L2-proof sweep at M=4
+    triton.Config({"BLOCK_N": 64, "BLOCK_K": 512}, num_warps=4, num_stages=2),    # in_qkvz 16384 (79%)
+    triton.Config({"BLOCK_N": 32, "BLOCK_K": 256}, num_warps=4, num_stages=3),    # qkv 14336 (81%)
+    triton.Config({"BLOCK_N": 128, "BLOCK_K": 256}, num_warps=4, num_stages=2),   # gate_up 34816 (84%)
+    triton.Config({"BLOCK_N": 64, "BLOCK_K": 256}, num_warps=4, num_stages=3),    # lm_head (95%)
+    triton.Config({"BLOCK_N": 32, "BLOCK_K": 256}, num_warps=4, num_stages=2),    # out/o 5120x6144 split-K (76%)
+    triton.Config({"BLOCK_N": 128, "BLOCK_K": 256}, num_warps=8, num_stages=2),   # down 5120x17408 split-K (82%)
 ]
 
 

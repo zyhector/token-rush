@@ -46,6 +46,7 @@ re-measures everything on one machine.
 | 16. Speculative sampling (temperature > 0) | 2026-09-08 | + the verify step draws one sample per position; a draft is accepted only when it equals the draw, the draw is what gets committed: the output distribution is exactly the target's. Chat at T=0.8: 165 tok/s | — | **167 / 237 / 239** at T=0.7 top-p 0.9 (essay / code / math), raw 102 |
 | 17. Speculation vs. context length (real long text, fp8 KV) | 2026-09-08 | + `bench/spec_context.py` on WikiText-103 (prose) and torch's Python sources (code); MTP prompt pass streamed per chunk so 200k fits | — | **prose 228 / 188 / 164 / 174** and **code 250 / 201 / 251 / 197** at 0 / 22k / 90k / 200k; raw 100 / 95 / 82 / 68 |
 | 18. fp8 cache for the MTP head | 2026-09-08 | + the draft head's own single-layer cache in e4m3 (follows the engine's KV dtype in `run.py`) | — | at 200k: prose 180 (was 174), code 199 (was 197); short context unchanged |
+| 19. rows-GEMM config re-pick (L2-proof sweep at M=4) | 2026-09-08 | + configs re-picked; **neutral**: verify K=3 at 1.20x raw (was 1.21x). The M-row kernel's 79–84% on layer shapes is structural (bf16 dequant + dot per block), not a config matter | — | 179 / 243 / 252 (noise vs step 14) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -698,14 +699,30 @@ The rest of the spec step's extra growth over raw (+3 ms at 200k after this)
 is not yet attributed; a profile of the spec step at 200k is the next
 diagnostic if the long-context row needs more. Kept on by default: free.
 
+## Step 19 — rows-GEMM config re-pick (2026-09-08)
+
+The same L2-proof sweep as step 11, on the M-row kernel at M=4 (72 configs
+per shape: BLOCK_N 16–128, BLOCK_K 128–512, 4/8 warps, 2–4 stages). The
+pinned configs were within 0–1.7 points of the best; three were re-pinned.
+Verify cost: K=3 at 11.86 ms = 1.20x raw (was 11.97 / 1.21x), K=4 1.24x.
+Effective throughput 179 / 243 / 252, noise against step 14.
+
+What the sweep says: at M=4 the layer shapes top out at 79–84% of the wall
+(lm_head 95%) against 87–93% for the single-row kernel — the M-row kernel
+has more fixed work per weight block (unpack, bf16 dequantize, transpose
+into the tensor-core dot) and configuration cannot buy that back. The
+remaining verify overhead (~1.2x) is therefore structural on both counts
+(this kernel's per-block work, and the sequential M-token recurrence in the
+GDN kernel). Left as is; the draft-side costs are the cheaper target.
+
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
   258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
-  at 200k. Remaining, in order: rows GEMV tuning (verify 1.21x -> ~1.1x); a
-  truncated-vocab lm_head for drafting; a draft tree for prose; DSpark as
-  an alternative draft; rejection-sampling acceptance for sampled decoding;
-  a profile of the spec step at 200k.
+  at 200k. Rows-GEMM tuning done (neutral, structural limit). Remaining, in
+  order: a truncated-vocab lm_head for drafting; a draft tree for prose;
+  DSpark as an alternative draft; rejection-sampling acceptance for sampled
+  decoding; a profile of the spec step at 200k.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are
