@@ -170,12 +170,13 @@ quality table has to beat (ExLlamaV3's 4.00 bpw KL is the bar).
 
 ## Next
 
-- Phase 1b, second half: the quantization-quality table (KL vs bf16 over
-  tens of thousands of tokens for our quant and the rivals' quants through
-  the same forward; needs bf16 logits at scale, which is where a second 5090
-  pays for itself) and the quantization choice (GPTQ/AWQ-style calibration
-  at int4 g128, or NVFP4's QAT body).
-- Phase 2: fused GDN step (the 4.4 ms of small kernels), attention decode
-  over the live length instead of a bucket, fused sampling.
+- **Decision 2026-09-08: Phase 2 first.** The quality table and the
+  quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
+  the full plan, what exists to build on, and what else is owed from 1b are
+  in `docs/quality_plan.md`. Until then the engine runs on an uncalibrated
+  int4 RTN that is 2–4x worse in KL than it should be.
+- Phase 2, in order: fused GDN step (the 4.4 ms of small kernels), attention
+  decode over the live length instead of a bucket (with FP8 KV, which 256k
+  needs), fused sampling.
 - Phase 1b: engine-correctness gate against HF (per-layer first), quality
   table, quantization choice.
