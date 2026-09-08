@@ -178,6 +178,7 @@ class Engine:
         self.graphs = {}              # bucket -> CUDAGraph
         self.pool = None
         self.trace = None             # set to a list to collect the residual stream per layer (eager only)
+        self.last_hidden = None       # post-final-norm hidden of the last forward
 
     def layer(self, li: int) -> LayerWeights:
         return self.w.layers[li]
@@ -216,6 +217,7 @@ class Engine:
             _, n = fused_k.add_rmsnorm(x, h, self.w.final_norm, cfg.eps)
         else:
             n = ops.rmsnorm(x + h, self.w.final_norm, cfg.eps)
+        self.last_hidden = n                          # post-final-norm, [T or 1, hidden]: the MTP head's input
         return self.w.lm_head(n)
 
     @torch.no_grad()

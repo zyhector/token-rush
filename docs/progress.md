@@ -23,6 +23,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 9. Phase 2: FP8 KV cache + own prefill attention kernel | 2026-09-08 | + e4m3 cache with per-(head, token) scales; prep/decode kernels read it; a Triton flash-attention prefill kernel replaces SDPA for fp8. **256k usable**: needle at 128k and 256k; decode at 200k = 69.2 tok/s, 82.6% of wall | 1160–1640 at 128k–256k | 101.9 short, **69.2 at 200k** |
 | 10. Phase 2: sampling in graph | 2026-09-08 | + temperature / top-k / top-p on a fixed top-64 candidate set, branch-free, parameters as device tensors | 1500 | 101.9 (no change) |
 | 11. Phase 2: GEMV config re-pick (L2-proof sweep) | 2026-09-08 | + configs re-picked with weights cycled through >400 MB; **no measurable change** in the step. Phase 2 closed | 1500 | 102.2 (82% of wall) |
+| 12. Phase 3 step 1: MTP head acceptance rate | 2026-09-08 | + MTP head implemented eagerly (`tokenrush/mtp.py`); chained drafts teacher-forced against the target's greedy: accepted tokens per verify step at depth 3 = 2.58 prose / 3.35 code / 3.50 math | — | — |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -397,13 +398,59 @@ Rivals, same yardstick, Phase 0 numbers: llama.cpp 78% / 82.8 tok/s, vLLM
 the fastest in absolute tok/s at short and long context, on fewer bytes;
 the rivals' speculative modes (104–205 tok/s) are what Phase 3 is for.
 
+## Step 12 — Phase 3 begins: the MTP head's acceptance rate (2026-09-08)
+
+`tokenrush/mtp.py` implements the shipped MTP head eagerly, following
+vLLM's `Qwen3_5MultiTokenPredictor`: `fc(cat(norm_e(embed(next_token)),
+norm_h(target_hidden)))` into one full-attention block with its own KV cache
+at next_token's position, then `lm_head(norm(.))`; `target_hidden` is the
+target's post-final-norm vector (the one `lm_head` sampled next_token from),
+and chaining feeds the block's own normed output. Embedding and `lm_head`
+are the target's. `Engine.last_hidden` exposes the target's vector.
+
+`bench/mtp_accept.py`: the target generates 256 greedy tokens per prompt
+family (the Phase 0 prompts, chat-formatted, thinking off), then at every
+position the MTP drafts a chain of 4 exactly as the engine will, each draft
+compared with the true continuation.
+
+| | essay | code | math | all |
+|---|---|---|---|---|
+| P(draft 1 correct) | 0.778 | 0.917 | 0.933 | 0.876 |
+| P(draft 2 correct \| 1) | 0.496 | 0.794 | 0.841 | 0.710 |
+| P(draft 3 correct \| 1,2) | 0.306 | 0.643 | 0.730 | 0.560 |
+| P(draft 4 correct \| 1..3) | 0.187 | 0.524 | 0.639 | 0.450 |
+| accepted tokens / verify step, depth 1 | 1.78 | 1.92 | 1.93 | 1.88 |
+| depth 2 | 2.27 | 2.71 | 2.77 | 2.59 |
+| **depth 3** | **2.58** | **3.35** | **3.50** | 3.15 |
+| depth 4 | 2.77 | 3.88 | 4.14 | 3.60 |
+
+Two checks that the semantics are right: the depth-2 numbers match
+ExLlamaV3's measured chained MTP on the same model (2.24 / 2.36 / 2.81 in
+`docs/baselines.md`, on its own prompts), and a wrong wiring would give
+near-zero acceptance. `docs/feasibility.md` assumed 2.4 / 2.6 / 3.2 for a
+three-deep chain; measured is 2.58 / 3.35 / 3.50 — the lever the whole
+Phase 3 number rests on is larger than planned.
+
+Step-cost projection with these numbers (raw step 9.8 ms; verify step taken
+at 1.1x = 10.8 ms; a three-deep MTP chain in-graph ~1.6 ms if the head is
+int4 and `lm_head` is read three times): ~12.4 ms per verify step ->
+**~210 tok/s prose, ~270 code, ~280 math**; depth 4 adds ~0.5 ms and gives
+~215 / ~300 / ~320. The prose floor of 200–240 in `CLAUDE.md` is
+reachable with the shipped head alone, before any DSpark-class draft.
+
+Cost of the MTP head: 0.85 GB bf16 (0.425B params); the eager chained draft
+costs 3.5–4.7 ms today through ~150 launches, which is the Phase 3 step-2/3
+work (T=K verify kernels, in-graph accept/commit).
+
 ## Next
 
-- **Phase 3**: speculation inside the graph. The MTP head is packed in the
-  checkpoint (`load_packed(..., with_mtp=True)`); first measure its
-  acceptance rate on prose / code / math, then a K-token verify step in one
-  graph (the GDN step kernel needs a T=K variant; the attention prep/decode
-  kernels a K-query variant), then chain/tree drafting with dynamic depth.
+- **Phase 3**, step 1 done (acceptance measured). Step 2: a K-token verify
+  step in one graph (GEMV with M=K rows, GDN step kernel looping K tokens
+  with per-prefix state snapshots, attention prep/decode for K queries with
+  a causal mask among them). Step 3: in-graph accept/commit (pos, tok, GDN
+  state selected by the accepted length). Step 4: the MTP chain in-graph
+  (int4 head), dynamic depth, effective tok/s on the three families; greedy
+  speculative output must equal greedy raw output exactly.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are
