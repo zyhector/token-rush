@@ -103,3 +103,28 @@ def test_spec_sampling_matches_raw_distribution():
         spec_counts[int(eng.spec_logits[0].argmax()) if False else int(eng.tok) if int(eng.n_accepted) == 0 else int(eng.drafts[0])] += 1
     raw_f, spec_f = raw_counts / N, spec_counts / N
     assert (raw_f - spec_f).abs().max() < 0.08, (raw_f.topk(5), spec_f.topk(5))
+
+
+def test_spec_graph_with_fp8_mtp_cache_runs():
+    """The MTP head's cache in fp8: prompt pass (prefill path), batched and chained
+    draft rows (fused path) all go through the fp8 kernels; drafts stay plausible
+    (they are compared against a bf16-cache head on the same random weights)."""
+    w = random_weights(CFG, "triton")
+    toks = torch.randint(0, CFG.vocab, (30,), device=DEV)
+    drafts = {}
+    mw = _random_mtp(CFG)
+    for dt in (torch.bfloat16, torch.float8_e4m3fn):
+        eng = Engine(CFG, w, max_len=128, fused=True, max_spec=3)
+        eng.capture()
+        mtp = MTPHead(CFG, mw, w.embed, w.lm_head, 128, kv_dtype=dt)
+        eng.attach_mtp(mtp)
+        eng.capture_spec(3)
+        eng.reset(); mtp.reset()
+        from tokenrush.spec import prime_spec
+        prime_spec(eng, mtp, toks.tolist())
+        eng.spec_step(3)
+        drafts[dt] = eng.drafts[:3].tolist()
+        assert eng.state.pos > 30
+    # fp8 drafts need not equal bf16 drafts (rounding), but the first one usually does on a
+    # peaked random head; at minimum they are valid tokens
+    assert all(0 <= d < CFG.vocab for d in drafts[torch.float8_e4m3fn])

@@ -47,7 +47,8 @@ def main():
         engine.capture()
         msg = f"captured the decode graph"
         if spec:
-            mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len)
+            mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len,
+                          kv_dtype=engine.state.kv_dtype)
             engine.attach_mtp(mtp)
             for k in range(kmin, kmax + 1):
                 engine.capture_spec(k)

@@ -64,14 +64,18 @@ class MTPHead:
     """Eager MTP head with its own single-layer KV cache. Positions are the target's
     positions: the block for next_token at position p reads its cache rows < p."""
 
-    def __init__(self, cfg: ModelConfig, w: MTPWeights, embed: torch.Tensor, lm_head, max_len: int, device="cuda"):
+    def __init__(self, cfg: ModelConfig, w: MTPWeights, embed: torch.Tensor, lm_head, max_len: int, device="cuda",
+                 kv_dtype=torch.bfloat16):
+        """kv_dtype: the head's own single-layer cache; fp8 halves what every draft call
+        reads at long context (0.8 GB per call in bf16 at 200k). Drafts only affect speed,
+        so the cache's precision never touches the output."""
         self.cfg = cfg
         self.w = w
         self.embed = embed
         self.lm_head = lm_head
         self.device = torch.device(device)
         self.cfg1 = replace(cfg, layer_types=("full_attention",), n_layers=1)
-        self.state = State(self.cfg1, max_len, self.device)
+        self.state = State(self.cfg1, max_len, self.device, kv_dtype=kv_dtype)
         self.cos, self.sin = ops.rope_table(max_len, cfg.rotary_dim, cfg.rope_theta, self.device)
 
     def reset(self):

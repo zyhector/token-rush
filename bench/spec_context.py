@@ -28,13 +28,15 @@ def main():
     ap.add_argument("--contexts", default="0,22000,90000,200000")
     ap.add_argument("--new", type=int, default=200)
     ap.add_argument("--max-len", type=int, default=262144)
+    ap.add_argument("--mtp-kv", default="fp8", choices=("bf16", "fp8"), help="the MTP head's own cache dtype")
     a = ap.parse_args()
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(a.model)
     cfg, w, mtp_t = load_packed(a.model, with_mtp=True)
     eng = Engine(cfg, w, max_len=a.max_len, max_spec=4, kv_dtype=torch.float8_e4m3fn)
     eng.capture()
-    mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len)
+    mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len,
+                  kv_dtype=torch.float8_e4m3fn if a.mtp_kv == "fp8" else torch.bfloat16)
     eng.attach_mtp(mtp)
     for k in (3, 4):
         eng.capture_spec(k)

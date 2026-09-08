@@ -29,6 +29,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 15. Speculation is the default decode | 2026-09-08 | + `run.py` decodes speculatively by default (`--no-spec` for raw; temperature > 0 falls back to raw until spec sampling lands); chunked prefill keeps every position's hidden for the MTP prompt pass; the loop stops before a step could overrun the cache; works with fp8 KV | — | 154 on a short haiku (2.1 tokens/step), 280 on a 30k needle answer |
 | 16. Speculative sampling (temperature > 0) | 2026-09-08 | + the verify step draws one sample per position; a draft is accepted only when it equals the draw, the draw is what gets committed: the output distribution is exactly the target's. Chat at T=0.8: 165 tok/s | — | **167 / 237 / 239** at T=0.7 top-p 0.9 (essay / code / math), raw 102 |
 | 17. Speculation vs. context length (real long text, fp8 KV) | 2026-09-08 | + `bench/spec_context.py` on WikiText-103 (prose) and torch's Python sources (code); MTP prompt pass streamed per chunk so 200k fits | — | **prose 228 / 188 / 164 / 174** and **code 250 / 201 / 251 / 197** at 0 / 22k / 90k / 200k; raw 100 / 95 / 82 / 68 |
+| 18. fp8 cache for the MTP head | 2026-09-08 | + the draft head's own single-layer cache in e4m3 (follows the engine's KV dtype in `run.py`) | — | at 200k: prose 180 (was 174), code 199 (was 197); short context unchanged |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -661,14 +662,34 @@ kernel: verify K=3 at 1.21x raw (was 1.22x) — neutral; kept for clarity.
 The remaining verify overhead sits in the rows GEMV (bf16 dequant + dot per
 block) and the sequential M-token recurrence itself.
 
+## Step 18 — fp8 cache for the MTP head (2026-09-08)
+
+`MTPHead(kv_dtype=...)`; `run.py` gives the head the engine's KV dtype. The
+head's prompt pass goes through the fp8 prefill path and its draft rows
+through the fused fp8 kernels, both already there. Drafts only affect
+speed, so the head's cache precision never reaches the output.
+
+| spec, dynamic 3:4 | MTP cache bf16 | MTP cache fp8 |
+|---|---|---|
+| prose 200k | 174 tok/s, 22.0 ms/step, 3.83/step | **180**, 21.3 ms, 3.83/step |
+| code 200k | 197 tok/s, 22.1 ms/step, 4.35/step | **199**, 21.4 ms, 4.26/step |
+| prose / code 90k | 164 / 251 | 167 / 255 |
+| short context | 228 / 250 | 228 / 250 |
+
+-0.7 ms per step at 200k, acceptance unchanged: the head's cache reads were
+a smaller share of the step's growth with context than estimated (~2 ms).
+The rest of the spec step's extra growth over raw (+3 ms at 200k after this)
+is not yet attributed; a profile of the spec step at 200k is the next
+diagnostic if the long-context row needs more. Kept on by default: free.
+
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
-  258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 174 / 197
-  at 200k. Remaining, in order: fp8 cache for the MTP head (~2 ms/step at
-  200k); rows GEMV tuning (verify 1.21x -> ~1.1x); a truncated-vocab lm_head
-  for drafting; a draft tree for prose; DSpark as an alternative draft;
-  rejection-sampling acceptance for sampled decoding.
+  258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
+  at 200k. Remaining, in order: rows GEMV tuning (verify 1.21x -> ~1.1x); a
+  truncated-vocab lm_head for drafting; a draft tree for prose; DSpark as
+  an alternative draft; rejection-sampling acceptance for sampled decoding;
+  a profile of the spec step at 200k.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are
