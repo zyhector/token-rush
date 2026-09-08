@@ -168,6 +168,8 @@ works" risk.
 | 3 (2–3 wk) | Speculation fused into the graph: MTP chain/tree vs 4-bit DSpark, acceptance-driven dynamic depth; greedy speculative output identical to greedy raw output | Effective-throughput headline |
 | 4 (1 wk) | **Final measurement, on one machine, in one sitting**: re-run `scripts/env_check/` to re-anchor the wall, re-run every rival from the recipes in `docs/baselines.md`, measure the engine on the same day; only then the fair benchmark matrix and writeup | The numbers that get reported |
 
+Step-by-step progress and the numbers each step produced: `docs/progress.md`.
+
 ## Scope
 
 One model, one quantization, one card, bs=1, greedy/top-p, text path. Nothing else.
