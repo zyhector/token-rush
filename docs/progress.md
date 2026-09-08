@@ -47,7 +47,7 @@ re-measures everything on one machine.
 | 17. Speculation vs. context length (real long text, fp8 KV) | 2026-09-08 | + `bench/spec_context.py` on WikiText-103 (prose) and torch's Python sources (code); MTP prompt pass streamed per chunk so 200k fits | — | **prose 228 / 188 / 164 / 174** and **code 250 / 201 / 251 / 197** at 0 / 22k / 90k / 200k; raw 100 / 95 / 82 / 68 |
 | 18. fp8 cache for the MTP head | 2026-09-08 | + the draft head's own single-layer cache in e4m3 (follows the engine's KV dtype in `run.py`) | — | at 200k: prose 180 (was 174), code 199 (was 197); short context unchanged |
 | 19. rows-GEMM config re-pick (L2-proof sweep at M=4) | 2026-09-08 | + configs re-picked; **neutral**: verify K=3 at 1.20x raw (was 1.21x). The M-row kernel's 79–84% on layer shapes is structural (bf16 dequant + dot per block), not a config matter | — | 179 / 243 / 252 (noise vs step 14) |
-| 20. Truncated draft vocabulary | 2026-09-08 | + the draft chain's argmax reads a 65536-row slice of lm_head (ids by corpus frequency plus math-ish tokens) instead of all 248k: −1 ms per step, acceptance unchanged | — | **192 / 256 / 267** (essay / code / math), raw 100 |
+| 20. Truncated draft vocabulary | 2026-09-08 | + the draft chain's argmax reads the first 131072 rows of lm_head (id order = BPE merge rank, language-neutral) instead of all 248k: −0.7 ms per step, no family loses. A 64k English-corpus list was tried first and cut Chinese below raw | — | **186 / 261 / 263** (essay / code / math), Chinese essay / math 162 / 279; raw 100 |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -718,32 +718,53 @@ GDN kernel). Left as is; the draft-side costs are the cheaper target.
 
 ## Step 20 — a truncated vocabulary for drafting (2026-09-08)
 
-A draft only has to be *likely*; a wrong one is rejected at no cost to the
-output. So the draft chain's argmax can run over a slice of `lm_head`: the
-K reads of 0.68 GB per step become K reads of 0.18 GB. `bench/draft_vocab.py`
-orders token ids by frequency over the prose and code corpora, boosts
-math-ish tokens (digits, operators, LaTeX, units — the corpora had none, and
-without the boost math lost 9%), and the first 65536 ship as
-`tokenrush/draft_vocab_64k.pt` (256 KB). `Engine.attach_mtp(draft_vocab=...)`
-gathers those rows of the int4 head; `run.py --draft-vocab 64k` is the default.
+**The idea.** A draft only has to be *likely*; a wrong one is rejected at no
+cost to the output. So the draft chain's argmax can run over a slice of
+`lm_head`, and the K reads of 0.68 GB per step shrink with the slice.
 
-| dynamic 3:4, int4 MTP, 300 tokens | essay | code | math |
-|---|---|---|---|
-| full vocabulary | 179 (2.55/step, 14.3 ms) | 243 (3.53, 14.5) | 252 (3.68, 14.6) |
-| 32k, corpus order only | 187 (2.45, 13.1) | 246 (3.26, 13.2) | 229 (3.02, 13.2) |
-| 32k, math-boosted | 180 (2.35) | 242 (3.19) | 256 (3.39) |
-| **64k, math-boosted** | **192** (2.55, 13.3) | **256** (3.45, 13.4) | **267** (3.60, 13.5) |
+**What it sacrifices.** A token outside the slice can never be drafted. The
+cost of a miss is not just a lost gain: a verify step whose drafts are all
+rejected costs ~13 ms and yields one token, slower than a 9.8 ms raw step.
+So the speed depends entirely on how well the slice covers the text being
+generated, and a slice that misses a language turns speculation into a
+loss for that language.
 
--1.1 ms per step for no acceptance loss at 64k. Tokens outside the subset
-simply never get drafted; the committed output is the target's own
-argmax/sample either way (test: drafts stay in the subset, output equals raw
-greedy).
+**First attempt, rejected.** `bench/draft_vocab.py` ordered ids by
+frequency over the prose and code corpora with math-ish tokens boosted; the
+first 65536 gave 192 / 256 / 267 on essay / code / math (+6–7%). It held
+147 of the vocabulary's 55,328 CJK tokens:
+
+| 300 tokens | full vocabulary | 64k English-corpus slice |
+|---|---|---|
+| Chinese essay | 156 tok/s (2.19/step) | **92** (1.19/step) — below raw |
+| Chinese math | 269 (3.92) | 174 (2.29) |
+
+Not a default anyone should ship. The file was removed; the script stays,
+marked as corpus-specific.
+
+**What shipped.** The tokenizer's id order is its BPE merge order, i.e. a
+frequency ranking over the tokenizer's own multilingual training corpus,
+with no corpus of ours involved. Measured with the first N ids:
+
+| N by id order | CJK covered | essay | code | math | zh essay | zh math | ms/step |
+|---|---|---|---|---|---|---|---|
+| full (248k) | all | 179 | 243 | 252 | 156 | 269 | 14.3–14.6 |
+| 65536 | 0 | 187 | 250 | 271 | 92 | 170 | 13.2 |
+| 98304 | 2,275 | 188 | 264 | 266 | 126 | 209 | 13.5 |
+| **131072 (default)** | 35,024 | **186** | **261** | **263** | **162** | **279** | 13.6–13.9 |
+
+At half the vocabulary no family loses (Chinese gains slightly: the missing
+tail is rare tokens the target rarely produces either) and a step is ~0.7 ms
+cheaper. `run.py --draft-vocab full|128k|<file>`; `Engine.attach_mtp
+(draft_vocab=...)` gathers the int4 rows. Caveat recorded: languages whose
+tokens sit late in the merge order (the rarer 20k CJK, other scripts) were
+not measured; `--draft-vocab full` is the safe setting for them.
 
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
   258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
-  at 200k; 192 / 256 / 267 with the 64k draft vocabulary. Remaining, in
+  at 200k; 186 / 261 / 263 with the 128k draft vocabulary. Remaining, in
   order: a draft tree for prose; DSpark as an alternative draft;
   rejection-sampling acceptance for sampled decoding; a profile of the spec
   step at 200k.

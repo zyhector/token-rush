@@ -33,8 +33,8 @@ def main():
     ap.add_argument("--mtp-int4", action="store_true", help="quantize the MTP head's projections to int4")
     ap.add_argument("--dynamic", default=None, help="Kmin:Kmax adaptive depth, e.g. 2:4 (implies --graph)")
     ap.add_argument("--temperature", type=float, default=0.0)
-    ap.add_argument("--draft-vocab", type=int, default=0, help="draft with the N most frequent token ids (0 = full)")
-    ap.add_argument("--draft-vocab-file", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tokenrush", "draft_vocab_64k.pt"))
+    ap.add_argument("--draft-vocab", type=int, default=131072, help="draft with the first N token ids (0 = full)")
+    ap.add_argument("--draft-vocab-file", default=None, help="a saved id tensor instead of id order (bench/draft_vocab.py)")
     ap.add_argument("--top-p", type=float, default=1.0)
     a = ap.parse_args()
     from transformers import AutoTokenizer
@@ -52,7 +52,12 @@ def main():
         a.graph = True
         a.k = dyn[1]
     if a.graph:
-        dv = torch.load(a.draft_vocab_file)[:a.draft_vocab].long() if a.draft_vocab else None
+        if not a.draft_vocab:
+            dv = None
+        elif a.draft_vocab_file:
+            dv = torch.load(a.draft_vocab_file)[:a.draft_vocab].long()
+        else:
+            dv = torch.arange(a.draft_vocab)
         eng.attach_mtp(mtp, draft_vocab=dv)
         t0 = time.perf_counter()
         for k in (range(dyn[0], dyn[1] + 1) if dyn else [a.k]):

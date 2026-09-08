@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Build the draft vocabulary: token ids ordered by frequency over the local prose and
-code corpora, with math-ish tokens (digits, operators, LaTeX, units) boosted since the
-corpora lack them, then the rest of the vocabulary. The first N ids are the rows of
-lm_head the draft chain reads (tokenrush/draft_vocab_64k.pt ships the first 65536).
+"""Build a corpus-specific draft vocabulary: token ids ordered by frequency over the local
+prose and code corpora, with math-ish tokens (digits, operators, LaTeX, units) boosted
+since the corpora lack them, then the rest of the vocabulary. The first N ids are the
+rows of lm_head the draft chain reads.
+
+NOT the default. A list built from English prose and Python covered 147 of the 55k CJK
+tokens and cut Chinese generation to below raw decode (docs/progress.md, step 20). The
+default is the language-neutral id order (the tokenizer's BPE merge rank), 131072 ids;
+use this script only for a deployment whose text you have measured on.
 
     python bench/draft_vocab.py --prose /workspace/data/prose.txt --code /workspace/data/code.txt --out tokenrush/draft_vocab_64k.pt
 """

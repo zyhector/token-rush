@@ -26,8 +26,10 @@ def main():
     ap.add_argument("--eager", action="store_true", help="decode eagerly instead of replaying CUDA graphs")
     ap.add_argument("--no-spec", action="store_true", help="raw decode instead of speculative (MTP chain)")
     ap.add_argument("--spec-depth", default="3:4", help="Kmin:Kmax adaptive draft depth")
-    ap.add_argument("--draft-vocab", default="64k", choices=("64k", "full"),
-                    help="the draft chain's lm_head: the 65536 most frequent token ids (default) or the full vocabulary")
+    ap.add_argument("--draft-vocab", default="128k",
+                    help="the draft chain's lm_head rows: 'full', '128k' (the first 131072 token ids, i.e. the "
+                         "tokenizer's BPE merge order, a language-neutral frequency proxy; default), or a path "
+                         "to a saved id tensor (bench/draft_vocab.py builds corpus-specific ones)")
     ap.add_argument("--kv", default="bf16", choices=("bf16", "fp8"), help="KV cache dtype")
     ap.add_argument("--temperature", type=float, default=0.0, help="0 = greedy")
     ap.add_argument("--top-p", type=float, default=1.0)
@@ -51,10 +53,12 @@ def main():
         if spec:
             mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len,
                           kv_dtype=engine.state.kv_dtype)
-            dv = None
-            if a.draft_vocab == "64k":
-                import os
-                dv = torch.load(os.path.join(os.path.dirname(__file__), "draft_vocab_64k.pt")).long()
+            if a.draft_vocab == "full":
+                dv = None
+            elif a.draft_vocab == "128k":
+                dv = torch.arange(131072)
+            else:
+                dv = torch.load(a.draft_vocab).long()
             engine.attach_mtp(mtp, draft_vocab=dv)
             for k in range(kmin, kmax + 1):
                 engine.capture_spec(k)
