@@ -6,15 +6,19 @@ import torch
 
 
 def generate(engine, tok, prompt_ids, max_new: int, stop_ids, stream: bool = True, chunk: int = 4096,
-             graphed: bool = True):
+             graphed: bool = True, temperature: float = 0.0, top_p: float = 1.0, top_k: int = 64, seed=None):
+    from .sample import sample
     dev = engine.device
     graphed = graphed and bool(engine.graphs)
     engine.reset()
+    engine.sampling.set(temperature, top_p, top_k)
+    if seed is not None:
+        torch.manual_seed(seed)
     ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
     torch.cuda.synchronize()
     t0 = time.perf_counter()
     logits = engine.prefill(ids, chunk=chunk)
-    nxt = logits[-1].argmax()
+    nxt = sample(logits[-1:], engine.sampling)[0]
     if graphed:
         engine.tok.copy_(nxt.view(1))
     torch.cuda.synchronize()
@@ -37,7 +41,7 @@ def generate(engine, tok, prompt_ids, max_new: int, stop_ids, stream: bool = Tru
         if graphed:
             nxt = engine.step()[0]
         else:
-            nxt = engine.decode(nxt)[-1].argmax()
+            nxt = sample(engine.decode(nxt)[-1:], engine.sampling)[0]
     torch.cuda.synchronize()
     t_decode = time.perf_counter() - t1
     if stream:

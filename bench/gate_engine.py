@@ -45,6 +45,7 @@ def main():
     ap.add_argument("--hf", help="HF bf16 checkpoint: run the streamed bf16 engine")
     ap.add_argument("--packed", help="packed int4 checkpoint: run the quantized engine")
     ap.add_argument("--steps", type=int, default=None)
+    ap.add_argument("--kv", default="bf16", choices=("bf16", "fp8"))
     a = ap.parse_args()
     ref = torch.load(a.ref)
     ids = ref["input_ids"].cuda()
@@ -61,8 +62,8 @@ def main():
     else:
         from tokenrush.weights import load_packed
         cfg, w, _ = load_packed(a.packed)
-        eng = Engine(cfg, w, max_len=1024)
-        label = "int4 g128"
+        eng = Engine(cfg, w, max_len=1024, kv_dtype=torch.float8_e4m3fn if a.kv == "fp8" else torch.bfloat16)
+        label = f"int4 g128, kv {a.kv}"
     print(f"engine: {label}")
 
     # 1. residual stream

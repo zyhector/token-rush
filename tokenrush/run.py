@@ -22,13 +22,18 @@ def main():
     ap.add_argument("--chunk", type=int, default=4096, help="prefill chunk")
     ap.add_argument("--backend", default="triton", choices=("triton", "tinygemm", "dequant"), help="int4 GEMV")
     ap.add_argument("--eager", action="store_true", help="decode eagerly instead of replaying CUDA graphs")
+    ap.add_argument("--kv", default="bf16", choices=("bf16", "fp8"), help="KV cache dtype")
+    ap.add_argument("--temperature", type=float, default=0.0, help="0 = greedy")
+    ap.add_argument("--top-p", type=float, default=1.0)
+    ap.add_argument("--top-k", type=int, default=64)
+    ap.add_argument("--seed", type=int, default=None)
     a = ap.parse_args()
     if not is_packed(a.model):
         raise SystemExit(f"{a.model} is not a packed checkpoint; run python -m tokenrush.quantize first")
 
     cfg, w, _ = load_packed(a.model, backend=a.backend)
     tok = AutoTokenizer.from_pretrained(a.model)
-    engine = Engine(cfg, w, max_len=a.max_len)
+    engine = Engine(cfg, w, max_len=a.max_len, kv_dtype=torch.float8_e4m3fn if a.kv == "fp8" else torch.bfloat16)
     if not a.eager:
         t0 = time.perf_counter()
         engine.capture()
@@ -44,7 +49,8 @@ def main():
     ids = tok.encode(text)
     stop = set(cfg.eos_ids) | {tok.eos_token_id}
     print(f"--- prompt ({len(ids)} tokens) ---\n{text}\n--- output ---")
-    _, st = generate(engine, tok, ids, a.max_new, stop, chunk=a.chunk, graphed=not a.eager)
+    _, st = generate(engine, tok, ids, a.max_new, stop, chunk=a.chunk, graphed=not a.eager,
+                     temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, seed=a.seed)
     print("---")
     print(json.dumps({k: (round(v, 3) if isinstance(v, float) else v) for k, v in st.items()}))
 

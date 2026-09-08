@@ -12,9 +12,17 @@ class State:
         n_attn = len(cfg.attn_layers)
         n_gdn = len(cfg.gdn_layers)
         self.max_len = max_len
-        # attention KV: [layer, kv_head, position, head_dim]
+        # attention KV: [layer, kv_head, position, head_dim]; bf16, or float8_e4m3fn with a
+        # per-(head, position) fp32 scale (value = code * scale)
+        self.kv_dtype = kv_dtype
+        self.fp8 = kv_dtype == torch.float8_e4m3fn
         self.k = torch.zeros(n_attn, cfg.n_kv_heads, max_len, cfg.head_dim, device=device, dtype=kv_dtype)
         self.v = torch.zeros_like(self.k)
+        if self.fp8:
+            self.k_scale = torch.ones(n_attn, cfg.n_kv_heads, max_len, device=device, dtype=torch.float32)
+            self.v_scale = torch.ones_like(self.k_scale)
+        else:
+            self.k_scale = self.v_scale = None
         # GDN: a ring of the last K pre-conv inputs and the fp32 recurrent state
         self.conv = torch.zeros(n_gdn, cfg.conv_dim, cfg.conv_k, device=device, dtype=torch.bfloat16)   # ring, col = pos % 4
         self.rec = torch.zeros(n_gdn, cfg.gdn_v_heads, cfg.gdn_k_dim, cfg.gdn_v_dim, device=device,
@@ -39,4 +47,13 @@ class State:
 
     @property
     def nbytes(self):
-        return sum(t.numel() * t.element_size() for t in (self.k, self.v, self.conv, self.rec))
+        ts = [self.k, self.v, self.conv, self.rec] + ([self.k_scale, self.v_scale] if self.fp8 else [])
+        return sum(t.numel() * t.element_size() for t in ts)
+
+    @property
+    def kv_bytes_per_token(self):
+        n_attn = self.k.shape[0]
+        b = 2 * n_attn * self.k.shape[1] * self.k.shape[3] * self.k.element_size()
+        if self.fp8:
+            b += 2 * n_attn * self.k.shape[1] * 4
+        return b

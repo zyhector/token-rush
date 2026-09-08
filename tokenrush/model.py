@@ -13,6 +13,7 @@ from . import fused as fused_k
 from . import ops
 from .config import ModelConfig
 from .quant import Linear, QLinear
+from .sample import SamplingParams, sample
 from .state import State
 
 Lin = Union[Linear, QLinear]
@@ -106,10 +107,12 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
     T = x.shape[0]
     pos = state.pos
     hd = cfg.head_dim
+    ks = state.k_scale[slot] if state.fp8 else None
+    vs = state.v_scale[slot] if state.fp8 else None
     if T == 1 and fused:
         qkv = w.qkv(x)
-        q = fused_k.attn_prep(qkv, w.q_norm_w, w.k_norm_w, cos, sin, state.pos_t, state.k[slot], state.v[slot], cfg)
-        o = fused_k.attn_decode_fused(q, qkv, state.k[slot], state.v[slot], state.pos_t, cfg)
+        q = fused_k.attn_prep(qkv, w.q_norm_w, w.k_norm_w, cos, sin, state.pos_t, state.k[slot], state.v[slot], cfg, ks, vs)
+        o = fused_k.attn_decode_fused(q, qkv, state.k[slot], state.v[slot], state.pos_t, cfg, ks, vs)
         return w.o.partials(o)                                                       # [S, hidden] fp32
     idx = state.pos_t + torch.arange(T, device=x.device)                          # positions, on device
     kv_dim = cfg.n_kv_heads * hd
@@ -123,15 +126,22 @@ def attn_forward(x: torch.Tensor, w: AttnWeights, cfg: ModelConfig, state: State
     c, s_ = cos.index_select(0, idx), sin.index_select(0, idx)
     q = ops.apply_rope(q, c, s_)
     k = ops.apply_rope(k, c, s_)
-    state.k[slot].index_copy_(1, idx, k)
-    state.v[slot].index_copy_(1, idx, v)
-    if bucket is not None:
-        assert T == 1
-        o = ops.attn_decode_bucket(q, state.k[slot, :, :bucket], state.v[slot, :, :bucket], state.pos_t)
-    elif T == 1:
-        o = ops.attn_decode(q, state.k[slot, :, :pos + 1], state.v[slot, :, :pos + 1])
+    if state.fp8:
+        # fp8 cache: write quantized, attend with the Triton prefill kernel (SDPA cannot read it)
+        assert T > 1 or fused is False, "fp8 decode goes through the fused path"
+        fused_k.kv_write_prefill(k, v, state, slot, pos)
+        o = fused_k.attn_prefill_fused(q.transpose(0, 1).contiguous(), state.k[slot], state.v[slot], pos, cfg, ks, vs)
+        o = o.transpose(0, 1)                                                         # [Hq, T, D]
     else:
-        o = ops.attn_prefill(q, state.k[slot, :, :pos + T], state.v[slot, :, :pos + T], pos)
+        state.k[slot].index_copy_(1, idx, k)
+        state.v[slot].index_copy_(1, idx, v)
+        if bucket is not None:
+            assert T == 1
+            o = ops.attn_decode_bucket(q, state.k[slot, :, :bucket], state.v[slot, :, :bucket], state.pos_t)
+        elif T == 1:
+            o = ops.attn_decode(q, state.k[slot, :, :pos + 1], state.v[slot, :, :pos + 1])
+        else:
+            o = ops.attn_prefill(q, state.k[slot, :, :pos + T], state.v[slot, :, :pos + T], pos)
     o = o.transpose(0, 1).reshape(T, cfg.n_heads * hd) * torch.sigmoid(gate)
     return w.o(o)
 
@@ -151,15 +161,19 @@ class Engine:
     """Holds weights, state and rotary tables; runs prefill eagerly and decode
     either eagerly or as one CUDA graph per context bucket."""
 
-    def __init__(self, cfg: ModelConfig, weights: ModelWeights, max_len: int, device="cuda", fused: bool = True):
+    def __init__(self, cfg: ModelConfig, weights: ModelWeights, max_len: int, device="cuda", fused: bool = True,
+                 kv_dtype=torch.bfloat16):
         self.cfg = cfg
         self.w = weights
         self.fused = fused            # Phase 2 fused kernels on the decode path (T == 1)
         self.device = torch.device(device)
-        self.state = State(cfg, max_len, self.device)
+        self.state = State(cfg, max_len, self.device, kv_dtype=kv_dtype)
+        if self.state.fp8:
+            assert fused, "the fp8 cache is read only by the fused kernels"
         self.cos, self.sin = ops.rope_table(max_len, cfg.rotary_dim, cfg.rope_theta, self.device)
         # graph I/O: the token read at the start of a step and written at its end
         self.tok = torch.zeros(1, device=self.device, dtype=torch.long)
+        self.sampling = SamplingParams(self.device)     # greedy unless set()
         self.logits = None            # [1, vocab], written by the last graphed step
         self.graphs = {}              # bucket -> CUDAGraph
         self.pool = None
@@ -221,7 +235,7 @@ class Engine:
         token back into self.tok, advance the device position. Captured per bucket."""
         logits = self._body(self.tok, bucket=bucket)
         self.logits.copy_(logits)
-        self.tok.copy_(logits.argmax(-1))
+        self.tok.copy_(sample(logits, self.sampling))
         self.state.pos_t += 1
 
     @staticmethod

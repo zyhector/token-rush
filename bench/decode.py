@@ -30,10 +30,11 @@ def main():
     ap.add_argument("--profile", action="store_true")
     ap.add_argument("--eager", action="store_true", help="eager decode instead of graph replay")
     ap.add_argument("--context", type=int, default=0, help="prefill this many random tokens first")
+    ap.add_argument("--kv", default="bf16", choices=("bf16", "fp8"), help="KV cache dtype")
     a = ap.parse_args()
 
     cfg, w, _ = load_packed(a.model, backend=a.backend)
-    eng = Engine(cfg, w, max_len=a.max_len)
+    eng = Engine(cfg, w, max_len=a.max_len, kv_dtype=torch.float8_e4m3fn if a.kv == "fp8" else torch.bfloat16)
     if not a.eager:
         t0 = time.perf_counter()
         eng.capture()
@@ -62,7 +63,7 @@ def main():
     torch.cuda.synchronize()
     dt = (time.perf_counter() - t0) / a.steps
     read = w.nbytes - w.embed.numel() * w.embed.element_size()   # the embedding table is not streamed
-    read += eng.state.pos * len(cfg.attn_layers) * 2 * cfg.n_kv_heads * cfg.head_dim * eng.state.k.element_size()   # live KV
+    read += eng.state.pos * eng.state.kv_bytes_per_token   # live KV
     print(f"decode at context {eng.state.pos}: {dt * 1e3:.2f} ms/step = {1 / dt:.1f} tok/s   ({read / 1e9:.2f} GB read per step -> "
           f"{read / dt / 1e9:.0f} GB/s, {read / dt / 1e9 / 1701 * 100:.1f}% of the wall; ceiling {1701e9 / read:.1f} tok/s)")
     print(f"peak cuda {torch.cuda.max_memory_allocated() / 1e9:.2f} GB")

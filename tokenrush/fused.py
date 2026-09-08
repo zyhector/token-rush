@@ -204,9 +204,13 @@ def gdn_step_fused(qkvz, x, ba_w, ring, conv_w, A, dt_bias, rec, norm_w, pos_t, 
 # ------------------------------------------------------ attention: prep
 
 
+FP8_MAX = 448.0            # float8_e4m3fn
+
+
 @triton.jit
-def _attn_prep_kernel(qkv_ptr, qn_ptr, kn_ptr, cos_ptr, sin_ptr, pos_ptr, k_cache, v_cache, q_out, eps,
-                      HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, RD: tl.constexpr, MAXLEN: tl.constexpr):
+def _attn_prep_kernel(qkv_ptr, qn_ptr, kn_ptr, cos_ptr, sin_ptr, pos_ptr, k_cache, v_cache, ks_ptr, vs_ptr, q_out, eps,
+                      HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, RD: tl.constexpr, MAXLEN: tl.constexpr,
+                      FP8: tl.constexpr):
     """One program per head. Heads 0..HQ-1: RMSNorm + rope the query, write q_out.
     Heads HQ..HQ+HKV-1: RMSNorm + rope the key and write it and the value into the
     cache at position pos. qkv is the fused projection [HQ*2D (q|gate per head) | HKV*D | HKV*D].
@@ -239,33 +243,70 @@ def _attn_prep_kernel(qkv_ptr, qn_ptr, kn_ptr, cos_ptr, sin_ptr, pos_ptr, k_cach
     o1 = ((x1 * c).to(tl.bfloat16).to(tl.float32) + (-x2 * s).to(tl.bfloat16).to(tl.float32)).to(tl.bfloat16)
     o2 = ((x2 * c).to(tl.bfloat16).to(tl.float32) + (x1 * s).to(tl.bfloat16).to(tl.float32)).to(tl.bfloat16)
     if pid < HQ:
-        dst = q_out + pid * D
+        tl.store(q_out + pid * D + d, x)                          # dims RD.. keep the normed value
+        tl.store(q_out + pid * D + r, o1)
+        tl.store(q_out + pid * D + HALF + r, o2)
     else:
-        dst = k_cache + ((pid - HQ) * MAXLEN + pos) * D
-    tl.store(dst + d, x)                                          # dims RD.. keep the normed value
-    tl.store(dst + r, o1)
-    tl.store(dst + HALF + r, o2)
-    if pid >= HQ:
-        v = tl.load(qkv_ptr + HQ * 2 * D + HKV * D + (pid - HQ) * D + d)
-        tl.store(v_cache + ((pid - HQ) * MAXLEN + pos) * D + d, v)
+        j = pid - HQ
+        koff = (j * MAXLEN + pos) * D
+        if FP8:
+            # one scale per (head, position): amax over the roped vector / 448
+            xr = tl.where(d >= RD, x.to(tl.float32), 0.0)
+            amax = tl.maximum(tl.max(tl.abs(xr)), tl.maximum(tl.max(tl.abs(o1.to(tl.float32))), tl.max(tl.abs(o2.to(tl.float32)))))
+            sc = tl.maximum(amax, 1e-6) / 448.0
+            tl.store(ks_ptr + j * MAXLEN + pos, sc)
+            tl.store(k_cache + koff + d, (x.to(tl.float32) / sc).to(k_cache.dtype.element_ty))
+            tl.store(k_cache + koff + r, (o1.to(tl.float32) / sc).to(k_cache.dtype.element_ty))
+            tl.store(k_cache + koff + HALF + r, (o2.to(tl.float32) / sc).to(k_cache.dtype.element_ty))
+        else:
+            tl.store(k_cache + koff + d, x)
+            tl.store(k_cache + koff + r, o1)
+            tl.store(k_cache + koff + HALF + r, o2)
+        v = tl.load(qkv_ptr + HQ * 2 * D + HKV * D + j * D + d)
+        if FP8:
+            vf = v.to(tl.float32)
+            sv = tl.maximum(tl.max(tl.abs(vf)), 1e-6) / 448.0
+            tl.store(vs_ptr + j * MAXLEN + pos, sv)
+            tl.store(v_cache + koff + d, (vf / sv).to(v_cache.dtype.element_ty))
+        else:
+            tl.store(v_cache + koff + d, v)
 
 
-def attn_prep(qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache, cfg):
-    """qkv [1, HQ*2D + 2*HKV*D] -> q [HQ*D] normed + roped; writes K, V at pos_t."""
+def attn_prep(qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache, cfg, k_scale=None, v_scale=None):
+    """qkv [1, HQ*2D + 2*HKV*D] -> q [HQ*D] normed + roped; writes K, V (and their fp8
+    scales when the cache is fp8) at pos_t."""
     HQ, HKV, D = cfg.n_heads, cfg.n_kv_heads, cfg.head_dim
+    fp8 = k_cache.dtype == torch.float8_e4m3fn
     q = torch.empty(HQ * D, device=qkv.device, dtype=qkv.dtype)
-    _attn_prep_kernel[(HQ + HKV,)](qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache, q, cfg.eps,
-                                   HQ=HQ, HKV=HKV, D=D, RD=cfg.rotary_dim, MAXLEN=k_cache.shape[1], num_warps=1)
+    _attn_prep_kernel[(HQ + HKV,)](qkv, q_norm_w, k_norm_w, cos, sin, pos_t, k_cache, v_cache,
+                                   k_scale if fp8 else q, v_scale if fp8 else q, q, cfg.eps,
+                                   HQ=HQ, HKV=HKV, D=D, RD=cfg.rotary_dim, MAXLEN=k_cache.shape[1], FP8=fp8, num_warps=1)
     return q
+
+
+def kv_write_prefill(k, v, state, slot, pos):
+    """Prefill-side cache write. k, v [Hkv, T, D] bf16 -> cache rows pos..pos+T-1, quantized
+    to fp8 with per-(head, position) scales when the cache is fp8 (the same convention as
+    the prep kernel)."""
+    T = k.shape[1]
+    if not state.fp8:
+        state.k[slot, :, pos:pos + T] = k
+        state.v[slot, :, pos:pos + T] = v
+        return
+    for src, cache, scale in ((k, state.k, state.k_scale), (v, state.v, state.v_scale)):
+        f = src.float()
+        sc = f.abs().amax(-1).clamp(min=1e-6) / FP8_MAX                     # [Hkv, T]
+        cache[slot, :, pos:pos + T] = (f / sc[..., None]).to(torch.float8_e4m3fn)
+        scale[slot, :, pos:pos + T] = sc
 
 
 # ------------------------------------------- attention: flash-decoding
 
 
 @triton.jit
-def _attn_split_kernel(q_ptr, k_cache, v_cache, pos_ptr, m_ptr, l_ptr, acc_ptr, scale,
+def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, l_ptr, acc_ptr, scale,
                        HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, MAXLEN: tl.constexpr,
-                       NSPLIT: tl.constexpr, BLOCK_N: tl.constexpr, ROWS: tl.constexpr):
+                       NSPLIT: tl.constexpr, BLOCK_N: tl.constexpr, ROWS: tl.constexpr, FP8: tl.constexpr):
     """One program per (kv head, split). The G = HQ // HKV query heads of the kv
     head are padded to ROWS rows for tensor-core dots. Keys 0..pos are live;
     the split's block range is derived from pos, so the grid is static."""
@@ -291,6 +332,9 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, pos_ptr, m_ptr, l_ptr, acc_ptr, 
         kidx = blk * BLOCK_N + tl.arange(0, BLOCK_N)
         kmask = kidx < L
         k = tl.load(kb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)            # [BLOCK_N, D]
+        if FP8:
+            ksc = tl.load(ks_ptr + j * MAXLEN + kidx, mask=kmask, other=0.0)
+            k = (k.to(tl.float32) * ksc[:, None]).to(tl.bfloat16)
         sc = tl.dot(q, tl.trans(k)) * scale                                                          # [ROWS, BLOCK_N] fp32
         sc = tl.where(kmask[None, :], sc, float("-inf"))
         m_new = tl.maximum(m_i, tl.max(sc, 1))
@@ -299,6 +343,10 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, pos_ptr, m_ptr, l_ptr, acc_ptr, 
         p = tl.exp(sc - m_safe[:, None])
         l_i = l_i * alpha + tl.sum(p, 1)
         v = tl.load(vb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)
+        if FP8:
+            vsc = tl.load(vs_ptr + j * MAXLEN + kidx, mask=kmask, other=0.0)
+            p = p * vsc[None, :]                                    # fold the row scale into the probabilities
+            v = v.to(tl.bfloat16)
         acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
         m_i = m_new
     h = j * G + rows
@@ -328,16 +376,81 @@ def _attn_reduce_kernel(m_ptr, l_ptr, acc_ptr, qkv_ptr, out_ptr,
     tl.store(out_ptr + h * D + d, (o * g).to(out_ptr.dtype.element_ty))
 
 
-def attn_decode_fused(q, qkv, k_cache, v_cache, pos_t, cfg, NSPLIT=32, BLOCK_N=32):
+def attn_decode_fused(q, qkv, k_cache, v_cache, pos_t, cfg, k_scale=None, v_scale=None, NSPLIT=32, BLOCK_N=32):
     """q [HQ*D] (from attn_prep), qkv (for the gate) -> gated attention output [1, HQ*D]."""
     HQ, HKV, D = cfg.n_heads, cfg.n_kv_heads, cfg.head_dim
     dev = q.device
+    fp8 = k_cache.dtype == torch.float8_e4m3fn
     m = torch.empty(HQ, NSPLIT, device=dev, dtype=torch.float32)
     l = torch.empty_like(m)
     acc = torch.empty(HQ, NSPLIT, D, device=dev, dtype=torch.float32)
     out = torch.empty(1, HQ * D, device=dev, dtype=q.dtype)
-    _attn_split_kernel[(HKV * NSPLIT,)](q, k_cache, v_cache, pos_t, m, l, acc, D ** -0.5,
+    _attn_split_kernel[(HKV * NSPLIT,)](q, k_cache, v_cache, k_scale if fp8 else m, v_scale if fp8 else m, pos_t,
+                                        m, l, acc, D ** -0.5,
                                         HQ=HQ, HKV=HKV, D=D, MAXLEN=k_cache.shape[1], NSPLIT=NSPLIT,
-                                        BLOCK_N=BLOCK_N, ROWS=16, num_warps=4, num_stages=2)
+                                        BLOCK_N=BLOCK_N, ROWS=16, FP8=fp8, num_warps=4, num_stages=2)
     _attn_reduce_kernel[(HQ,)](m, l, acc, qkv, out, D=D, NSPLIT=NSPLIT, num_warps=1)
     return out
+
+
+# ------------------------------------------------- attention: prefill
+
+
+@triton.jit
+def _attn_prefill_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, o_ptr, pos, T, scale,
+                         HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, MAXLEN: tl.constexpr,
+                         BM: tl.constexpr, BN: tl.constexpr, FP8: tl.constexpr):
+    """Causal flash attention for a prefill chunk of T queries at positions pos..pos+T-1
+    over the cache rows 0..pos+T-1. q, o are [T, HQ, D]; one program per (query block,
+    query head); the kv head is the query head's group."""
+    pid_m = tl.program_id(0)
+    h = tl.program_id(1)
+    j = h // (HQ // HKV)
+    m = pid_m * BM + tl.arange(0, BM)
+    qm = m < T
+    d = tl.arange(0, D)
+    q = tl.load(q_ptr + (m[:, None] * HQ + h) * D + d[None, :], mask=qm[:, None], other=0.0)      # [BM, D]
+    qpos = pos + m
+    hi = pos + tl.minimum(pid_m * BM + BM, T)                       # keys strictly below hi can be seen by this block
+    m_i = tl.full([BM], float("-inf"), tl.float32)
+    l_i = tl.zeros([BM], tl.float32)
+    acc = tl.zeros([BM, D], tl.float32)
+    kb = k_cache + j * MAXLEN * D
+    vb = v_cache + j * MAXLEN * D
+    for n0 in range(0, hi, BN):
+        kidx = n0 + tl.arange(0, BN)
+        kmask = kidx < hi
+        k = tl.load(kb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)
+        if FP8:
+            ksc = tl.load(ks_ptr + j * MAXLEN + kidx, mask=kmask, other=0.0)
+            k = (k.to(tl.float32) * ksc[:, None]).to(tl.bfloat16)
+        sc = tl.dot(q, tl.trans(k)) * scale                                                         # [BM, BN]
+        allowed = (kidx[None, :] <= qpos[:, None]) & kmask[None, :]
+        sc = tl.where(allowed, sc, float("-inf"))
+        m_new = tl.maximum(m_i, tl.max(sc, 1))
+        m_safe = tl.where(m_new == float("-inf"), 0.0, m_new)
+        alpha = tl.exp(m_i - m_safe)
+        p = tl.exp(sc - m_safe[:, None])
+        l_i = l_i * alpha + tl.sum(p, 1)
+        v = tl.load(vb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)
+        if FP8:
+            vsc = tl.load(vs_ptr + j * MAXLEN + kidx, mask=kmask, other=0.0)
+            p = p * vsc[None, :]
+            v = v.to(tl.bfloat16)
+        acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
+        m_i = m_new
+    o = acc / l_i[:, None]
+    tl.store(o_ptr + (m[:, None] * HQ + h) * D + d[None, :], o.to(o_ptr.dtype.element_ty), mask=qm[:, None])
+
+
+def attn_prefill_fused(q, k_cache, v_cache, pos, cfg, k_scale=None, v_scale=None, BM=64, BN=32):
+    """q [T, HQ, D] bf16 (normed, roped) for positions pos.. ; cache holds rows 0..pos+T-1
+    -> o [T, HQ, D] bf16."""
+    T, HQ, D = q.shape
+    fp8 = k_cache.dtype == torch.float8_e4m3fn
+    o = torch.empty_like(q)
+    dummy = o
+    _attn_prefill_kernel[(triton.cdiv(T, BM), HQ)](
+        q, k_cache, v_cache, k_scale if fp8 else dummy, v_scale if fp8 else dummy, o, pos, T, D ** -0.5,
+        HQ=HQ, HKV=cfg.n_kv_heads, D=D, MAXLEN=k_cache.shape[1], BM=BM, BN=BN, FP8=fp8, num_warps=8, num_stages=2)
+    return o

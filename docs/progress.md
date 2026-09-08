@@ -20,6 +20,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | 6. Phase 2: fused GDN step, fused add+norm | 2026-09-08 | + one Triton kernel per GDN layer (conv, gating, delta rule, gated norm, output gate), one kernel per residual+RMSNorm, silu*mul fused; ring-buffer conv state | 1500 | **83.2** (67% of wall) |
 | 7. Phase 2: fused attention decode | 2026-09-08 | + prep kernel (q/k norm, rope, KV write) and a flash-decoding kernel over the live length with the output gate in its reduce; no context buckets, one graph | 1500 | **99.5** (80% of wall) |
 | 8. Phase 2: b\|a folded into the GDN kernel, split-K GEMV for the hidden-sized outputs | 2026-09-08 | + no cuBLAS launches left in the step; out/o/down projections at split-K 4 write fp32 partials that the fused add+RMSNorm sums | 1500 | **102.5** (82% of wall) |
+| 9. Phase 2: FP8 KV cache + own prefill attention kernel | 2026-09-08 | + e4m3 cache with per-(head, token) scales; prep/decode kernels read it; a Triton flash-attention prefill kernel replaces SDPA for fp8. **256k usable**: needle at 128k and 256k; decode at 200k = 69.2 tok/s, 82.6% of wall | 1160–1640 at 128k–256k | 101.9 short, **69.2 at 200k** |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -293,12 +294,61 @@ for 256k.
 | GEMVs | 8.90 ms (wide 6.14, split-K 2.76) | 91% of the step |
 | everything else | 0.86 ms | GDN 0.35, norms 0.34, silu 0.07, attention 0.09 |
 
-Phase 2 remaining: sampling in-graph beyond argmax; FP8 KV with a prefill
-attention kernel for 256k; GEMV from 88–91% toward 95% on the layer
-matrices (the last ~0.5 ms), which is the "GEMV last, if measurement
-demands it" item. The step is 91% GEMV, so from here the number moves with
+Phase 2 remaining after step 8: FP8 KV (step 9), sampling (step 10), then
+GEMV from 88–91% toward 95% on the layer matrices (the last ~0.5 ms), which
+is the "GEMV last, if measurement demands it" item. The step is 91% GEMV, so from here the number moves with
 bytes (quantization, Phase 1b) and with speculation (Phase 3), not with
 fusion.
+
+## Step 9 — FP8 KV cache and a prefill attention kernel: 256k usable (2026-09-08)
+
+bf16 KV caps the context at ~32k on this card (64 KB/token next to 16 GB of
+weights). Now `State(kv_dtype=torch.float8_e4m3fn)`: K and V stored as e4m3
+with one fp32 scale per (head, position) (`value = code * scale`, scale =
+amax/448), 32 KB/token plus 128 B of scales. Three pieces:
+
+- `attn_prep` gets an FP8 branch: after norm and rope it computes the amax of
+  the roped key, writes the scale and the quantized row; same for V.
+- `attn_split` (decode) dequantizes K rows by their scale before the QK dot,
+  and folds the V scales into the probabilities before the PV dot.
+- **`attn_prefill_fused`**: a Triton flash-attention forward for a prefill
+  chunk (one program per 64-query block and query head, causal over the
+  whole cache, fp32 online softmax, tensor-core dots) since SDPA cannot read
+  an fp8 cache. Tested in bf16 mode against SDPA, then used in fp8 mode.
+  The prefill path writes the cache through `kv_write_prefill` with the same
+  quantization convention as the prep kernel (tested: the rows agree).
+
+Quality on the gate prompt: teacher-forced KL 5.88e-2 with fp8 KV vs 5.97e-2
+with bf16 — no measurable loss; the int4 weights dominate. (Proper
+measurement belongs in the Phase 1b quality table.)
+
+| | bf16 KV | fp8 KV |
+|---|---|---|
+| decode, short context | 102.8 tok/s (82.5%) | 101.9 tok/s (81.8%) |
+| decode at 30k | 91.6 (84.1%) | 94.7 (81.5%; reads 1 GB less) |
+| decode at 200k | does not fit | **69.2 tok/s, 14.45 ms, 82.6% of the wall** (20.3 GB/step, ceiling 83.8) |
+| needle at 128k / 256k | — | retrieved / retrieved |
+| prefill at 128k / 256k | — | 79 s / 224 s (1640 / 1160 tok/s; attention is O(L^2)) |
+| VRAM at 256k | — | state 8.9 GB, peak 26.1 GB |
+| graph capture at 256k | — | one graph, 8.5 s |
+
+The 200k row against the rivals (`docs/baselines.md`, their KV formats):
+llama.cpp 44.3 tok/s (60% of its wall), SGLang 49.9 (74%), vLLM 61.0 (90%,
+or ~81% with the embedding removed from its byte count), Token Rush 69.2
+(82.6%). The fraction is flat from 0 to 200k; the target of 92% at 200k is
+the same gap as at short context, i.e. GEMV headroom, not attention.
+
+## Step 10 — sampling inside the graph (2026-09-08)
+
+`tokenrush/sample.py`: temperature, top-k and top-p on a fixed top-64
+candidate set, all shape-static and branch-free (greedy is selected
+arithmetically when temperature is 0), parameters are device tensors read
+at replay, the uniform draw comes from torch's CUDA generator which the
+graph captures. About ten small torch kernels; a single fused sampler kernel
+is possible later. `run.py --temperature/--top-p/--top-k/--seed`. Tests:
+greedy equals argmax exactly; top-k/top-p masks hold; empirical frequencies
+match the truncated softmax within 2%; in-graph replay samples valid tokens
+and two seeds differ.
 
 ## Next
 

@@ -157,3 +157,64 @@ def test_fused_final_norm_sees_all_partials():
     logits = eng.decode(tok).float()
     ref = w.lm_head(_ops.rmsnorm(eng.trace[-1], w.final_norm, CFG.eps)).float()
     assert rel(logits, ref) < 5e-3, rel(logits, ref)
+
+
+def test_prefill_kernel_matches_sdpa_bf16():
+    """The Triton prefill attention (bf16 mode) against ops.attn_prefill (SDPA with the
+    causal-over-cache mask), for a chunk that starts mid-cache and is not a multiple of
+    the block size."""
+    from tokenrush import ops as _ops
+    HQ, HKV, D, pos, T = 24, 4, 256, 37, 150
+    max_len = 512
+    K = rnd(HKV, max_len, D, std=1.0); V = rnd(HKV, max_len, D, std=1.0)
+    q = rnd(HQ, T, D, std=1.0)
+    ref = _ops.attn_prefill(q, K[:, :pos + T], V[:, :pos + T], pos)                      # [HQ, T, D]
+    got = fused.attn_prefill_fused(q.transpose(0, 1).contiguous(), K, V, pos, CFG).transpose(0, 1)
+    assert rel(got, ref) < 2e-2, rel(got, ref)
+
+
+def test_fp8_cache_roundtrip_and_attention():
+    """fp8 write (prefill path and prep kernel) then decode: fp8 vs bf16 cache on the same
+    layer, error within what e4m3 (3 mantissa bits) allows."""
+    from tokenrush.model import AttnWeights, attn_forward
+    from tokenrush.quant import Linear
+    from tokenrush.state import State
+    from tokenrush import ops as _ops
+    cfg = CFG
+    w = AttnWeights(qkv=Linear(rnd(cfg.n_heads * cfg.head_dim * 2 + 2 * cfg.n_kv_heads * cfg.head_dim, cfg.hidden)),
+                    o=Linear(rnd(cfg.hidden, cfg.n_heads * cfg.head_dim)),
+                    q_norm_w=rnd(cfg.head_dim, std=0.5), k_norm_w=rnd(cfg.head_dim, std=0.5))
+    max_len = 1024
+    cos, sin = _ops.rope_table(max_len, cfg.rotary_dim, cfg.rope_theta, DEV)
+    T0 = 300
+    xs = rnd(T0 + 5, cfg.hidden, std=1.0)
+    s16, s8 = State(cfg, max_len, DEV), State(cfg, max_len, DEV, kv_dtype=torch.float8_e4m3fn)
+    y16 = attn_forward(xs[:T0], w, cfg, s16, 0, cos, sin, fused=True)
+    y8 = attn_forward(xs[:T0], w, cfg, s8, 0, cos, sin, fused=True)
+    s16.advance(T0); s8.advance(T0)
+    assert rel(y8, y16) < 5e-2, rel(y8, y16)                       # prefill through the fp8 cache
+    k8 = s8.k[0, :, :T0].float() * s8.k_scale[0, :, :T0, None]
+    assert rel(k8, s16.k[0, :, :T0]) < 3e-2                        # the cache itself
+    for t in range(T0, T0 + 5):
+        y16 = attn_forward(xs[t:t + 1], w, cfg, s16, 0, cos, sin, fused=True)
+        y8 = attn_forward(xs[t:t + 1], w, cfg, s8, 0, cos, sin, fused=True)
+        s16.advance(1); s8.advance(1)
+        assert rel(y8, y16) < 5e-2, (t, rel(y8, y16))
+    # the prep kernel's fp8 rows agree with the prefill-path quantization convention
+    k8 = s8.k[0, :, T0:T0 + 5].float() * s8.k_scale[0, :, T0:T0 + 5, None]
+    assert rel(k8, s16.k[0, :, T0:T0 + 5]) < 3e-2
+
+
+def test_engine_fp8_end_to_end():
+    w = random_weights(CFG, "triton")
+    toks = torch.randint(0, CFG.vocab, (30,), device=DEV)
+    outs = {}
+    for dt in (torch.bfloat16, torch.float8_e4m3fn):
+        eng = Engine(CFG, w, max_len=256, fused=True, kv_dtype=dt)
+        eng.capture()
+        eng.reset(); eng.forward(toks[:20])
+        got = []
+        for t in range(20, 30):
+            eng.tok.copy_(toks[t:t + 1]); eng.step(); got.append(eng.logits.clone())
+        outs[dt] = torch.cat(got).float()
+    assert rel(outs[torch.float8_e4m3fn], outs[torch.bfloat16]) < 5e-2
