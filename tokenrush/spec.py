@@ -170,3 +170,69 @@ def prime_spec(engine, mtp, prompt_ids, chunk=4096):
     engine.n_accepted.zero_()
     engine.spec_hidden[0].copy_(prev_last[0])               # row 0 pairs with tok at MTP row T
     return nxt, T
+
+
+def prime_dflash(engine, draft, prompt_ids, chunk=4096):
+    """Prefill the engine (keeping the five layers' residuals per chunk), prime the
+    draft's context cache with them, set up the first step. Returns (first token, T)."""
+    dev = engine.device
+    engine.reset()
+    draft.reset()
+    ids = torch.tensor(prompt_ids, device=dev, dtype=torch.long)
+    T = ids.numel()
+    last = None
+    for s in range(0, T, chunk):
+        e = min(T, s + chunk)
+        h = engine.forward_hidden(ids[s:e])                  # eager: writes engine.feat_last [e-s, 5H]
+        draft.prime(engine.feat_last)
+        last = h[-1:]
+    from .sample import sample
+    nxt = sample(engine.w.lm_head(last), engine.sampling)[0]
+    engine.tok.copy_(nxt.view(1))
+    engine.n_accepted.fill_(-1)                              # first step: no new context rows
+    return nxt, T
+
+
+def generate_dflash(engine, draft, tok, prompt_ids, max_new, stop_ids, stream=True, chunk=4096,
+                    temperature=0.0, top_p=1.0, top_k=64, seed=None):
+    """Speculative generation with the DFlash2 block draft inside the graph."""
+    dev = engine.device
+    K = engine.drafts.numel()
+    assert ("dflash", K) in engine.spec_graphs
+    engine.sampling.set(temperature, top_p, top_k)
+    if seed is not None:
+        torch.manual_seed(seed)
+    torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    nxt, T = prime_dflash(engine, draft, prompt_ids, chunk)
+    torch.cuda.synchronize()
+    t_prefill = time.perf_counter() - t0
+    out, printed, steps = [], 0, 0
+    tok_prev = int(nxt)
+    t1 = time.perf_counter()
+    while len(out) < max_new:
+        if engine.state.pos + K + 1 > engine.state.max_len:
+            break
+        n = engine.spec_step_dflash()
+        steps += 1
+        new_tokens = [tok_prev] + engine.drafts[:n].tolist()
+        tok_prev = int(engine.tok)
+        out.extend(new_tokens)
+        done = any(t in stop_ids for t in new_tokens)
+        if done:
+            cut = next(i for i, t in enumerate(out) if t in stop_ids) + 1
+            out = out[:cut]
+        if stream:
+            text = tok.decode(out[printed:])
+            if done or not text.endswith("\ufffd"):
+                print(text, end="", flush=True)
+                printed = len(out)
+        if done:
+            break
+    torch.cuda.synchronize()
+    t_dec = time.perf_counter() - t1
+    if stream:
+        print(tok.decode(out[printed:]))
+    return out, {"prompt_tokens": T, "prefill_s": t_prefill, "new_tokens": len(out), "decode_s": t_dec,
+                 "decode_tok_s": len(out) / t_dec, "verify_steps": steps,
+                 "accepted_per_step": len(out) / max(steps, 1), "ms_per_step": t_dec / max(steps, 1) * 1e3}

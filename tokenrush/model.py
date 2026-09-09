@@ -200,6 +200,9 @@ class Engine:
         self.spec_graphs = {}         # K -> CUDAGraph
         self.trace = None             # set to a list to collect the residual stream per layer (eager only)
         self.last_hidden = None       # post-final-norm hidden of the last forward
+        self.feature_layers = None    # layers whose residual outputs a DFlash draft consumes
+        self.feat_buf = None          # [R, len(feature_layers)*hidden] written by short fused steps
+        self.feat_last = None         # [T, ...] features of the last eager chunk (prime)
 
     def layer(self, li: int) -> LayerWeights:
         return self.w.layers[li]
@@ -233,6 +236,17 @@ class Engine:
             if self.trace is not None:
                 hs = h.sum(0).to(x.dtype) if h.dim() == 3 else h                     # split-K partials [S, T, N]
                 self.trace.append(x + hs)
+            if self.feature_layers is not None and li in self.feature_layers:
+                j = self.feature_layers.index(li)
+                hs = h.sum(0).to(x.dtype) if h.dim() == 3 else h
+                res = x + hs
+                T = res.shape[0]
+                if fused:
+                    self.feat_buf[:T, j * cfg.hidden:(j + 1) * cfg.hidden].copy_(res)
+                else:
+                    if j == 0:
+                        self.feat_last = torch.empty(T, len(self.feature_layers) * cfg.hidden, device=res.device, dtype=res.dtype)
+                    self.feat_last[:, j * cfg.hidden:(j + 1) * cfg.hidden].copy_(res)
         if fused:                                    # short step: all T rows are wanted; h may be [S, T, N]
             _, n = fused_k.add_rmsnorm(x, h, self.w.final_norm, cfg.eps)
         else:
@@ -303,6 +317,75 @@ class Engine:
             out.append(b)
             b *= 2
         return out + [max_len]
+
+    # ------------------------------------------- DFlash speculative step
+
+    def attach_dflash(self, draft, draft_vocab: torch.Tensor = None):
+        """A DFlashDraft whose block drafting runs inside the spec graph (K = block-1)."""
+        self.dflash = draft
+        self.feature_layers = list(draft.w.target_layer_ids)
+        K = draft.w.block_size - 1
+        assert K <= self.max_spec
+        R = K + 1
+        self.feat_buf = torch.zeros(R, len(self.feature_layers) * self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
+        self.drafts = torch.zeros(K, device=self.device, dtype=torch.long)
+        self.dflash_block = torch.full((R,), draft.w.mask_token_id, device=self.device, dtype=torch.long)
+        if draft_vocab is None:
+            self.draft_head, self.draft_map = self.w.lm_head, None
+        else:
+            ids = draft_vocab.to(self.device)
+            h = self.w.lm_head
+            self.draft_head = QLinear(h.qweight.index_select(0, ids), h.scale.index_select(0, ids),
+                                      h.mn.index_select(0, ids), backend=h.backend)
+            self.draft_map = ids
+        if self.spec_logits is None:
+            self.spec_logits = torch.empty(self.max_spec + 1, self.cfg.vocab, device=self.device, dtype=torch.bfloat16)
+            self.spec_hidden = torch.empty(self.max_spec + 1, self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
+
+    def _spec_step_dflash(self):
+        """Draft a block from the previous verify's features, then verify it.
+        Enters with: tok at pos (device), n_accepted from the previous step (so the
+        previous verify's rows 0..n hold the features of positions pos-n-1..pos-1, the
+        draft's context cache ends at pos-n-1), drafts K = block-1."""
+        d, st = self.dflash, self.state
+        K = self.drafts.numel()
+        n_ctx = self.n_accepted + 1                                              # [1]: new context rows
+        ctx_t = st.pos_t - n_ctx                                                 # the draft cache's end
+        self.dflash_block[0].copy_(self.tok[0])
+        head = None if self.draft_map is None else (self.draft_head, self.draft_map)
+        new = d.forward_static(self.feat_buf, n_ctx, ctx_t, self.dflash_block, head)   # [K]
+        self.drafts.copy_(new)
+        self.spec_toks[0].copy_(self.tok[0])
+        self.spec_toks[1:K + 1].copy_(self.drafts)
+        self._verify_step(K)                                                     # writes feat_buf rows for M = K+1
+
+    @torch.no_grad()
+    def capture_spec_dflash(self, warmup: int = 2):
+        K = self.drafts.numel()
+        self.pool = self.pool or torch.cuda.graph_pool_handle()
+        side = torch.cuda.Stream()
+        side.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(side):
+            for _ in range(warmup):
+                self.state.reset(); self.dflash.reset(); self.n_accepted.fill_(-1)
+                self._spec_step_dflash()
+        torch.cuda.current_stream().wait_stream(side)
+        torch.cuda.synchronize()
+        self.state.reset(); self.dflash.reset(); self.n_accepted.fill_(-1)
+        g = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(g, pool=self.pool):
+            self._spec_step_dflash()
+        self.spec_graphs[("dflash", K)] = g
+        self.state.reset(); self.dflash.reset(); self.n_accepted.zero_(); self.tok.zero_()
+        torch.cuda.synchronize()
+
+    def spec_step_dflash(self) -> int:
+        K = self.drafts.numel()
+        self.spec_graphs[("dflash", K)].replay()
+        n = int(self.n_accepted)
+        self.state.pos += n + 1
+        self.state.slot_h = n
+        return n
 
     # ------------------------------------------------- speculative step
 

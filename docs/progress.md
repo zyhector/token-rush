@@ -52,6 +52,7 @@ re-measures everything on one machine.
 | 22. Profile of the spec step at 200k; flash-decoding pipeline depth | 2026-09-09 | + the spec step's extra growth with context attributed (M-row attention kernel under-occupied, MTP's own attention); one config change (3 pipeline stages) lifts the kernel from 1390/1147 GB/s (M=1/M=4) to 1587/1558 | — | at 200k: raw **71.7** (85.6% of wall, was 68.4 / 82.6%), spec prose **195** (was 180); short context unchanged |
 | 23. Draft trees: simulated, not built | 2026-09-09 | + `bench/tree_accept.py` (teacher-forced acceptance of static trees with the eager MTP) and verify cost measured to M=8: the best 7-node tree gains +10% acceptance on prose, +3–4% on code/math, for a step ~20% dearer. **Net negative on this stack; trees dropped.** A shared-memory overflow for M >= 6 fixed on the way | — | unchanged |
 | 24. Research: what is left to gain | 2026-09-09 | + surveyed 2025–26 single-stream speculation and small-M int4 GEMM work; measured z-lab's **DFlash2** block-diffusion draft teacher-forced on our target: 3.57 / 5.37 / 5.76 accepted per 7-draft step (essay / code / math) vs the MTP chain's 2.75 / 3.88 / 4.05 at K=4, from one draft forward. Projected 238 / 358 / 384 tok/s in-graph; with a Marlin-class M-row GEMM ~275 / 413 / 443 | — | unchanged |
+| 25. Phase 3b: DFlash2 draft inside the graph (first version) | 2026-09-09 | + our implementation of the DFlash2 forward (bit-identical to z-lab's reference), int4-packed, graph-capturable with a fixed context-row count and a fixed 2048-key window; the verify body captures the five feature layers; one graph = draft block + K=7 verify. Exact vs raw greedy 300/300 | — | **178 / 306 / 310** (essay / code / math) at 16.8 ms/step; MTP chain was 186 / 261 / 263 |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -998,6 +999,66 @@ Sources: [DFlash paper](https://arxiv.org/abs/2602.06036), [z-lab/dflash](https:
 [prompt lookup decoding](https://github.com/apoorvumang/prompt-lookup-decoding),
 [EAGLE-3 overview](https://www.spheron.network/blog/eagle-3-speculative-decoding-gpu-cloud/),
 [5090 NVFP4 guide](https://runaihome.com/blog/qwen36-27b-nvfp4-blackwell-2x-speed-guide-2026/).
+
+## Step 25 — Phase 3b: the DFlash2 draft inside the graph, first version (2026-09-09)
+
+`tokenrush/dflash.py` implements the draft on our ops: `fc` + plain-gain norm
+of the five concatenated target residuals, five Qwen3-style layers whose
+attention takes the context rows' K/V (from the features, cached in the
+draft's own K/V) plus the block rows (bidirectional among themselves,
+windowed at 2048), two grouped dynamic causal convs per layer, a final norm,
+and the rank-256 candidate selector chaining the top-16 per position.
+Norms are Qwen3's plain gain (weight * x), not Qwen3.5's (1 + weight).
+
+Checked against z-lab's reference (`bench/dflash_check.py`): the block hidden
+states are **bit-identical** on two consecutive steps with random inputs and
+the draft tokens match once the selector's arithmetic is done in bf16 like
+the reference's (a near-tie had flipped in fp32); the essay acceptance through
+our forward is 3.60 vs the reference measurement's 3.57. With the draft's
+projections int4-packed (1.92B -> ~0.5 GB): 3.64.
+
+Graph integration (`Engine.attach_dflash`, `_spec_step_dflash`,
+`capture_spec_dflash`; `spec.generate_dflash`, `prime_dflash`):
+
+- `_body` captures the residual after layers 5, 19, 33, 47, 61 for the
+  verify's 8 rows into `feat_buf` (a copy per layer, free). After a commit
+  with n accepted, rows 0..n are the next context rows.
+- `DFlashDraft.forward_static`: always 8 context rows (the invalid ones land
+  beyond the block start and are overwritten before anything reads them) and
+  a fixed window of 2048 keys ending at the block start, masked on the
+  device; the draft's cache end is `pos_t - n_ctx`, all device arithmetic.
+- The selector runs on the 128k draft-vocabulary slice of `lm_head`.
+- Priming: the chunked prefill keeps the five layers' residuals per chunk and
+  `DFlashDraft.prime` writes their K/V (no block work).
+- One graph per step: draft block from the previous verify's features, then
+  the K=7 verify and commit. `Engine(max_spec=7)`.
+
+| 300 greedy tokens | essay | code | math |
+|---|---|---|---|
+| MTP chain, dynamic 3:4, 128k vocab (step 21) | 186 (2.53/step, 13.6 ms) | 261 (3.61) | 263 (3.64) |
+| **DFlash2, K=7** | **178** (2.98/step, 16.8 ms) | **306** (5.14) | **310** (5.21) |
+| identical to raw greedy (consistent kernels) | 300/300 | 300/300 | 300/300 |
+
+Acceptance in the loop is below the teacher-forced numbers (2.98 vs 3.57 on
+prose) because a real loop over-samples the positions right after a
+rejection, which are the uncertain ones; the MTP chain showed the same gap.
+Code and math jump by 17–18%. Prose does not, because the step costs
+16.8 ms against the 15 projected: the profile (1347 launches, 16.74 ms GPU):
+
+| | ms |
+|---|---|
+| body rows GEMM, M=8 | ~10.3 |
+| **GDN M=8 step kernel** | **2.37** (48 launches, 49 us each: 8 sequential tokens and 8 x 64 KB snapshot writes per program) |
+| draft rows GEMM (int4, 42 launches) | ~1.3 |
+| draft attention (SDPA over 2056 keys, 5 launches) | 0.68 |
+| draft small ops: convs, plain norms, selector, index ops (~1000 launches) | ~1.3 |
+| fused norms, silu, body attention | ~0.6 |
+
+Next inside 3b, in payoff order: the GDN kernel at M=8 (finer programs so
+the snapshot writes parallelize; or fewer/cheaper snapshots), the draft's
+attention through our split kernel with a window, and fusing the draft's
+convs, norms and selector. Target: ~13.5 ms per step -> ~220 / 375 / 380;
+then 3c (Marlin-class GEMM) on top.
 
 ## Next
 
