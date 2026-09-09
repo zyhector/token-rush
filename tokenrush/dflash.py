@@ -98,11 +98,11 @@ def load_dflash(path: str, device="cuda", int4: bool = False) -> DFlashWeights:
             q_norm_w=dev(p + "self_attn.q_norm.weight"), k_norm_w=dev(p + "self_attn.k_norm.weight"),
             gate_up=lin([p + "mlp.gate_proj.weight", p + "mlp.up_proj.weight"]),
             down=lin([p + "mlp.down_proj.weight"], 4 if int4 else 1),
-            attn_conv_base=dev(p + "attention_conv.base_kernel"), attn_conv_proj=Linear(dev(p + "attention_conv.kernel_projection.weight")),
-            mlp_conv_base=dev(p + "mlp_conv.base_kernel"), mlp_conv_proj=Linear(dev(p + "mlp_conv.kernel_projection.weight"))))
+            attn_conv_base=dev(p + "attention_conv.base_kernel"), attn_conv_proj=lin([p + "attention_conv.kernel_projection.weight"]),
+            mlp_conv_base=dev(p + "mlp_conv.base_kernel"), mlp_conv_proj=lin([p + "mlp_conv.kernel_projection.weight"])))
     return DFlashWeights(
         fc=lin(["fc.weight"]), hidden_norm=dev("hidden_norm.weight"), layers=layers, norm=dev("norm.weight"),
-        sel_hidden_proj=Linear(dev("candidate_selector.hidden_projection.weight")),
+        sel_hidden_proj=lin(["candidate_selector.hidden_projection.weight"]),
         sel_pred_cb=dev("candidate_selector.predecessor_codebook"), sel_succ_cb=dev("candidate_selector.successor_codebook"),
         target_layer_ids=tuple(dc["target_layer_ids"]), block_size=int(dc["block_size"]), mask_token_id=int(dc["mask_token_id"]),
         n_heads=cfg["num_attention_heads"], n_kv_heads=cfg["num_key_value_heads"], head_dim=cfg["head_dim"],
@@ -136,7 +136,13 @@ class DFlashDraft:
         self.device = torch.device(device)
         self.max_len = max_len
         L = len(w.layers)
-        self.k = torch.zeros(L, w.n_kv_heads, max_len, w.head_dim, device=device, dtype=kv_dtype)
+        # the draft attends within a window, so its context cache is a ring of ring_size
+        # rows (position mod ring_size); ring_size > window + block so a row is never
+        # overwritten before it drops out of every query's window
+        self.ring = 1
+        while self.ring < w.window + w.block_size + 8:
+            self.ring *= 2
+        self.k = torch.zeros(L, w.n_kv_heads, self.ring, w.head_dim, device=device, dtype=kv_dtype)
         self.v = torch.zeros_like(self.k)
         self.ctx = 0                                   # context rows cached: positions 0..ctx-1
         inv = 1.0 / (w.rope_theta ** (torch.arange(0, w.head_dim, 2, device=device).float() / w.head_dim))
@@ -188,10 +194,11 @@ class DFlashDraft:
                 k_ctx = rmsnorm_plain(lw.k(th).view(n_ctx, w.n_kv_heads, w.head_dim), lw.k_norm_w, w.eps)
                 v_ctx = lw.v(th).view(n_ctx, w.n_kv_heads, w.head_dim)
                 k_ctx = self._rope(k_ctx.transpose(0, 1), self.cos[ctx_pos], self.sin[ctx_pos])  # [Hkv, n_ctx, D]
-                self.k[li, :, self.ctx:p0] = k_ctx.to(self.k.dtype)
-                self.v[li, :, self.ctx:p0] = v_ctx.transpose(0, 1).to(self.v.dtype)
-            K = torch.cat([self.k[li, :, lo:p0].to(q.dtype), k_blk], 1)                      # [Hkv, n_keys+B, D]
-            V = torch.cat([self.v[li, :, lo:p0].to(q.dtype), v_blk.transpose(0, 1)], 1)
+                self.k[li].index_copy_(1, ctx_pos % self.ring, k_ctx.to(self.k.dtype))
+                self.v[li].index_copy_(1, ctx_pos % self.ring, v_ctx.transpose(0, 1).to(self.v.dtype))
+            krows = keys_pos % self.ring
+            K = torch.cat([self.k[li].index_select(1, krows).to(q.dtype), k_blk], 1)          # [Hkv, n_keys+B, D]
+            V = torch.cat([self.v[li].index_select(1, krows).to(q.dtype), v_blk.transpose(0, 1)], 1)
             o = F.scaled_dot_product_attention(q[None], K[None], V[None], attn_mask=mask, enable_gqa=True)[0]
             o = lw.o(o.transpose(0, 1).reshape(B, w.n_heads * w.head_dim))
             o = grouped_dynamic_conv(o, dyn[:, 1], lw.attn_conv_base[1], w.conv_group)
@@ -242,11 +249,12 @@ class DFlashDraft:
         n = features.shape[0]
         th = rmsnorm_plain(w.fc(features), w.hidden_norm, w.eps)
         pos = torch.arange(self.ctx, self.ctx + n, device=self.device)
+        rows = pos % self.ring
         for li, lw in enumerate(w.layers):
             k = rmsnorm_plain(lw.k(th).view(n, w.n_kv_heads, w.head_dim), lw.k_norm_w, w.eps)
             k = self._rope(k.transpose(0, 1), self.cos[pos], self.sin[pos])
-            self.k[li, :, self.ctx:self.ctx + n] = k.to(self.k.dtype)
-            self.v[li, :, self.ctx:self.ctx + n] = lw.v(th).view(n, w.n_kv_heads, w.head_dim).transpose(0, 1).to(self.v.dtype)
+            self.k[li].index_copy_(1, rows, k.to(self.k.dtype))
+            self.v[li].index_copy_(1, rows, lw.v(th).view(n, w.n_kv_heads, w.head_dim).transpose(0, 1).to(self.v.dtype))
         self.ctx += n
 
     def forward_static(self, features: torch.Tensor, n_ctx: torch.Tensor, ctx_t: torch.Tensor, block: torch.Tensor,
@@ -282,13 +290,13 @@ class DFlashDraft:
             q = self._rope(q.transpose(0, 1), cos_b, sin_b)
             k_ctx = self._rope(k_ctx.transpose(0, 1), cos_c, sin_c)
             k_blk = self._rope(k_blk.transpose(0, 1), cos_b, sin_b)
-            self.k[li].index_copy_(1, ctx_pos, k_ctx.to(self.k.dtype))
-            self.v[li].index_copy_(1, ctx_pos, v_ctx.transpose(0, 1).to(self.v.dtype))
-            # context keys < p0 within the window (our split kernel) + the B block keys
-            # (bidirectional, a small kernel), merged in the reduce; no torch mask, no copies
+            self.k[li].index_copy_(1, ctx_pos % self.ring, k_ctx.to(self.k.dtype))
+            self.v[li].index_copy_(1, ctx_pos % self.ring, v_ctx.transpose(0, 1).to(self.v.dtype))
+            # context keys < p0 within the window (our split kernel, ring-addressed) + the B
+            # block keys (bidirectional, a small kernel), merged in the reduce; no torch mask
             o = fused_k.attn_window_block(q.transpose(0, 1).reshape(B, w.n_heads * w.head_dim).contiguous(),
                                           self.k[li], self.v[li], p0, k_blk.contiguous(), v_blk.transpose(0, 1).contiguous(),
-                                          w.n_heads, w.n_kv_heads, w.head_dim, W)
+                                          w.n_heads, w.n_kv_heads, w.head_dim, W, ring=self.ring)
             o = lw.o(o)
             o = fused_k.grouped_conv(o, dyn[:, 1], lw.attn_conv_base[1], w.conv_group)
             h, n = fused_k.add_rmsnorm(h, o, lw.ln2, w.eps, plain=True)

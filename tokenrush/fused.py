@@ -347,7 +347,8 @@ def kv_write_prefill(k, v, state, slot, pos):
 def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, l_ptr, acc_ptr, scale,
                        HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, MAXLEN: tl.constexpr,
                        NSPLIT: tl.constexpr, BLOCK_N: tl.constexpr, ROWS: tl.constexpr, FP8: tl.constexpr,
-                       M: tl.constexpr, NEWROWS: tl.constexpr = 1, WINDOW: tl.constexpr = 0, NPART: tl.constexpr = 0):
+                       M: tl.constexpr, NEWROWS: tl.constexpr = 1, WINDOW: tl.constexpr = 0, NPART: tl.constexpr = 0,
+                       RING: tl.constexpr = 0):
     """NEWROWS=1: the M query tokens are also the last M cache rows (the body's decode).
     NEWROWS=0: the cache holds only rows < pos and every query sees all of them (the
     DFlash draft's context; its block keys come from _attn_block_kernel as one more
@@ -388,9 +389,13 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, 
     for blk in range(b0, b1):
         kidx = blk * BLOCK_N + tl.arange(0, BLOCK_N)
         kmask = kidx < L
-        k = tl.load(kb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)            # [BLOCK_N, D]
+        if RING > 0:
+            krow = kidx % RING                                        # a ring cache: row = position mod RING
+        else:
+            krow = kidx
+        k = tl.load(kb + krow[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)            # [BLOCK_N, D]
         if FP8:
-            ksc = tl.load(ks_ptr + j * MAXLEN + kidx, mask=kmask, other=0.0)
+            ksc = tl.load(ks_ptr + j * MAXLEN + krow, mask=kmask, other=0.0)
             k = (k.to(tl.float32) * ksc[:, None]).to(tl.bfloat16)
         sc = tl.dot(q, tl.trans(k)) * scale                                                          # [ROWS, BLOCK_N] fp32
         allowed = kmask[None, :] & (kidx[None, :] <= qlimit[:, None])
@@ -402,9 +407,9 @@ def _attn_split_kernel(q_ptr, k_cache, v_cache, ks_ptr, vs_ptr, pos_ptr, m_ptr, 
         alpha = tl.exp(m_i - m_safe)
         p = tl.exp(sc - m_safe[:, None])
         l_i = l_i * alpha + tl.sum(p, 1)
-        v = tl.load(vb + kidx[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)
+        v = tl.load(vb + krow[:, None] * D + d[None, :], mask=kmask[:, None], other=0.0)
         if FP8:
-            vsc = tl.load(vs_ptr + j * MAXLEN + kidx, mask=kmask, other=0.0)
+            vsc = tl.load(vs_ptr + j * MAXLEN + krow, mask=kmask, other=0.0)
             p = p * vsc[None, :]                                    # fold the row scale into the probabilities
             v = v.to(tl.bfloat16)
         acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
@@ -592,10 +597,11 @@ def _attn_block_kernel(q_ptr, kb_ptr, vb_ptr, m_ptr, l_ptr, acc_ptr, scale, slot
     tl.store(acc_ptr + (pid * NPART + slot) * D + d, acc)
 
 
-def attn_window_block(q, k_cache, v_cache, pos_t, k_blk, v_blk, HQ, HKV, D, window, NSPLIT=15, BLOCK_N=32):
+def attn_window_block(q, k_cache, v_cache, pos_t, k_blk, v_blk, HQ, HKV, D, window, NSPLIT=15, BLOCK_N=32, ring=0):
     """DFlash draft attention: q [B, HQ*D] for a block of B queries at positions pos..
     over (a) the cache rows < pos within `window` of each query and (b) the B block keys
-    k_blk/v_blk [HKV, B, D] (bidirectional). Ungated. Returns [B, HQ*D]."""
+    k_blk/v_blk [HKV, B, D] (bidirectional). Ungated. Returns [B, HQ*D].
+    ring > 0: the cache is a ring of `ring` rows, row = position mod ring."""
     B = q.shape[0]
     G = HQ // HKV
     rows = max(16, triton.next_power_of_2(G * B))
@@ -609,7 +615,7 @@ def attn_window_block(q, k_cache, v_cache, pos_t, k_blk, v_blk, HQ, HKV, D, wind
     _attn_split_kernel[(HKV * NSPLIT,)](q, k_cache, v_cache, m, m, pos_t, m, l, acc, D ** -0.5,
                                         HQ=HQ, HKV=HKV, D=D, MAXLEN=k_cache.shape[1], NSPLIT=NSPLIT,
                                         BLOCK_N=BLOCK_N, ROWS=rows, FP8=False, M=B, NEWROWS=0, WINDOW=window,
-                                        NPART=NPART, num_warps=4, num_stages=3 if rows <= 32 else 2)
+                                        NPART=NPART, RING=ring, num_warps=4, num_stages=3 if rows <= 32 else 2)
     _attn_block_kernel[(B * HQ,)](q, k_blk, v_blk, m, l, acc, D ** -0.5, NSPLIT, HQ=HQ, HKV=HKV, D=D, B=B,
                                   NPART=NPART, num_warps=1)
     _attn_reduce_kernel[(B * HQ,)](m, l, acc, q, out, D=D, NSPLIT=NPART, HQ=HQ, QKV=q.shape[1], GATE=0, num_warps=1)

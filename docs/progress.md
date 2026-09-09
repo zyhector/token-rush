@@ -10,14 +10,14 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 26, 2026-09-09)
+## Where things stand (after step 27, 2026-09-09)
 
 | | | |
 |---|---|---|
 | raw greedy decode, short context | **102 tok/s**, 9.8 ms/step, 82% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6) | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
-| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **220 / 342 / 353 tok/s** (MTP chain: 186 / 261 / 263; Chinese essay / math 162 / 279 with MTP) | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
+| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **217 / 355 / 350 tok/s** (MTP chain: 186 / 261 / 263); Chinese essay 162 (MTP) / math 289 | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
 | speculative sampled, T=0.7 top-p 0.9 | 167 / 237 / 239 | output distribution identical to raw sampling |
-| speculative at 200k context, fp8 KV, prose / code | **195 / ~200 tok/s** (raw 71.7 = 85.6% of the wall) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
+| speculative at 200k context, fp8 KV, prose / code | **195 (MTP) / 229 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
 | correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 39 tests | |
 | quantization | int4 g128 RTN, uncalibrated: teacher-forced KL 0.06 vs bf16, 2–4x a calibrated quant's; **the quality gate is not met** (`docs/quality_plan.md`, deferred to a two-GPU box) | |
@@ -54,6 +54,7 @@ re-measures everything on one machine.
 | 24. Research: what is left to gain | 2026-09-09 | + surveyed 2025–26 single-stream speculation and small-M int4 GEMM work; measured z-lab's **DFlash2** block-diffusion draft teacher-forced on our target: 3.57 / 5.37 / 5.76 accepted per 7-draft step (essay / code / math) vs the MTP chain's 2.75 / 3.88 / 4.05 at K=4, from one draft forward. Projected 238 / 358 / 384 tok/s in-graph; with a Marlin-class M-row GEMM ~275 / 413 / 443 | — | unchanged |
 | 25. Phase 3b: DFlash2 draft inside the graph (first version) | 2026-09-09 | + our implementation of the DFlash2 forward (bit-identical to z-lab's reference), int4-packed, graph-capturable with a fixed context-row count and a fixed 2048-key window; the verify body captures the five feature layers; one graph = draft block + K=7 verify. Exact vs raw greedy 300/300 | — | **178 / 306 / 310** (essay / code / math) at 16.8 ms/step; MTP chain was 186 / 261 / 263 |
 | 26. Phase 3b: the DFlash step tuned | 2026-09-09 | + GDN at M>=4 with two programs per head and one M-row norm launch (2.4 -> 1.4 ms); the draft's norms and grouped convs as fused kernels; the draft's attention through our windowed split kernel + a block-keys kernel (SDPA with a mask was 7x slower than unmasked). Drafts identical to z-lab's at 3000 tokens of context (window active) | — | **220 / 342 / 353** at 14.8 ms/step (v1: 178 / 306 / 310 at 16.8) |
+| 27. Phase 3b: DFlash across families and context; ring cache | 2026-09-09 | + the draft's context cache is a 4096-row ring (its window is 2048), so 256k fits (29.4 GB peak); its conv/selector projections int4 too; measured on six families and at 200k. Chinese prose is the one family where the MTP chain stays better (DFlash2 accepts 1.77/step there) | — | six families: **217 / 355 / 350 / 121 / 289 / 212** (essay / code / math / zh-essay / zh-math / mixed); at 200k: prose 179, code 229 (MTP: 195 / 199) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1110,15 +1111,59 @@ cuBLAS path is slow; int4 rows would be ~0.1), attention 0.15, the rest
 ~0.5. The prose floor of 200 is crossed; code and math are inside their
 target bands (230–280 and 300–380) and above them respectively.
 
+## Step 27 — DFlash across families and context; the draft's ring cache (2026-09-09)
+
+- **Ring cache.** The draft attends within a 2048-position window, so its
+  context K/V is now a ring of 4096 rows (position mod 4096; the split
+  kernel got a `RING` mode) instead of a full-length cache: 84 MB instead of
+  5.4 GB at 256k, which had run out of memory. A test checks the window at
+  position 9000 through the ring. At 256k with fp8 KV the whole thing peaks
+  at 29.4 GB.
+- The draft's conv-kernel and selector projections go through int4 too
+  (cuBLAS's small-M bf16 path cost 26 us per call).
+- Tests: 44, including a random-weight graph test of the DFlash step.
+
+**Six families, short context** (300 greedy tokens, 128k draft vocabulary):
+
+| tok/s (accepted/step) | essay | code | math | zh-essay | zh-math | mixed |
+|---|---|---|---|---|---|---|
+| MTP chain, dynamic 3:4 (step 21) | 186 (2.53) | 261 (3.61) | 263 (3.64) | **162** (2.17) | 279 (3.87) | 216 (2.94) |
+| **DFlash2, K=7** | **217** (3.18) | **355** (5.19) | **350** (5.12) | 121 (1.77) | **289** (4.23) | 212 (3.10) |
+
+DFlash2 wins everywhere except Chinese prose, where its acceptance drops
+to 1.77 per step and the MTP chain's 162 tok/s stands: the draft was
+evidently trained on little Chinese (Chinese math, being mostly symbols and
+numbers, is fine). Mixed Chinese-English text ties. For a Chinese-prose
+daily driver `--draft mtp` is the setting; a per-content switch between the
+two drafts (both graphs resident) is a possible later refinement.
+
+**Long context, real text, fp8 KV** (200 tokens):
+
+| | prose @64 | prose @200k | code @64 | code @200k |
+|---|---|---|---|---|
+| MTP chain (steps 17–22) | 228 | 195 (3.83/step, 19.7 ms) | 250 | ~200 |
+| **DFlash2** | **249** (3.65) | 179 (4.30/step, 23.9 ms) | **299** (4.39) | **229** (5.49, 24.0 ms) |
+
+At 200k DFlash accepts more per step but the step is 4 ms dearer than the
+MTP chain's: the body's attention over the 6.7 GB cache with 8 query rows
+is a 64-row tile, which runs at ~700 GB/s against ~1550 for the 32-row tile
+(register pressure; block size, stages and warps do not help — measured).
+Two passes of 4 rows would read the cache twice at full speed, a wash; a
+kernel that splits the head dimension is the real fix. Recorded as an item;
+prose at 200k therefore stays with the MTP number (195) as the best
+measured, code at 200k improves to 229.
+
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
   258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
   at 200k (195 prose after step 22); 186 / 261 / 263 with the 128k draft
-  vocabulary. Trees and DSpark dropped (step 23). Step 24's research found
-  two levers worth building: **DFlash2** as the draft (projected 238 / 358
-  / 384) and a **Marlin-class M-row GEMM** (+15% on top). Then
-  rejection-sampling acceptance for sampled decoding, and Phase 3 closes.
+  vocabulary. **Phase 3b done** (steps 25–27): DFlash2 in the graph,
+  217 / 355 / 350 short-context, 229 code at 200k. Remaining: **3c**, a
+  Marlin-class M-row GEMM (the body's M=8 rows GEMM is 10.3 of the step's
+  14.7 ms); the 64-row attention tile at long context; a per-content draft
+  switch (Chinese prose prefers the MTP chain); rejection-sampling
+  acceptance for sampled decoding; then Phase 3 closes.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are

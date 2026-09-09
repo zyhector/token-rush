@@ -359,3 +359,22 @@ def test_attn_window_block_matches_sdpa():
         ref = F.scaled_dot_product_attention(q.view(B, HQ, D).transpose(0, 1)[None], Kf[None], Vf[None],
                                              attn_mask=mask, enable_gqa=True)[0].transpose(0, 1).reshape(B, HQ * D)
         assert rel(got, ref) < 2e-2, (pos, rel(got, ref))
+
+
+def test_attn_window_block_ring():
+    """Ring-addressed cache: rows hold position mod ring; at a position past the ring's
+    size the kernel must still see exactly the window."""
+    HQ, HKV, D, B, W, R = 32, 8, 128, 8, 2048, 4096
+    pos = 9000
+    Kfull = rnd(HKV, pos, D, std=1.0); Vfull = rnd(HKV, pos, D, std=1.0)
+    Kring = torch.zeros(HKV, R, D, device=DEV, dtype=BF); Vring = torch.zeros_like(Kring)
+    live = torch.arange(pos - R + 8, pos, device=DEV)            # the last R-8 positions are what a ring holds
+    Kring[:, live % R] = Kfull[:, live]; Vring[:, live % R] = Vfull[:, live]
+    q = rnd(B, HQ * D, std=1.0); kb, vb = rnd(HKV, B, D, std=1.0), rnd(HKV, B, D, std=1.0)
+    got = fused.attn_window_block(q, Kring, Vring, torch.tensor([pos], device=DEV), kb, vb, HQ, HKV, D, W, ring=R)
+    lo = pos - (W - 1); keys = torch.arange(lo, pos, device=DEV); blk = pos + torch.arange(B, device=DEV)
+    mask = torch.cat([(blk[:, None] - keys[None, :]) < W, torch.ones(B, B, dtype=torch.bool, device=DEV)], 1)
+    Kf = torch.cat([Kfull[:, lo:pos], kb], 1); Vf = torch.cat([Vfull[:, lo:pos], vb], 1)
+    ref = F.scaled_dot_product_attention(q.view(B, HQ, D).transpose(0, 1)[None], Kf[None], Vf[None],
+                                         attn_mask=mask, enable_gqa=True)[0].transpose(0, 1).reshape(B, HQ * D)
+    assert rel(got, ref) < 2e-2, rel(got, ref)
