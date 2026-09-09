@@ -25,7 +25,10 @@ def main():
     ap.add_argument("--backend", default="triton", choices=("triton", "tinygemm", "dequant"), help="int4 GEMV")
     ap.add_argument("--eager", action="store_true", help="decode eagerly instead of replaying CUDA graphs")
     ap.add_argument("--no-spec", action="store_true", help="raw decode instead of speculative (MTP chain)")
-    ap.add_argument("--spec-depth", default="3:4", help="Kmin:Kmax adaptive draft depth")
+    ap.add_argument("--spec-depth", default="3:4", help="Kmin:Kmax adaptive draft depth (mtp draft)")
+    ap.add_argument("--draft", default="dflash", choices=("dflash", "mtp"),
+                    help="the draft: z-lab's DFlash2 block draft (default; needs --dflash-path) or the shipped MTP head")
+    ap.add_argument("--dflash-path", default="/workspace/models/Qwen3.8-27B-DFlash2")
     ap.add_argument("--draft-vocab", default="128k",
                     help="the draft chain's lm_head rows: 'full'; '128k' (the first 131072 token ids, i.e. the "
                          "tokenizer's BPE merge order, a language-neutral frequency proxy; default); a named list "
@@ -40,21 +43,22 @@ def main():
     if not is_packed(a.model):
         raise SystemExit(f"{a.model} is not a packed checkpoint; run python -m tokenrush.quantize first")
 
+    import os
     spec = not a.no_spec and not a.eager
+    use_dflash = spec and a.draft == "dflash" and os.path.exists(a.dflash_path)
+    if spec and a.draft == "dflash" and not use_dflash:
+        print(f"[warn] DFlash2 checkpoint not found at {a.dflash_path}; using the MTP draft")
     kmin, kmax = (int(v) for v in a.spec_depth.split(":"))
-    cfg, w, mtp_t = load_packed(a.model, backend=a.backend, with_mtp=spec)
+    cfg, w, mtp_t = load_packed(a.model, backend=a.backend, with_mtp=spec and not use_dflash)
     tok = AutoTokenizer.from_pretrained(a.model)
     engine = Engine(cfg, w, max_len=a.max_len, kv_dtype=torch.float8_e4m3fn if a.kv == "fp8" else torch.bfloat16,
-                    max_spec=kmax if spec else 0)
-    mtp = None
+                    max_spec=(7 if use_dflash else kmax) if spec else 0)
+    mtp = draft = None
     if not a.eager:
         t0 = time.perf_counter()
         engine.capture()
         msg = f"captured the decode graph"
         if spec:
-            mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len,
-                          kv_dtype=engine.state.kv_dtype)
-            import os
             named = os.path.join(os.path.dirname(__file__), "draft_vocab", a.draft_vocab + ".pt")
             if a.draft_vocab == "full":
                 dv = None
@@ -64,10 +68,19 @@ def main():
                 dv = torch.load(named).long()
             else:
                 dv = torch.load(a.draft_vocab).long()
-            engine.attach_mtp(mtp, draft_vocab=dv)
-            for k in range(kmin, kmax + 1):
-                engine.capture_spec(k)
-            msg += f" and speculative graphs for depths {kmin}..{kmax}"
+            if use_dflash:
+                from .dflash import DFlashDraft, load_dflash
+                draft = DFlashDraft(load_dflash(a.dflash_path, int4=True), w.embed, w.lm_head, cfg.hidden, a.max_len)
+                engine.attach_dflash(draft, draft_vocab=dv)
+                engine.capture_spec_dflash()
+                msg += " and the DFlash2 speculative graph (7 drafts per step)"
+            else:
+                mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len,
+                              kv_dtype=engine.state.kv_dtype)
+                engine.attach_mtp(mtp, draft_vocab=dv)
+                for k in range(kmin, kmax + 1):
+                    engine.capture_spec(k)
+                msg += f" and MTP speculative graphs for depths {kmin}..{kmax}"
         print(f"{msg} in {time.perf_counter() - t0:.1f}s")
     print(f"weights {w.nbytes / 1e9:.2f} GB, state {engine.state.nbytes / 1e9:.2f} GB, "
           f"cuda allocated {torch.cuda.memory_allocated() / 1e9:.2f} GB")
@@ -80,7 +93,11 @@ def main():
     ids = tok.encode(text)
     stop = set(cfg.eos_ids) | {tok.eos_token_id}
     print(f"--- prompt ({len(ids)} tokens) ---\n{text}\n--- output ---")
-    if spec:
+    if use_dflash:
+        from .spec import generate_dflash
+        _, st = generate_dflash(engine, draft, tok, ids, a.max_new, stop, chunk=a.chunk,
+                                temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, seed=a.seed)
+    elif spec:
         _, st = generate_spec_graph(engine, mtp, tok, ids, a.max_new, stop, chunk=a.chunk, dynamic=(kmin, kmax),
                                     temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, seed=a.seed)
     else:

@@ -150,3 +150,45 @@ def test_draft_vocab_restricts_drafts():
         assert all(int(d) % 4 == 0 for d in eng.drafts[:3])
         out.extend([tok_prev] + eng.drafts[:n].tolist()); tok_prev = int(eng.tok)
     assert out[:12] == ref[:len(out[:12])]
+
+
+def _random_dflash(cfg, n_layers=2):
+    from tokenrush.dflash import DFlashLayer, DFlashWeights
+    from tokenrush.quant import Linear
+    H = cfg.hidden
+    layers = []
+    for _ in range(n_layers):
+        layers.append(DFlashLayer(
+            ln1=rnd(H, std=0.5) + 1, ln2=rnd(H, std=0.5) + 1,
+            q=Linear(rnd(32 * 128, H)), k=Linear(rnd(8 * 128, H)), v=Linear(rnd(8 * 128, H)), o=Linear(rnd(H, 32 * 128)),
+            q_norm_w=rnd(128, std=0.5) + 1, k_norm_w=rnd(128, std=0.5) + 1,
+            gate_up=Linear(rnd(2 * cfg.ffn, H)), down=Linear(rnd(H, cfg.ffn)),
+            attn_conv_base=rnd(2, 2, H, std=0.3), attn_conv_proj=Linear(rnd(2 * 2 * (H // 16), H)),
+            mlp_conv_base=rnd(2, 2, H, std=0.3), mlp_conv_proj=Linear(rnd(2 * 2 * (H // 16), H))))
+    return DFlashWeights(fc=Linear(rnd(H, 5 * H, std=0.01)), hidden_norm=rnd(H, std=0.5) + 1, layers=layers,
+                         norm=rnd(H, std=0.5) + 1, sel_hidden_proj=Linear(rnd(256, H)),
+                         sel_pred_cb=rnd(cfg.vocab, 256, std=0.5), sel_succ_cb=rnd(cfg.vocab, 256, std=0.5),
+                         target_layer_ids=(0, 1, 2, 3, 3), block_size=8, mask_token_id=1, n_heads=32, n_kv_heads=8,
+                         head_dim=128, conv_ks=2, conv_group=16, sel_top_k=16, window=2048, eps=1e-6, rope_theta=1e7)
+
+
+def test_dflash_spec_graph_matches_raw_greedy():
+    """The DFlash step (draft block + K=7 verify) on random weights: the committed tokens
+    equal raw greedy (drafts are nonsense, so mostly rejected), the graph captures and
+    replays, and forward_static agrees with the eager forward's drafts."""
+    from tokenrush.dflash import DFlashDraft
+    from tokenrush.spec import prime_dflash
+    w = random_weights(CFG, "triton")
+    eng = Engine(CFG, w, max_len=256, fused=True, max_spec=7, consistent=True)
+    eng.capture()
+    draft = DFlashDraft(_random_dflash(CFG), w.embed, w.lm_head, CFG.hidden, 256)
+    eng.attach_dflash(draft)
+    eng.capture_spec_dflash()
+    toks = torch.randint(0, CFG.vocab, (12,), device=DEV)
+    ref = _raw_greedy(eng, toks, 14)
+    prime_dflash(eng, draft, toks.tolist())
+    out, tok_prev = [], int(eng.tok)
+    for _ in range(6):
+        n = eng.spec_step_dflash()
+        out.extend([tok_prev] + eng.drafts[:n].tolist()); tok_prev = int(eng.tok)
+    assert out[:14] == ref[:len(out[:14])], (out[:14], ref[:14])

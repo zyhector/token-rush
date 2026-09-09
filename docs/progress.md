@@ -1098,6 +1098,11 @@ produce identical drafts (42/42).
 | DFlash2 v1 (step 25) | 178 (2.98, 16.8 ms) | 306 (5.14) | 310 (5.21) |
 | **DFlash2 v3** | **220** (3.25, 14.8 ms) | **342** (5.05) | **353** (5.21) |
 
+`run.py --draft dflash` is the default now (`--draft mtp` keeps the chain;
+the MTP path stays for machines without the DFlash2 checkpoint). Chinese
+chat through it: 243 tok/s at 3.59 accepted per step; sampled English chat
+at T=0.8: 205.
+
 The step's profile now (14.72 ms GPU, 1113 launches): body rows GEMM
 ~10.3, draft rows GEMM ~1.3, GDN 1.44, norms 0.38, the draft's bf16 conv
 projections through cuBLAS 0.29 (11 launches at 26 us each: the small-M
