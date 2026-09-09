@@ -182,6 +182,20 @@ Step-by-step progress and the numbers each step produced: `docs/progress.md`.
 
 One model, one quantization, one card, bs=1, greedy/top-p, text path. Nothing else.
 
+**Artifacts.** The engine's weights are published at
+[`zyhector/Qwen3.8-27B-TokenRush-int4g128`](https://huggingface.co/zyhector/Qwen3.8-27B-TokenRush-int4g128)
+(int4 g128 GPTQ + MSE, 4.25 bpw, 17.0 GB) — **download them rather than
+rebuilding**, since every quality number in `docs/quantization.md` was
+measured on that exact file and GPU floating point is not bit-deterministic:
+
+```bash
+hf download zyhector/Qwen3.8-27B-TokenRush-int4g128 --local-dir /workspace/models/Qwen3.8-27B-int4g128-gptq-mse
+```
+
+The draft is `z-lab/Qwen3.8-27B-DFlash2` (public, 3.9 GB). Everything else on
+a development instance is rebuildable: `scripts/quantize/` for the checkpoint
+and the bf16 reference, `docs/baselines.md` for the rival stacks.
+
 **Phase 0 was measured on vast machine 94372 (RTX 5090, driver 610 / CUDA
 13.3, torch 2.14+cu130, CUDA graph capture confirmed on `sm_120`), and those
 numbers stand as recorded.** Development instances come and go (nothing on a

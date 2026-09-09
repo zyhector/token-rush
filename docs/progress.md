@@ -1530,8 +1530,12 @@ at <= 4.25 bits means a different codebook, which is a kernel and a format,
 not a quantizer setting. That is the decision left open at the end of this
 step, and the argument for both sides is in `docs/quantization.md`.
 
-**Reproducibility.** Nothing on a vast instance survives, so the recipe is
-in git: `scripts/quantize/build.sh` goes from the public bf16 weights to the
+**Reproducibility.** The checkpoint itself is published at
+[`zyhector/Qwen3.8-27B-TokenRush-int4g128`](https://huggingface.co/zyhector/Qwen3.8-27B-TokenRush-int4g128)
+(public, Apache 2.0, Qwen credited as the quantized base), because a rebuild
+is only a statistical sibling — GPU floating point is not bit-deterministic
+and every number in this step was measured on that file. Nothing else on a
+vast instance survives, so the recipe is in git too: `scripts/quantize/build.sh` goes from the public bf16 weights to the
 checkpoint on one card in ~25 minutes, `measure.sh` rebuilds the bf16
 reference (41 GB, ~2 min on one card) and measures a candidate. The
 calibration ids and the evaluation corpora are committed as

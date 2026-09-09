@@ -3,6 +3,14 @@
 # has nothing on it. This is the whole recipe: nothing on a vast instance
 # survives a recycle, so this script is the checkpoint.
 #
+# BUT: the adopted checkpoint is published, and downloading it takes 4 minutes
+# where this script takes 25 -- and it is the file every quality number in
+# docs/quantization.md was measured on, which a rebuild is not (GPU floating
+# point is not bit-deterministic). Unless you are changing the method, do:
+#
+#   hf download zyhector/Qwen3.8-27B-TokenRush-int4g128 \
+#       --local-dir /workspace/models/Qwen3.8-27B-int4g128-gptq-mse
+#
 #   bash scripts/quantize/build.sh                      # the default: int4 g128 GPTQ + MSE
 #   VARIANT=rtn bash scripts/quantize/build.sh          # the uncalibrated baseline (docs/quantization.md)
 #   VARIANT=gptq bash scripts/quantize/build.sh         # GPTQ without the range search
