@@ -112,6 +112,38 @@ from this run; nothing is mixed with a development number.
 - **Long context is a margin, not a caveat**: 85% of the wall at 200k against
   vLLM's 81%, SGLang's 66% and llama.cpp's 58%, while being 256k-usable.
 
+## Queued for the next session: make the Hub the default route
+
+**Asked for on 2026-09-09; do this before Phase 4's measurement runs, it is
+half an hour.** `tokenrush/run.py` still treats a local rebuild as the way to
+get weights. Its `--model` is `required=True` with the help text "packed
+checkpoint (see tokenrush.quantize)", and when the path is not a packed
+checkpoint it exits with:
+
+```
+{path} is not a packed checkpoint; run python -m tokenrush.quantize first
+```
+
+That sends the reader down the 25-minute rebuild for a file that downloads in
+four, and `tokenrush.quantize` is the *uncalibrated* RTN packer, which is not
+the checkpoint anyone should be running. What it should do instead:
+
+- default `--model` to the published repo id
+  (`zyhector/Qwen3.8-27B-TokenRush-int4g128`) and accept either a repo id or
+  a local directory, resolving a repo id through `huggingface_hub`
+  (`snapshot_download`, which caches, so a second run costs nothing);
+- when a local path is missing or is not packed, name the download command in
+  the error rather than the quantizer;
+- decide whether to auto-download or only print the command — auto is
+  friendlier, printing is more honest about a 17 GB transfer. My inclination
+  is auto with a one-line notice of the size, and `--no-download` to opt out.
+
+The same `--model` handling is worth giving `bench/decode.py`,
+`bench/families.py` and `bench/quality_gsm8k_engine.py`, which are the three
+that Phase 4 runs; the other benches can keep `required=True`. Note that
+`bench/draft_vocab.py` still defaults to the old RTN path
+(`/workspace/models/Qwen3.8-27B-int4g128`) and should be updated with them.
+
 ## Optional, not blocking
 
 From Phase 3 (step 29): stochastic drafts with residual sampling; the 64-row
