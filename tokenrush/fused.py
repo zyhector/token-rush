@@ -427,7 +427,7 @@ def attn_decode_fused(q, qkv, k_cache, v_cache, pos_t, cfg, k_scale=None, v_scal
     _attn_split_kernel[(HKV * NSPLIT,)](q, k_cache, v_cache, k_scale if fp8 else m, v_scale if fp8 else m, pos_t,
                                         m, l, acc, D ** -0.5,
                                         HQ=HQ, HKV=HKV, D=D, MAXLEN=k_cache.shape[1], NSPLIT=NSPLIT,
-                                        BLOCK_N=BLOCK_N, ROWS=rows, FP8=fp8, M=M, num_warps=4, num_stages=2)
+                                        BLOCK_N=BLOCK_N, ROWS=rows, FP8=fp8, M=M, num_warps=4, num_stages=3)
     _attn_reduce_kernel[(M * HQ,)](m, l, acc, qkv, out, D=D, NSPLIT=NSPLIT, HQ=HQ, QKV=qkv.shape[1], num_warps=1)
     return out
 

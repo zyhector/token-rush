@@ -10,14 +10,14 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 18, 2026-09-08)
+## Where things stand (after step 22, 2026-09-09)
 
 | | | |
 |---|---|---|
 | raw greedy decode, short context | **102 tok/s**, 9.8 ms/step, 82% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6) | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
-| speculative greedy (MTP chain in-graph, depth 3:4), essay / code / math | **183 / 254 / 258 tok/s** | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
+| speculative greedy (MTP chain in-graph, depth 3:4, 128k draft vocab), essay / code / math | **186 / 261 / 263 tok/s**; Chinese essay / math 162 / 279 | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
 | speculative sampled, T=0.7 top-p 0.9 | 167 / 237 / 239 | output distribution identical to raw sampling |
-| speculative at 200k context, fp8 KV, prose / code | **180 / 199 tok/s** (raw 68) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
+| speculative at 200k context, fp8 KV, prose / code | **195 / ~200 tok/s** (raw 71.7 = 85.6% of the wall) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
 | correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 39 tests | |
 | quantization | int4 g128 RTN, uncalibrated: teacher-forced KL 0.06 vs bf16, 2–4x a calibrated quant's; **the quality gate is not met** (`docs/quality_plan.md`, deferred to a two-GPU box) | |
@@ -49,6 +49,7 @@ re-measures everything on one machine.
 | 19. rows-GEMM config re-pick (L2-proof sweep at M=4) | 2026-09-08 | + configs re-picked; **neutral**: verify K=3 at 1.20x raw (was 1.21x). The M-row kernel's 79–84% on layer shapes is structural (bf16 dequant + dot per block), not a config matter | — | 179 / 243 / 252 (noise vs step 14) |
 | 20. Truncated draft vocabulary | 2026-09-08 | + the draft chain's argmax reads the first 131072 rows of lm_head (id order = BPE merge rank, language-neutral) instead of all 248k: −0.7 ms per step, no family loses. A 64k English-corpus list was tried first and cut Chinese below raw | — | **186 / 261 / 263** (essay / code / math), Chinese essay / math 162 / 279; raw 100 |
 | 21. Corpus-specific draft vocabularies (en_64k, mix_64k, mix_96k) | 2026-09-08 | + lists built from English, code and Chinese Wikipedia corpora, shipped in `tokenrush/draft_vocab/`, selectable by name; measured on six families incl. Chinese and mixed. None beats the id-order 128k default by more than noise; mix_96k is the pick for a Chinese-English daily driver | — | id_128k 186 / 261 / 263 / 162 / 279 / 216 vs mix_96k 185 / 253 / 262 / 162 / 279 / 227 (essay / code / math / zh-essay / zh-math / mixed) |
+| 22. Profile of the spec step at 200k; flash-decoding pipeline depth | 2026-09-09 | + the spec step's extra growth with context attributed (M-row attention kernel under-occupied, MTP's own attention); one config change (3 pipeline stages) lifts the kernel from 1390/1147 GB/s (M=1/M=4) to 1587/1558 | — | at 200k: raw **71.7** (85.6% of wall, was 68.4 / 82.6%), spec prose **195** (was 180); short context unchanged |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -814,14 +815,46 @@ language-blind list costs. All three lists are in `tokenrush/draft_vocab/`
 (1 MB), rebuildable with the script; a deployment on other languages should
 rebuild from its own corpus and rerun `bench/draft_vocab_eval.py`.
 
+## Step 22 — the spec step at 200k, profiled and tuned (2026-09-09)
+
+`bench/spec_profile.py`: one raw step and one K=3 spec step under the
+profiler at 64 and at 200k tokens of context (fp8 KV, fp8 MTP cache, 128k
+draft vocabulary).
+
+| GPU ms | raw @64 | raw @200k | spec @64 | spec @200k |
+|---|---|---|---|---|
+| body GEMVs | 8.9 | 8.9 | 10.1 | 10.2 |
+| attention split kernel | 0.04 (16x) | 4.66 (16x) | 0.07 (19x) | 6.61 (19x) |
+| everything else | 1.0 | 1.0 | 2.9 | 2.9 |
+| **step** | 9.98 | 14.62 | 13.07 | 19.66 |
+
+So the spec step's +6.6 ms from 64 to 200k against raw's +4.6 ms is all in
+the attention split kernel: the 16 body launches read the same 6.7 GB of KV
+but with M=4 query rows (a 32-row tile) ran slower than with one, and the
+MTP head's 3 launches over its own 200k cache add ~0.9 ms. No bug — the
+M-row tile was under-occupied.
+
+A sweep of the kernel on a 200k fp8 cache (NSPLIT 32–128, BLOCK_N 32/64,
+4/8 warps, 2/3 stages): `num_stages=3` alone takes it from 1390 GB/s (M=1)
+and 1147 (M=4) to **1587 and 1558**, i.e. from 82%/67% of the wall to 93%/92%.
+One constant changed.
+
+| after | raw @200k | spec prose @200k |
+|---|---|---|
+| before | 68.4 tok/s, 14.45 ms, 82.6% of wall | 180 tok/s, 21.3 ms/step |
+| **now** | **71.7 tok/s, 13.94 ms, 85.6%** | **195 tok/s, 19.7 ms/step** |
+
+Short context is unchanged (100.9 raw, 228 spec prose). The `CLAUDE.md`
+target of 92% of the wall at 200k is now 6 points away; the remaining gap
+at long context is the same GEMV share as at short context.
+
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
   258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
-  at 200k; 186 / 261 / 263 with the 128k draft vocabulary. Remaining, in
-  order: a draft tree for prose; DSpark as an alternative draft;
-  rejection-sampling acceptance for sampled decoding; a profile of the spec
-  step at 200k.
+  at 200k (195 prose after step 22); 186 / 261 / 263 with the 128k draft
+  vocabulary. Remaining, in order: a draft tree for prose; DSpark as an
+  alternative draft; rejection-sampling acceptance for sampled decoding.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are
