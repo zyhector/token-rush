@@ -20,7 +20,7 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | speculative at 200k context, fp8 KV, prose / code | **211 (MTP) / 238 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall on the Triton GEMV, 69.8 on Marlin) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
 | correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | |
-| quantization | **int4 g128 GPTQ** (step 30, same packing): KL to bf16 0.0265 over 82k positions, WikiText-2 PPL +0.098, top-1 0.937, GSM8K 96.5%; RTN was 0.0546. **The quality row is not met**: ExLlamaV3 4.00bpw is 0.0128 and the uniform int4 grid, not the calibration, is what is left | rivals: GGUF UD-Q4_K_M 0.0093 at 4.80 bpw, EXL3 0.0128 at 4.10, NVFP4 0.0231 at 5.07, RedHatAI INT4 0.0458 at 4.71 |
+| quantization | **int4 g128 GPTQ + MSE range search** (step 30, `docs/quantization.md`, unchanged packing): KL to bf16 **0.0232** over 82k positions, WikiText-2 PPL 6.365 vs 6.255, top-1 0.942, GSM8K 96.5% vs bf16's 96.0% (met); RTN was 0.0546. **The KL half of the row is not met**: ExLlamaV3 4.00bpw is 0.0128 and what is left is the uniform int4 codebook, not the calibration | rivals: GGUF UD-Q4_K_M 0.0093 at 4.80 bpw, EXL3 0.0128 at 4.10, NVFP4 0.0231 at 5.07, RedHatAI INT4 0.0458 at 4.71 |
 | phases | 0 done (frozen), 1a done, **1b done as measurement** (gate, quality table, GPTQ; the bar itself is not met), 2 done, 3 done, 4 not started | |
 
 Every number above is a development number on this instance; Phase 4
@@ -57,7 +57,7 @@ re-measures everything on one machine.
 | 27. Phase 3b: DFlash across families and context; ring cache | 2026-09-09 | + the draft's context cache is a 4096-row ring (its window is 2048), so 256k fits (29.4 GB peak); its conv/selector projections int4 too; measured on six families and at 200k. Chinese prose is the one family where the MTP chain stays better (DFlash2 accepts 1.77/step there) | — | six families: **217 / 355 / 350 / 121 / 289 / 212** (essay / code / math / zh-essay / zh-math / mixed); at 200k: prose 179, code 229 (MTP: 195 / 199) |
 | 28. Phase 3c: Marlin-class int4 GEMM | 2026-09-09 | + Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction, a lock-free partial mode for the split-K shapes, no L2 cache hints (illegal on sm_120); one kernel for M <= 16 in Marlin's weight layout, the default. Verify K=7 = **1.13x** a raw step (was 1.35x), raw step 4% dearer (the layout has no better M=1 kernel than the mma one) | — | **224 / 373 / 373** DFlash, 213 / 306 / 286 MTP (essay / code / math); zh-essay / zh-math / mixed 179 / 310 / 251 (MTP); 200k: prose 211 (MTP) / code 238 (DFlash); raw 97.6 (102 on `--backend triton`) |
 | 29. Phase 3 closed: sampled decoding measured, per-content draft choice | 2026-09-09 | + the verify step's accept-if-equal-to-the-draw rule shown to *be* rejection sampling for deterministic drafts (no change needed); `--draft auto` (default) keeps both drafts resident and picks the MTP chain for prompts >= 20% CJK, DFlash2 otherwise; two shared-buffer bugs fixed on the way (a graph holds tensors by address) | — | sampled T=0.7 top-p 0.9: **211 / 391 / 358** DFlash2, 210 / 292 / 294 MTP (essay / code / math); zh-essay 171 (MTP); auto: English essay 232, Chinese essay 182 |
-| 30. Phase 1b, second half: the quality table and GPTQ | 2026-09-09 | + the yardstick (KL to bf16 over 82k positions, PPL, top-1, noise floor 5e-4) for ours and four rivals; our own GPTQ into the same packing: **KL 0.0546 -> 0.0265** (EXL3, the bar, 0.0128; GGUF 0.0093; NVFP4 0.0231; RedHatAI 0.0458); GSM8K 96.5%; speed unchanged (same packing) | 1500 | 95.7 (this box; both checkpoints identical) |
+| 30. Phase 1b, second half: the quality table and GPTQ + MSE | 2026-09-09 | + the yardstick (KL to bf16 over 82k positions, PPL, top-1, a measured 5e-4 noise floor) for ours and four rivals; our own GPTQ with an MSE range search into the unchanged packing: **KL 0.0546 -> 0.0232** (EXL3, the bar, 0.0128; GGUF 0.0093; NVFP4 0.0231; RedHatAI 0.0458); GSM8K 96.5% vs bf16's 96.0%; speed bit-identical; the recipe and the corpora in git | 1500 | **97.4** (10.26 ms/step) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1399,21 +1399,37 @@ is read one row per token and does not count).
 | **ours, int4 g128 GPTQ** (Part 2, first version) | **4.25** | **0.0265** | 0.320 | 0.937 | 6.353 (+0.098) | 0.025 / 0.021 / 0.047 |
 | noise floor (HF bf16 vs ours) | 16 | 0.0005 | 0.005 | 0.992 | ±0.005 | — |
 
-**Speed and the downstream task on the GPTQ checkpoint** (this box, one card,
-the other card busy with a quantization run): raw decode 95.7 tok/s on both
-checkpoints, the same 10.45 ms/step to the hundredth (the packing is the
-same, so the kernels read the same bytes); six families, DFlash2 / MTP chain,
-GPTQ 229 / 366 / 368 / 120 / 276 / 226 and 204 / 258 / 275 / 157 / 255 / 234
-against RTN 218 / 368 / 376 / 117 / 291 / 218 and 209 / 255 / 277 / 160 /
-294 / 228 on the same machine (step times 14.1 / 13.1 ms for both — the
-MTP-chain code figure of 306 in step 28 was the previous instance). GSM8K,
-200 test problems, greedy through the engine (chat template, thinking off,
-1024 new tokens, the answer read from the last `\boxed{}`): **GPTQ 193/200 =
-96.5%**, no unparsed answers; bf16 reference through HF transformers:
-GSM8K_BF16. (A 512-token limit truncated a third of the answers — the model
-writes 300–600 tokens of worked steps — and read as 65% accuracy on the
-first tries; the limit, not the quant.) All 76 tests pass; one test's HF
-rotary call needed the (3, bs, T) position ids transformers 5.17 expects.
+**Speed did not move**, which is the whole reason the format was held fixed.
+Raw decode, one card, nothing else on the box: the adopted MSE checkpoint
+**97.4 tok/s** at 10.26 ms/step, against 97.6 recorded on the previous
+instance — the packing, the Marlin kernel and the graphs are the same, so the
+step reads the same bytes. (RTN and plain GPTQ were measured at 95.7 each
+while the other card was running a quantization; that pair is a valid
+comparison with each other, identical to the hundredth of a millisecond, but
+not with the 97.4 above.) Six families, 300 tokens, DFlash2 / MTP chain:
+
+| checkpoint | essay | code | math | zh-essay | zh-math | mixed | ms/step |
+|---|---|---|---|---|---|---|---|
+| GPTQ + MSE, DFlash2 | 227 | 354 | 376 | 124 | 294 | 219 | 13.8–13.9 |
+| GPTQ + MSE, MTP chain | 204 | 255 | 282 | 160 | 278 | 225 | 12.4–12.7 |
+| GPTQ, DFlash2 | 229 | 366 | 368 | 120 | 276 | 226 | 14.1 |
+| RTN, DFlash2 | 218 | 368 | 376 | 117 | 291 | 218 | 14.1 |
+
+The spread across checkpoints is draft acceptance on different text, not
+step cost. All 76 tests pass unchanged; one test's HF rotary call needed the
+(3, bs, T) position ids transformers 5.17 expects.
+
+**GSM8K**, 200 test problems, greedy, chat template with thinking off, 1024
+new tokens, the answer read from the last `\boxed{}`: the MSE checkpoint
+**193/200 = 96.5%** through the engine (plain GPTQ also 193/200), against the
+bf16 reference through HF transformers (both cards, 33 min): **192/200 =
+96.0%**. Paired per problem: bf16 right where we are wrong 1, we are right
+where bf16 is wrong 2, both wrong 6 — a net difference of one problem,
+inside the ±3.5-point noise band of a 200-problem run. **The GSM8K half of
+the quality row is met**, against bf16, which is a stronger anchor than the
+llama.cpp Q4_K_M the row names (that quant is itself 0.0093 from bf16). A
+512-token limit had truncated a third of the answers on the first tries and
+read as 65% accuracy — the limit, not the quant.
 
 **Reading it.**
 

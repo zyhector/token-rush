@@ -299,19 +299,34 @@ The same attribution on RTN: head-in-bf16 0.0469, body-in-bf16 0.0075, full
 0.0546 — the two halves add, and the body is 86% of the RTN loss and 90% of the
 GPTQ one.
 
-**Speed did not move**, which is the whole reason the format was held fixed:
-raw decode 95.7 tok/s and 10.45 ms/step on both the RTN and the GPTQ
-checkpoints, to the hundredth of a millisecond; on the six prompt families,
-GPTQ 229 / 366 / 368 / 120 / 276 / 226 tok/s with the DFlash2 draft against
-RTN's 218 / 368 / 376 / 117 / 291 / 218, the differences being draft acceptance
-on different text, with identical step times of 14.1 ms. All 76 tests pass
-unchanged.
+**Speed did not move**, which is the whole reason the format was held fixed.
+Raw decode on one card with nothing else running: the adopted checkpoint
+97.4 tok/s at 10.26 ms/step, against the 97.6 recorded on the previous
+instance before any of this. (RTN and plain GPTQ measured 95.7 each while
+the other card was quantizing — a valid comparison with each other,
+identical to the hundredth of a millisecond, and not with the 97.4.) On the
+six prompt families with the DFlash2 draft: 227 / 354 / 376 / 124 / 294 /
+219 tok/s for the MSE checkpoint against RTN's 218 / 368 / 376 / 117 / 291 /
+218, at step times of 13.8–13.9 ms either way. The spread is draft
+acceptance on different text, not step cost. All 76 tests pass unchanged.
 
 ## Where it stands
 
 The default checkpoint is **int4 g128 GPTQ with the MSE range search**, 4.25
 bits per weight, KL 0.0232 to bf16, top-1 0.942, WikiText-2 perplexity 6.365
-against bf16's 6.255, GSM8K 96.5% on 200 problems through our engine.
+against bf16's 6.255.
+
+**The GSM8K half of the row is met.** 200 test problems, greedy, chat template
+with thinking off, 1024 new tokens, the answer read from the last `\boxed{}`:
+bf16 through HF transformers 192/200 = 96.0%, the adopted checkpoint through
+the engine 193/200 = 96.5% (plain GPTQ, also 193/200). Paired per problem, bf16 is right where we are wrong on 1,
+we are right where bf16 is wrong on 2, and both fail 6 — a net difference of
+one problem, well inside a 200-problem run's ±3.5-point band. The row names
+llama.cpp's Q4_K_M as the comparison; bf16 is the stronger anchor (that quant
+is itself 0.0093 of KL away), so the clause holds a fortiori. This is also
+the measurement that most needed the two-GPU box: 55.6 GB of bf16 does not
+fit one card, and CPU offload would have taken 40 hours instead of 33
+minutes.
 
 **The bar is not met.** ExLlamaV3 is at 0.0128 and nothing in the table above
 closes a factor of 1.8. That is now a well-understood gap rather than an open
