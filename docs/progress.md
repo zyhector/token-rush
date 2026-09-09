@@ -10,14 +10,14 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 30, 2026-09-09)
+## Where things stand (after step 31, 2026-09-09)
 
 | | | |
 |---|---|---|
-| raw greedy decode, short context | **102 tok/s** on the Triton GEMV (`--backend triton`), 9.9 ms/step, 81% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6); 97.6 on the default Marlin kernel, whose one layout serves the speculative step | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
+| raw greedy decode, short context | **102 tok/s** on the Triton GEMV (`--backend triton`), 9.9 ms/step, 81% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6); 97.6 on the default Marlin kernel, whose one layout serves the speculative step | rivals, on corrected byte counts (2026-09-09, embedding excluded): llama.cpp 83 (75%), vLLM 80 (**76%**), ExLlamaV3 77 (59%), SGLang 63 (60%) |
 | speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **224 / 373 / 373 tok/s** (MTP chain: 213 / 306 / 286); Chinese essay 179 / math 310 / mixed 251 with the MTP chain, which `--draft auto` (the default) picks for CJK prompts | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
 | speculative sampled, T=0.7 top-p 0.9 | **211 / 391 / 358** (DFlash2), 210 / 292 / 294 (MTP chain) | output distribution identical to raw sampling (exact rejection sampling for deterministic drafts) |
-| speculative at 200k context, fp8 KV, prose / code | **211 (MTP) / 238 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall on the Triton GEMV, 69.8 on Marlin) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
+| speculative at 200k context, fp8 KV, prose / code | **211 (MTP) / 238 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall on the Triton GEMV, 69.8 on Marlin) | at 200k: vLLM 61 (81% of the wall), SGLang 50 (66%), llama.cpp 44 (58%) |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
 | correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | |
 | quantization | **int4 g128 GPTQ + MSE range search** (step 30, `docs/quantization.md`, unchanged packing): KL to bf16 **0.0232** over 82k positions, WikiText-2 PPL 6.365 vs 6.255, top-1 0.942, GSM8K 96.5% vs bf16's 96.0% (met); RTN was 0.0546. **The KL half of the row is not met**: ExLlamaV3 4.00bpw is 0.0128 and what is left is the uniform int4 codebook, not the calibration | rivals: GGUF UD-Q4_K_M 0.0093 at 4.80 bpw, EXL3 0.0128 at 4.10, NVFP4 0.0231 at 5.07, RedHatAI INT4 0.0458 at 4.71 |
@@ -58,6 +58,7 @@ re-measures everything on one machine.
 | 28. Phase 3c: Marlin-class int4 GEMM | 2026-09-09 | + Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction, a lock-free partial mode for the split-K shapes, no L2 cache hints (illegal on sm_120); one kernel for M <= 16 in Marlin's weight layout, the default. Verify K=7 = **1.13x** a raw step (was 1.35x), raw step 4% dearer (the layout has no better M=1 kernel than the mma one) | — | **224 / 373 / 373** DFlash, 213 / 306 / 286 MTP (essay / code / math); zh-essay / zh-math / mixed 179 / 310 / 251 (MTP); 200k: prose 211 (MTP) / code 238 (DFlash); raw 97.6 (102 on `--backend triton`) |
 | 29. Phase 3 closed: sampled decoding measured, per-content draft choice | 2026-09-09 | + the verify step's accept-if-equal-to-the-draw rule shown to *be* rejection sampling for deterministic drafts (no change needed); `--draft auto` (default) keeps both drafts resident and picks the MTP chain for prompts >= 20% CJK, DFlash2 otherwise; two shared-buffer bugs fixed on the way (a graph holds tensors by address) | — | sampled T=0.7 top-p 0.9: **211 / 391 / 358** DFlash2, 210 / 292 / 294 MTP (essay / code / math); zh-essay 171 (MTP); auto: English essay 232, Chinese essay 182 |
 | 30. Phase 1b, second half: the quality table and GPTQ + MSE | 2026-09-09 | + the yardstick (KL to bf16 over 82k positions, PPL, top-1, a measured 5e-4 noise floor) for ours and four rivals; our own GPTQ with an MSE range search into the unchanged packing: **KL 0.0546 -> 0.0232** (EXL3, the bar, 0.0128; GGUF 0.0093; NVFP4 0.0231; RedHatAI 0.0458); GSM8K 96.5% vs bf16's 96.0%; speed bit-identical; the recipe and the corpora in git | 1500 | **97.4** (10.26 ms/step) |
+| 31. Rival byte counts corrected | 2026-09-09 | + the embedding table removed from every rival's bytes/step (a decode step reads one row of it): vLLM 88% -> **76%** of the wall, SGLang 70% -> 60%, llama.cpp 78% -> 75%; ours unchanged at 78.2%. No rival re-measured, only the arithmetic. Phase 1b closed | — | — |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1550,16 +1551,65 @@ on day 2, why the yardstick was built before any quantizer was chosen, what
 the Hub survey found, why GPTQ, what each refinement was worth, and the two
 honest positions left — is in `docs/quantization.md`.
 
+## Step 31 — rival byte counts corrected (2026-09-09)
+
+The last item owed from Phase 1b, and it moved the project's own headline
+claims. `docs/baselines.md` counted each rival's bytes per decode step from
+its checkpoint's tensors, **including the embedding table** — but a decode
+step reads exactly one row of the embedding, not the table. Our own
+`bench/decode.py` had always excluded it, so every rival's "% of wall" was
+being compared against ours on a different definition.
+
+No rival was re-measured; Phase 0's tok/s stand as recorded on machine 94372.
+Only the arithmetic changed, using the streamed byte counts measured in step
+30 (`bench/quality_sources.py::streamed_bpw`, which agrees with the
+safetensors and GGUF headers to three digits).
+
+| engine | bytes/step, was | now | raw decode, % of wall was | now |
+|---|---|---|---|---|
+| llama.cpp UD-Q4_K_M | 16.10 GB | **15.39** | 78.4% | **74.9%** |
+| SGLang (NVFP4) | 18.79 GB | **16.25** | 69.7% | **60.3%** |
+| vLLM (NVFP4) | 18.79 GB | **16.25** | 88.1% | **76.1%** |
+| ExLlamaV3 | 13.18 GB | unchanged | 59.3% | 59.3% |
+| ours | 13.65 GB | unchanged | 78.2% | 78.2% |
+
+The corrections that matter to the argument, all of them in our favour:
+
+- **vLLM is not at the roofline.** 76% at short context and 81% at 200k, not
+  88% and 90%. The claim in `CLAUDE.md` that "at long context the bar is
+  vLLM, which is already near the roofline" was wrong; we are ahead of it at
+  both ends (78% and 85.6%), though only by 2 to 4 points.
+- **The bs=1 engine tax is real for everyone.** SGLang pays 40 points of the
+  wall, ExLlamaV3 41, llama.cpp 25, vLLM 24, and we pay 22 — not the "vLLM
+  only 12" that headroom argument #1 claimed.
+- **`feasibility.md`'s matched-bytes concession was too generous to us in
+  form and too harsh in number.** Held to vLLM's bytes the engine is worth
+  about +3% (78.2% vs 76.1% of the wall), measured, where the projection had
+  guessed +5% at an assumed 92%. Both projection rows are now marked as
+  superseded by measurement.
+- **llama.cpp's long-context collapse is 16 points, not 17**, and from a
+  lower starting point (74% -> 58%).
+
+Updated: `docs/baselines.md` (every bytes table, every context table, the
+prompt tables, the ollama section and all five conclusions), `CLAUDE.md` (the
+physics section, headroom arguments 1 and 5, the rivals table), the status
+table above, and `docs/feasibility.md` (the rival data point and the
+matched-bytes rows). Every context-table row was re-checked
+programmatically: ceiling = 1701 / bytes and % = tok/s x bytes / 1701 now
+agree with the printed figures in all of them.
+
+**Phase 1b and the quantization thread close here.** Next is Phase 4.
+
 ## Next
 
-- **Phase 1b measured** (step 30): the quality table, and GPTQ in the same
-  packing at KL 0.0265 (RTN 0.0546); the bar, ExLlamaV3's 0.0128, is 2x
-  away and no GPTQ setting closes it. **Open decision**: change the codebook
-  (a non-uniform grid means a kernel and a format) or keep uniform int4 at
-  ~0.026 and restate the quality row with the measured number. The GPTQ
-  checkpoint (`/workspace/models/Qwen3.8-27B-int4g128-gptq`, `python -m
-  tokenrush.gptq`) is the one to use either way. Then **Phase 4** on one
-  card. Optional Phase 3 items are listed at the end of step 29.
+- **Phase 1b closed** (steps 30–31). The checkpoint is int4 g128 GPTQ with an
+  MSE range search (KL 0.0232, GSM8K 96.5% vs bf16's 96.0%, speed unchanged);
+  the codebook change that would reach ExLlamaV3's 0.0128 was measured,
+  costed at about a week of kernel work, and **declined** — the quality row is
+  reported with the measured number instead (`docs/quantization.md`). The
+  rival byte counts are corrected. **Next is Phase 4 on one card**: the
+  handoff for it is `docs/handoff.md`. Optional Phase 3 items are listed at
+  the end of step 29.
 - **Phase 3 done** (steps 12–29): 224 / 373 / 373 greedy, 211 / 391 / 358
   sampled (DFlash2, essay / code / math), 179 / 310 / 251 on the Chinese
   families (MTP chain, chosen automatically), 211 / 238 at 200k, verify K=7 at

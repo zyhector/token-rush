@@ -85,11 +85,13 @@ Long context is a **target, not a caveat**. Growing KV reads do lower the ceilin
 at 200k they add 6.4 GB/token at FP8, pulling the 4.0 bpw wall from 126 to 86
 tok/s. That part is physics. But the ceiling already prices that in, so an
 engine holding a constant fraction of the wall would degrade only that much,
-and llama.cpp does not: it falls from 77% of the wall at short context to
-**60% at 200k**. SGLang holds a flat ~70%, and vLLM a flat **88–90%**, from
-empty context to 200k (`docs/baselines.md`). So the collapse is an engine
-property, not a property of the problem — and at long context the bar is
-vLLM, which is already near the roofline.
+and llama.cpp does not: it falls from 74% of the wall at short context to
+**58% at 200k**. SGLang holds 60–66% and vLLM 76–81%, both rising slightly
+from empty context to 200k (`docs/baselines.md`; the byte counts there were
+corrected on 2026-09-09 to exclude the embedding table, which is not
+streamed). So the collapse is an engine property, not a property of the
+problem — and at long context the bar is vLLM, which is the best of them
+and still 19 points off the wall.
 
 The hybrid architecture is why this is winnable. **48 of 64 layers are GDN, whose
 recurrent state is constant-size regardless of context** — only the 16 attention
@@ -102,9 +104,10 @@ layers pay for length. An engine that exploits that should barely degrade.
    bookkeeping — all pure tax at bs=1. Replaced by contiguous preallocated KV,
    in-process execution, fused on-GPU sampling, one quantization format with
    offline weight reordering. **Measured, this tax is engine-specific**: SGLang
-   pays 30 points of the wall for it, llama.cpp 23, and vLLM — with
-   torch.compile and full-step CUDA graphs — only 12. Raw decode is not where
-   the win over vLLM is.
+   pays 40 points of the wall for it, ExLlamaV3 41, llama.cpp 25, and vLLM —
+   with torch.compile and full-step CUDA graphs — 24. We pay 22. Raw decode is
+   not where the win over vLLM is: the tok/s margin there comes from reading
+   fewer bytes, not from a faster engine.
 2. **Speculation conservatism is structural** (most important). Under batching,
    verification FLOPs are not free, so aggressive speculation hurts throughput and
    general engines must stay conservative. At bs=1 aggressive tree speculation is
@@ -130,15 +133,15 @@ layers pay for length. An engine that exploits that should barely degrade.
    (`docs/environment.md`). And consumer cards are second-class citizens to
    vLLM/SGLang, whose main theater is H100/B200.
 
-5. **Long-context decode is where the gap over llama.cpp is widest, and
-   where vLLM is already at the wall.** llama.cpp goes 77% -> 60% of the wall
-   between short context and 200k; SGLang holds ~70% flat; vLLM holds 88–90%
-   flat and decodes at 61 tok/s at 200k against llama.cpp's 44. Since 48 of 64
-   layers carry constant-size recurrent state, only 16 pay for length, so
-   degradation is not a hard limit — vLLM proves it. Long context is therefore
-   a place to match vLLM at the roofline while being 256k-*usable* (llama.cpp
-   and SGLang lose a third of their short-context speed there), not a place
-   for a headline margin. The headline margin is speculation.
+5. **Long-context decode is where the gap over llama.cpp is widest.**
+   llama.cpp goes 74% -> 58% of the wall between short context and 200k;
+   SGLang rises 60% -> 66%, vLLM 76% -> 81%, decoding 61 tok/s at 200k
+   against llama.cpp's 44. Since 48 of 64 layers carry constant-size
+   recurrent state, only 16 pay for length, so degradation is not a hard
+   limit — SGLang and vLLM prove it. Measured, our engine holds **85% at
+   200k** against vLLM's 81%: ahead, but by a few points, and while being
+   256k-*usable* where llama.cpp and SGLang lose a third of their
+   short-context speed. The headline margin is speculation, not this.
 
 **But not from GEMV.** cuBLAS bf16 GEMVs at the real layer shapes, replayed
 from one CUDA graph, already stream at 1643 GB/s, 96.6% of the wall. Dense
@@ -150,9 +153,9 @@ in 1–3. Do not spend Phase 2 hand-writing GEMV.
 | Rival | Role |
 |---|---|
 | ollama | sanity floor only — 67–82 tok/s with its default 4-token MTP chain, slower than llama.cpp raw on prose, `docs/baselines.md` |
-| llama.cpp (+MTP) | raw-decode reference — measured at 78.4% of the wall, MTP +60%; external drafts do worse (DFlash2 +37%, DSpark +16%), `docs/baselines.md` |
-| vLLM (bs=1) | **the strongest raw engine** — 88% of the wall at bs=1 with torch.compile + full CUDA graphs, 90% at 200k; every speculative path it has (MTP, DSpark, DFlash2) is *slower* than its raw decode, `docs/baselines.md` |
-| **SGLang + DSpark** | **the real opponent** — 70% of the wall raw, flat to 200k; 104 / 137 / 205 tok/s with DSpark on prose / code / math, `docs/baselines.md` |
+| llama.cpp (+MTP) | raw-decode reference — measured at 74.9% of the wall, MTP +60%; external drafts do worse (DFlash2 +37%, DSpark +16%), `docs/baselines.md` |
+| vLLM (bs=1) | **the strongest raw engine** — 76% of the wall at bs=1 with torch.compile + full CUDA graphs, 81% at 200k; every speculative path it has (MTP, DSpark, DFlash2) is *slower* than its raw decode, `docs/baselines.md` |
+| **SGLang + DSpark** | **the real opponent** — 60% of the wall raw, rising to 66% at 200k; 104 / 137 / 205 tok/s with DSpark on prose / code / math, `docs/baselines.md` |
 | ExLlamaV3 | peer specialist, and the only rival at our bpw — 77 tok/s = 60% of the wall at 3.92 bpw; its chained MTP reaches 127–160 tok/s, `docs/baselines.md` |
 
 ## The plan
@@ -164,13 +167,13 @@ works" risk.
 |---|---|---|
 | 0 (1 wk) | Run llama.cpp (+MTP), SGLang (int4 + DSpark), vLLM on Qwen3.8-27B; slice per-token timeline with `nsys`; read GDN and MTP structure | Baseline report + overhead breakdown |
 | 1a (1 wk) | **Get it running first.** A ~1000-line PyTorch engine built for bs=1 from existing blocks: explicit state (preallocated contiguous KV, conv state, FP32 recurrent state, position counter), per-layer pure functions, chunked prefill, greedy loop; GDN via `fla`'s chunk kernel for prefill and the verified Triton step from `check_stack.py` for decode, SDPA attention. Quantization is the dumbest thing that fits: own int4 g128 RTN packing, dequant-then-matmul GEMV. Milestone: coherent greedy text on three prompts, an eager tok/s. Then the 4-bit GEMV shootout (torchao, Marlin, NVFP4, EXL3; packed GB/s in-graph at real shapes incl. `lm_head`) and swap the kernel in | A running, fully ours engine + first speed number (development number) |
-| 1b (done as measurement) | Correctness and quality. **Engine-correctness gate: done 2026-09-08** (bf16 vs HF, 48/48 greedy tokens). **Quality table and quantization choice: done 2026-09-09** — the yardstick (KL to bf16 over 82k positions, PPL, top-1, a measured noise floor) for ours and four rivals, then our own GPTQ in the unchanged packing: KL 0.0546 -> **0.0232**, speed bit-identical. The bar is 0.0128 and the remaining gap is the codebook: `docs/quantization.md` has the whole thread and the open decision | Correctness baseline + quality table + the GPTQ checkpoint and its recipe in git; the quality row itself still owed |
+| 1b (done) | Correctness and quality. **Engine-correctness gate: done 2026-09-08** (bf16 vs HF, 48/48 greedy tokens). **Quality table and quantization choice: done 2026-09-09** — the yardstick (KL to bf16 over 82k positions, PPL, top-1, a measured noise floor) for ours and four rivals, then our own GPTQ in the unchanged packing: KL 0.0546 -> **0.0232**, speed bit-identical. The bar is 0.0128 and the remaining gap is the codebook: `docs/quantization.md` has the whole thread and the open decision | Correctness baseline + quality table + the GPTQ checkpoint and its recipe in git; the quality row itself still owed |
 | 2 (3–4 wk) | Own kernels, in payoff order: full-step CUDA graph first, then fused GDN single step, attention decode, fused sampling; GEMV last and only if measurement demands it. **Done 2026-09-08** (`docs/progress.md` steps 4–11): 102 tok/s = 82% of the wall short-context, 69 tok/s = 83% at 200k with FP8 KV, 256k usable; GEMV redesign deferred | Raw decode near the wall |
 | 3a (done) | Speculation fused into the graph: MTP chain, acceptance-driven dynamic depth, sampling, long context, draft vocabulary; greedy speculative output identical to greedy raw output with shared kernels. **Done 2026-09-08/09** (`docs/progress.md` steps 12–22): 186 / 261 / 263 tok/s effective on prose / code / math, 195 prose at 200k. Trees and DSpark measured and dropped (step 23) | Effective-throughput headline, first version |
 | 3b (done) | **DFlash2 as the draft**: z-lab's 1.92B block-diffusion draft, 7 drafts from one forward conditioned on the target's layer 5/19/33/47/61 hidden states, on our fused kernels, int4, ring cache, K=7 verify. **Done 2026-09-09** (steps 25–27): 217 / 355 / 350 tok/s on prose / code / math, 229 code at 200k; Chinese prose keeps the MTP chain (`--draft mtp`) | The effective-throughput headline: prose over the 200 floor, code and math in or above their bands |
 | 3c (done) | **Marlin-class M-row int4 GEMM**: Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction and a lock-free partial mode, as a torch extension for `sm_120` (`tokenrush/csrc/`); one kernel and one layout for M <= 16, the default backend. **Done 2026-09-09** (step 28): verify K=7 1.35x -> **1.13x**; 224 / 373 / 373 (DFlash2) and 213 / 306 / 286 (MTP chain) on prose / code / math, 211 / 238 at 200k; raw decode on the shared layout 97.6 (102 with `--backend triton`) | The verify step near free: +5% DFlash, +15% MTP chain |
 | 3 (closed) | **Closed 2026-09-09** (step 29): `--draft auto` keeps both drafts resident and picks the MTP chain for CJK prompts; the sampled path is exact rejection sampling for deterministic drafts (measured 211 / 391 / 358 at T=0.7). Optional items in `docs/progress.md` step 29 | 224 / 373 / 373 greedy on prose / code / math; 179 / 310 / 251 Chinese; 211 / 238 at 200k |
-| 4 (1 wk) | **Final measurement, on one machine, in one sitting**: re-run `scripts/env_check/` to re-anchor the wall, re-run every rival from the recipes in `docs/baselines.md`, measure the engine on the same day; only then the fair benchmark matrix and writeup | The numbers that get reported |
+| 4 (1 wk) | **Final measurement, on one machine, in one sitting**: re-run `scripts/env_check/` to re-anchor the wall, re-run every rival from the recipes in `docs/baselines.md`, measure the engine on the same day; count bytes from the headers, never from file sizes (step 31); only then the fair benchmark matrix and writeup. Handoff: `docs/handoff.md` | The numbers that get reported |
 
 Step-by-step progress and the numbers each step produced: `docs/progress.md`.
 

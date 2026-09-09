@@ -18,12 +18,24 @@ For each engine: count the bytes actually read per decode step, divide the
 measured read bandwidth (**1701 GB/s**) by it to get the ceiling, then express
 the achieved tok/s as a fraction of that ceiling.
 
-Bytes per step are the weights of the text path plus the KV cache re-read at
-that context length. Only the 16 attention layers hold KV: 16 layers x 2 (K, V)
-x 4 heads x 256 dims = 32768 values per token, i.e. **32 KB/token at FP8** and
-**34.8 KB/token at llama.cpp's `q8_0`** (34 bytes per 32 values). Bytes that
-are the same in every row are not an approximation; the context rows below use
-these exact figures.
+Bytes per step are the weights of the text path **except the embedding table**
+plus the KV cache re-read at that context length. Only the 16 attention layers
+hold KV: 16 layers x 2 (K, V) x 4 heads x 256 dims = 32768 values per token,
+i.e. **32 KB/token at FP8** and **34.8 KB/token at llama.cpp's `q8_0`** (34
+bytes per 32 values). Bytes that are the same in every row are not an
+approximation; the context rows below use these exact figures.
+
+> **Corrected 2026-09-09.** The byte counts for llama.cpp and for the NVFP4
+> checkpoint (SGLang and vLLM) originally included the embedding table, which
+> is not streamed — a decode step reads exactly one of its rows. The tables
+> below now exclude it, as `bench/decode.py` always did for our own engine, so
+> every "% of wall" figure here is comparable with ours. **No rival was
+> re-measured**: Phase 0's tok/s stand as recorded on machine 94372; only the
+> arithmetic changed. It moves the headline comparisons materially — vLLM's raw
+> decode from 88% of the wall to 76%, llama.cpp's from 78% to 75%, SGLang's
+> from 70% to 60% — and it moves them in our favour, which is the more reason
+> to have fixed it. ExLlamaV3's section was already right (it listed
+> `embed_tokens` outside the total).
 
 ## llama.cpp
 
@@ -43,8 +55,10 @@ be made within one engine, holding everything else constant.
 |---|---|
 | GGUF file | 16.464 GB |
 | MTP head (`blk.64.nextn.*`) | 0.351 GB |
-| **Text path, read per raw decode step** | **16.102 GB** |
-| Effective bpw over the 26.90B text path | 4.79 |
+| Text path, total | 16.102 GB |
+| `token_embd` (Q4_K; one row read per token, not streamed) | 0.715 GB |
+| **Read per raw decode step** | **15.387 GB** |
+| Effective bpw over the 25.63B streamed weights | 4.80 |
 
 The conversion already drops the vision tower — 0 vision tensors in the file.
 
@@ -62,8 +76,8 @@ The conversion already drops the vision tower — 0 vision tensors in the file.
 | `llama-cli` + `draft-mtp --spec-draft-n-max 4`, essay / code / math | 116.3 / 107.4 / 165.8 | the chained-MTP setting ollama uses |
 
 ```
-ceiling  = 1701 GB/s / 16.102 GB = 105.6 tok/s
-llama.cpp raw = 82.84 tok/s      =  78.4% of the wall
+ceiling  = 1701 GB/s / 15.387 GB = 110.5 tok/s
+llama.cpp raw = 82.84 tok/s      =  74.9% of the wall
 MTP gain      = 129.6 / 80.6     =  +61%  (essay; +59% code, +101% math)
 ```
 
@@ -121,21 +135,21 @@ model competes for the bandwidth being measured.
 ### Decode vs. context length
 
 `llama-bench` with `-d` (tokens already in the KV cache), speculation off,
-`q8_0` KV, flash attention on. Bytes/token is weights (16.102 GB) plus the KV
+`q8_0` KV, flash attention on. Bytes/token is weights (15.387 GB) plus the KV
 re-read each step at 34.8 KB per token of context. The ceiling therefore
 already prices in the longer cache — an engine holding a constant fraction of
 the wall would track it.
 
 | Context | decode | bytes/token | ceiling | % of wall |
 |---|---|---|---|---|
-| 0 | 81.54 tok/s | 16.10 GB | 105.6 | **77.2%** |
-| 22k | 75.06 tok/s | 16.87 GB | 100.8 | 74.5% |
-| 90k | 59.71 tok/s | 19.24 GB | 88.4 | 67.5% |
-| 200k | 44.25 tok/s | 23.07 GB | 73.7 | **60.0%** |
+| 0 | 81.54 tok/s | 15.39 GB | 110.5 | **73.8%** |
+| 22k | 75.06 tok/s | 16.15 GB | 105.3 | 71.3% |
+| 90k | 59.71 tok/s | 18.52 GB | 91.9 | 65.0% |
+| 200k | 44.25 tok/s | 22.35 GB | 76.1 | **58.1%** |
 
-llama.cpp gives up 17 points of roofline between short context and 200k.
-Physics accounts for the ceiling falling 106 -> 74; it does not account for the
-engine falling from 77% to 60% of that ceiling. At 200k, 40% of the available
+llama.cpp gives up 16 points of roofline between short context and 200k.
+Physics accounts for the ceiling falling 110 -> 76; it does not account for the
+engine falling from 74% to 58% of that ceiling. At 200k, 42% of the available
 bandwidth goes unused.
 
 ## SGLang
@@ -151,16 +165,21 @@ genuine `nvfp4-pack-quantized`: 4-bit, group 16, FP8 scales.
 
 | Component | Bytes |
 |---|---|
-| Text body | 16.245 GB |
+| Text body (including `embed_tokens`) | 16.245 GB |
 | `lm_head` (left at BF16) | 2.543 GB |
-| **Text path, read per decode step** | **18.788 GB** |
+| Text path, total | 18.788 GB |
+| `embed_tokens` (BF16; one row read per token, not streamed) | 2.543 GB |
+| **Read per decode step** | **16.245 GB** |
 | MTP head | 0.849 GB |
 | Vision tower | 0.921 GB |
 
-Ceiling at 1701 GB/s: **90.5 tok/s**, against llama.cpp's 105.6. This
-checkpoint reads *more* per token than Q4_K_M despite being "4-bit", because
-`lm_head` is unquantized. Raw tok/s therefore flatters llama.cpp by roughly 15%
-on byte count alone — another reason % of roofline is the only honest headline.
+(The streamed total coincidentally equals the "text body" line: the embedding
+that comes out is the same size as the BF16 `lm_head` that goes in.)
+
+Ceiling at 1701 GB/s: **104.7 tok/s**, against llama.cpp's 110.5. This
+checkpoint reads 5.6% *more* per token than Q4_K_M despite being "4-bit",
+because `lm_head` is unquantized — another reason % of roofline is the only
+honest headline.
 
 ### Results
 
@@ -168,9 +187,9 @@ Raw decode (no speculation), three short prompts, streamed, best of 3:
 
 | Prompt | tok/s | % of wall |
 |---|---|---|
-| essay | 63.2 | 69.8% |
-| code | 63.1 | 69.7% |
-| math | 63.1 | 69.7% |
+| essay | 63.2 | 60.4% |
+| code | 63.1 | 60.3% |
+| math | 63.1 | 60.3% |
 
 Server: `--kv-cache-dtype fp8_e4m3 --mamba-ssm-dtype float32
 --cuda-graph-max-bs 1`, decode CUDA graphs on, Triton GDN kernels, flashinfer
@@ -179,15 +198,15 @@ attention. The server's own decode log reports the same 63.2 tok/s.
 ### Decode vs. context length
 
 Same server, random-token prompts of the given length already in the KV cache,
-256 decode tokens, best of 2. Bytes/token is weights (18.788 GB) plus 32 KB per
+256 decode tokens, best of 2. Bytes/token is weights (16.245 GB) plus 32 KB per
 token of FP8 KV.
 
 | Context | decode | bytes/token | ceiling | % of wall |
 |---|---|---|---|---|
-| 0 | 63.1 tok/s | 18.79 GB | 90.5 | **69.7%** |
-| 22k | 60.9 tok/s | 19.49 GB | 87.3 | 69.8% |
-| 90k | 56.2 tok/s | 21.67 GB | 78.5 | 71.6% |
-| 200k | 49.9 tok/s | 25.19 GB | 67.5 | **73.9%** |
+| 0 | 63.1 tok/s | 16.25 GB | 104.7 | **60.3%** |
+| 22k | 60.9 tok/s | 16.95 GB | 100.4 | 60.7% |
+| 90k | 56.2 tok/s | 19.12 GB | 88.9 | 63.2% |
+| 200k | 49.9 tok/s | 22.65 GB | 75.1 | **66.4%** |
 
 **SGLang does not collapse.** Its fraction of the wall is flat — slightly
 rising — from empty context to 200k: the attention-decode kernel keeps up
@@ -196,7 +215,7 @@ llama.cpp loses 17 points over the same range. At 200k SGLang is *faster than
 llama.cpp in absolute terms* (49.9 vs 44.3 tok/s) despite reading 2.1 GB more
 per token.
 
-What SGLang does lose is the 30% it never had: 70% of the wall at every
+What SGLang does lose is the 40% it never had: 60-66% of the wall at every
 length, against llama.cpp's 77% at short context and the 96.6% a pure GEMV
 stream achieves. That is the general-engine tax at bs=1 — scheduler,
 per-layer dispatch, unfused GDN chain — and it is constant, not
@@ -266,7 +285,7 @@ next to a 256k KV pool.
 
 Measured 2026-09-04. vLLM **0.28.0** (PyPI, torch 2.13.0+cu130) in
 `/workspace/venvs/vllm`, same `QUASAR-QAT` NVFP4 checkpoint as SGLang, so the
-same 18.788 GB per step and the same 90.5 tok/s ceiling. FlashInfer attention,
+same 16.245 GB per step and the same 104.7 tok/s ceiling. FlashInfer attention,
 FP8 KV, `--max-num-seqs 1`, torch.compile and full CUDA graphs at their
 defaults (startup takes about five minutes of compilation).
 
@@ -277,9 +296,9 @@ Raw decode, three short prompts, streamed, best of 3
 
 | Prompt | tok/s | % of wall |
 |---|---|---|
-| essay | 79.4 | 87.7% |
-| code | 79.5 | 87.8% |
-| math | 79.4 | 87.7% |
+| essay | 79.4 | 75.8% |
+| code | 79.5 | 75.9% |
+| math | 79.4 | 75.8% |
 
 ### Decode vs. context length
 
@@ -288,14 +307,16 @@ KV cache, 256 decode tokens, best of 2. Bytes/token as for SGLang.
 
 | Context | decode | bytes/token | ceiling | % of wall |
 |---|---|---|---|---|
-| 0 | 79.7 tok/s | 18.79 GB | 90.5 | **88.1%** |
-| 22k | 77.7 tok/s | 19.49 GB | 87.3 | 89.0% |
-| 90k | 70.6 tok/s | 21.67 GB | 78.5 | 89.9% |
-| 200k | 61.0 tok/s | 25.19 GB | 67.5 | **90.4%** |
+| 0 | 79.7 tok/s | 16.25 GB | 104.7 | **76.1%** |
+| 22k | 77.7 tok/s | 16.95 GB | 100.4 | 77.4% |
+| 90k | 70.6 tok/s | 19.12 GB | 88.9 | 79.4% |
+| 200k | 61.0 tok/s | 22.65 GB | 75.1 | **81.2%** |
 
-vLLM holds 88–90% of the wall from empty context to 200k. At 200k it decodes
-at 61 tok/s against SGLang's 50 and llama.cpp's 44, on the same or more bytes
-per token. Its long-context decode is, within a few points, at the roofline.
+vLLM holds 76–81% of the wall from empty context to 200k, rising slightly with
+context. It is the strongest rival engine by this measure at every length, and
+at 200k it decodes at 61 tok/s against SGLang's 50 and llama.cpp's 44 on
+fewer bytes per token — but it is not at the roofline: 19 to 24 points of the
+wall go unused.
 
 ### MTP speculation
 
@@ -339,7 +360,7 @@ time. Nearly-free verification is
 exactly what a bs=1 engine gets from idle tensor cores, and vLLM's speculative
 path does not get it — the EAGLE-style draft loop runs eager Triton kernels
 between the graphs. This is headroom argument #2 in `CLAUDE.md` measured on
-the strongest raw engine: its raw decode is at 88% of the wall, and its
+the strongest raw engine: its raw decode is at 76% of the wall, and its
 speculation loses 21% from there.
 
 ### Reproducing
@@ -453,14 +474,14 @@ draft-mtp --spec-draft-n-max 4 --spec-draft-backend-sampling`, 32k context,
 all 66 layers on the GPU — so its number is llama.cpp with a 4-token chained
 MTP draft on by default, and there is no switch to turn speculation off.
 
-Bytes per raw step by the same convention as llama.cpp (tensors minus MTP):
-16.54 GB, ceiling 102.9 tok/s.
+Bytes per raw step by the same convention as llama.cpp (tensors minus MTP,
+minus the embedding table): 15.83 GB, ceiling 107.5 tok/s.
 
 | Prompt | tok/s | % of raw ceiling | notes |
 |---|---|---|---|
-| essay | 66.9 | 65% | `eval_count / eval_duration` from the API, 256 tokens |
-| code | 68.3 | 66% | |
-| math | 82.0 | 80% | |
+| essay | 66.9 | 62% | `eval_count / eval_duration` from the API, 256 tokens |
+| code | 68.3 | 64% | |
+| math | 82.0 | 76% | |
 
 With speculation on, ollama is *slower* than a plain `llama-cli` raw decode
 (80.6) on prose and code. The draft depth is not the reason: `llama-cli` with
@@ -474,22 +495,23 @@ do.
 
 ## What these numbers change
 
-**The general-engine tax at bs=1 is engine-specific, and vLLM has mostly paid
-it off.** On the same NVFP4 bytes, SGLang holds 70% of the wall and vLLM
-**88%**; llama.cpp holds 77% on its own bytes. A bare GEMV stream reaches
-96.6%. So the raw-decode headroom over the *best* rival is about 8 points,
-not 30 — vLLM's torch.compile plus full-step CUDA graphs already capture most
-of what headroom argument #3 in `CLAUDE.md` describes. The 30-point gap is
-SGLang's, and it is what DSpark has to overcome before it starts.
+**The general-engine tax at bs=1 is engine-specific, and everyone still pays
+it.** On the same NVFP4 bytes, SGLang holds 60% of the wall and vLLM **76%**;
+llama.cpp holds 75% on its own bytes; ExLlamaV3 59%. A bare GEMV stream
+reaches 96.6%. So the best rival leaves about 20 points on the table and the
+worst 37 — vLLM's torch.compile plus full-step CUDA graphs capture much of
+what headroom argument #3 in `CLAUDE.md` describes, but not most of it. Our
+own engine sits at 78% on 13.65 GB per step, which is 2 points above vLLM and
+on 2.6 GB fewer bytes: the raw-decode margin over the best rival is small in
+*efficiency* and comes mostly from the byte count.
 
-**The long-context collapse is llama.cpp's, not the field's.** SGLang's
-attention decode scales; its fraction of the wall rises slightly to 200k.
-vLLM holds 88–90% all the way to 200k — it is already within a few points of
-the wall at long context, on a hybrid model where only 16 layers pay for
-length. The project's long-context target has to be "hold 92%+ of the wall at
-200k", not "do not collapse": against llama.cpp that is +77%, against SGLang
-+27%, against vLLM a few percent. Long context is a place to *match* the
-best rival at the roofline, not a place to beat it by a margin.
+**The long-context collapse is llama.cpp's, not the field's.** SGLang's and
+vLLM's fractions of the wall both *rise* slightly to 200k (60 -> 66% and
+76 -> 81%): their attention decode scales, and on this hybrid model only 16
+layers pay for length. llama.cpp is the one that falls, 74% -> 58%. So the
+project's long-context target is "hold a constant fraction", which is
+achievable rather than heroic, and the margin at 200k is real: our 85% of the
+wall against vLLM's 81%, SGLang's 66% and llama.cpp's 58%.
 
 **Speculation numbers are now measured, not assumed.** DSpark's mean accepted
 length on this model is 2.4 on prose, 3.1 on code, 4.7 on math at gamma 7;
@@ -511,11 +533,12 @@ and a speculative loop built for one stream with idle tensor cores — which is
 headroom argument #2 measured four times over.
 
 **Raw decode is not where the win is.** "+30% over llama.cpp raw" means 108
-tok/s, which at 4.0 bpw (ceiling 126.5) is 85% of the wall — the bottom of the
-85–90% band, and a fraction vLLM already holds. At matched bytes the raw
-margin over vLLM is 92% vs 88%: a few percent, inside the noise of a
-quantization choice. Raw decode near the wall is table stakes, evidence of
-competence, and nothing more.
+tok/s, which at 4.0 bpw (ceiling 126.5) is 85% of the wall. Measured, our
+engine holds 78% at short context and 85% at 200k against vLLM's 76% and 81%:
+ahead, but by 2 to 4 points, and the tok/s margin comes from reading 2.6 GB
+less per step rather than from the engine. Raw decode near the wall is table
+stakes, evidence of competence, and nothing more. The headline is
+speculation.
 
 **llama.cpp's MTP is not leaving much on the table at bs=1 on this host.**
 +60% on prose and code, +100% on math, from a one-layer MTP head verifying
@@ -525,14 +548,14 @@ and math, not on prose, and the durable 2x is against SGLang + DSpark
 (`docs/feasibility.md`). The margin that used to come from llama.cpp's weak
 MTP has to come from deeper speculation instead.
 
-**Long context is still where the gap is widest, but it is 17 points, not
-27.** llama.cpp holds 77% of the wall at short context and 60% at 200k. Only
+**Long context is still where the gap is widest, but it is 16 points, not
+27.** llama.cpp holds 74% of the wall at short context and 58% at 200k. Only
 16 of 64 layers even produce KV — the other 48 carry constant-size recurrent
 state — so an engine whose attention decode keeps memory-level parallelism up
 as KV grows should degrade far less.
 
-**Quantization parity has to be handled explicitly.** llama.cpp runs at 4.79
-bpw; our target is 4.0. Comparing raw tok/s across that gap hands us ~20% for
+**Quantization parity has to be handled explicitly.** llama.cpp runs at 4.80
+bpw over its streamed weights; our target is 4.0. Comparing raw tok/s across that gap hands us ~20% for
 free and a reviewer will say so. Report % of roofline as the headline, and
 produce a matched-bpw GGUF with `llama-quantize` for a supporting comparison.
 

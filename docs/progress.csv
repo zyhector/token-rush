@@ -29,3 +29,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 28,2026-09-09,Phase 3c: Marlin-class int4 GEMM (verify K=7 1.13x); DFlash 224/373/373; MTP 213/306/286; 200k 211/238; raw on the shared layout 97.6,97.6,78,10.25,1500
 29,2026-09-09,Phase 3 closed: sampled 211/391/358 (DFlash) 210/292/294 (MTP); --draft auto picks MTP for CJK prompts,97.6,78,10.25,1500
 30,2026-09-09,Phase 1b: quality table + GPTQ with MSE range search (KL 0.0546 -> 0.0232; bar 0.0128 not met); speed unchanged,97.4,78,10.26,1500
+31,2026-09-09,Rival byte counts corrected (embedding not streamed): vLLM 88% -> 76% of the wall; ours unchanged; Phase 1b closed,97.4,78,10.26,1500

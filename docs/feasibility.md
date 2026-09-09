@@ -28,9 +28,10 @@ the correct shape for a mini project.
 ## Known rival data points (as of Sept 2026 — re-verify before citing)
 
 - llama.cpp on our own 5090, Qwen3.8-27B UD-Q4_K_M: **82.8 tok/s raw**,
-  **130 with MTP** (+61% on prose, +100% on math). Raw decode reads 16.10
-  GB/token, so that is **78.4% of the bandwidth wall**. Measured, not cited —
-  see `docs/baselines.md`. The remaining 22% is the raw-decode headroom, and it
+  **130 with MTP** (+61% on prose, +100% on math). Raw decode streams 15.39
+  GB/token (corrected 2026-09-09: the embedding table is not streamed), so
+  that is **74.9% of the bandwidth wall**. Measured, not cited —
+  see `docs/baselines.md`. The remaining 25% is the raw-decode headroom, and it
   is thinner than public mobile-5090 figures suggest: "+30% over llama.cpp"
   requires 108 tok/s, which at 4.0 bpw is 85% of the wall. llama.cpp's MTP is
   also far stronger on this host than public figures suggest, so the
@@ -87,15 +88,23 @@ Raw decode first. At 4.0 bpw the text path is 13.45 GB, the ceiling is
 |---|---|---|---|
 | Raw decode, short context, 4.25 bpw | 110 tok/s | llama.cpp 82.8 | +32% |
 | Raw decode, short context, 4.0 bpw | 116 tok/s | llama.cpp 82.8 / vLLM 80.0 | +40% / +45% |
-| **Raw decode, matched 4.79 bpw** | **97 tok/s** | **llama.cpp 82.8** | **+17%** |
-| **Raw decode, matched 18.79 GB (vLLM's bytes)** | **83 tok/s** | **vLLM 80.0** | **+5%** |
+| **Raw decode, matched 4.80 bpw (llama.cpp's bytes)** | **97 tok/s** | **llama.cpp 82.8** | **+17%** |
+| **Raw decode, matched 16.25 GB (vLLM's bytes)** | **92 tok/s** | **vLLM 80.0** | **+15%** |
 | Raw decode, matched 3.92 bpw | 119 tok/s | ExLlamaV3 77.0 | +54% |
 | Decode at 200k context, 4.0 bpw | 78 tok/s | llama.cpp 44.3 / vLLM 61.0 | +77% / +28% |
 
-The +40–45% raw rows are almost entirely bytes: we read 13.45 GB where vLLM's
-NVFP4 checkpoint reads 18.79 (its `lm_head` is bf16) and llama.cpp reads
-16.10. Held to the same bytes the engine itself is worth +5% over vLLM. That
-is the fair-comparison row and it must be conceded up front.
+The +40–45% raw rows are mostly bytes: we read 13.65 GB where vLLM's NVFP4
+checkpoint streams 16.25 (its `lm_head` is bf16) and llama.cpp 15.39. Held to
+the same bytes the engine itself is worth a few percent over vLLM — measured
+after the fact, 78.2% of the wall against its 76.1%, i.e. **+3%**, not the
++15% the projection above assumed at 92%. That is the fair-comparison row and
+it must be conceded up front: raw decode is table stakes, and the headline is
+speculation.
+
+> The two rows marked in bold were projections written before the engine
+> existed, and the byte counts they used included the embedding table. Both
+> are superseded by measurement: `docs/progress.md` step 30 and the corrected
+> tables in `docs/baselines.md`.
 
 **Speculation is where the number comes from.** The step-cost model, from
 the component measurements on this machine:
