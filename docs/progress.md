@@ -51,6 +51,7 @@ re-measures everything on one machine.
 | 21. Corpus-specific draft vocabularies (en_64k, mix_64k, mix_96k) | 2026-09-08 | + lists built from English, code and Chinese Wikipedia corpora, shipped in `tokenrush/draft_vocab/`, selectable by name; measured on six families incl. Chinese and mixed. None beats the id-order 128k default by more than noise; mix_96k is the pick for a Chinese-English daily driver | — | id_128k 186 / 261 / 263 / 162 / 279 / 216 vs mix_96k 185 / 253 / 262 / 162 / 279 / 227 (essay / code / math / zh-essay / zh-math / mixed) |
 | 22. Profile of the spec step at 200k; flash-decoding pipeline depth | 2026-09-09 | + the spec step's extra growth with context attributed (M-row attention kernel under-occupied, MTP's own attention); one config change (3 pipeline stages) lifts the kernel from 1390/1147 GB/s (M=1/M=4) to 1587/1558 | — | at 200k: raw **71.7** (85.6% of wall, was 68.4 / 82.6%), spec prose **195** (was 180); short context unchanged |
 | 23. Draft trees: simulated, not built | 2026-09-09 | + `bench/tree_accept.py` (teacher-forced acceptance of static trees with the eager MTP) and verify cost measured to M=8: the best 7-node tree gains +10% acceptance on prose, +3–4% on code/math, for a step ~20% dearer. **Net negative on this stack; trees dropped.** A shared-memory overflow for M >= 6 fixed on the way | — | unchanged |
+| 24. Research: what is left to gain | 2026-09-09 | + surveyed 2025–26 single-stream speculation and small-M int4 GEMM work; measured z-lab's **DFlash2** block-diffusion draft teacher-forced on our target: 3.57 / 5.37 / 5.76 accepted per 7-draft step (essay / code / math) vs the MTP chain's 2.75 / 3.88 / 4.05 at K=4, from one draft forward. Projected 238 / 358 / 384 tok/s in-graph; with a Marlin-class M-row GEMM ~275 / 413 / 443 | — | unchanged |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -907,14 +908,106 @@ gamma 7 accepts 2.39 / 3.11 / 4.68 per step on essay / code / math
 weights. Only math would gain (4.68 vs 4.05), and by the tree arithmetic
 above the extra draft cost eats most of it. Not built.
 
+## Step 24 — research: what is left to gain (2026-09-09)
+
+A survey of what single-stream inference work in 2025–26 has that this
+engine does not, checked against our own profiles. Two levers are real, the
+rest are not for this stack.
+
+### 1. DFlash2: a block-diffusion draft — the big one
+
+`z-lab/Qwen3.8-27B-DFlash2` (MIT): a 1.92B, 5-layer Qwen3-style draft that
+produces a whole block of 7 draft tokens in **one forward**, conditioned on
+the target's hidden states after layers 5, 19, 33, 47 and 61 (concatenated,
+projected by `fc`, injected into every draft layer's K/V), with mask tokens
+as the block's inputs, bidirectional attention inside the block, a sliding
+window of 2048 over its own context cache, two grouped dynamic convs per
+layer, and a rank-256 candidate selector that chains the top-16 candidates
+per position. Phase 0 saw it in vLLM (3.69 accepted per step, but on a
+70 ms step) and in llama.cpp (+37% / +37% / +82%).
+
+Measured here (`bench/dflash_accept.py`), teacher-forced against **our int4
+target's** greedy continuation, feeding the draft our engine's own hidden
+states through the trace hook, 248 positions per family:
+
+| accepted tokens per verify step | essay | code | math |
+|---|---|---|---|
+| MTP chain, K=4 (step 23) | 2.75 | 3.88 | 4.05 |
+| best 7-node MTP tree (step 23) | 3.04 | 4.02 | 4.18 |
+| DFlash2, first 3 drafts (K=3) | 2.79 | 3.47 | 3.50 |
+| DFlash2, first 4 drafts (K=4) | 3.08 | 4.08 | 4.17 |
+| **DFlash2, the full block (K=7)** | **3.57** | **5.37** | **5.76** |
+| P(first draft correct) | 0.79 | 0.92 | 0.92 |
+| P(all 7 correct) | 0.12 | 0.35 | 0.48 |
+
+The per-draft quality is at least the MTP head's, and it comes 7 at a time
+from one forward, which is exactly what this engine's verify step is good
+at (a K=7 verify costs 13.5 ms, 1.35x raw, step 23). Draft cost in-graph:
+5 layers of ~1 GB at int4 through the M-row kernels (~0.8 ms), `lm_head`
+over 7 rows (~0.45 ms), the selector and convs (~0.2 ms): ~1.5 ms, less
+than today's 3–4 chained MTP calls.
+
+| projection | essay | code | math |
+|---|---|---|---|
+| today (MTP chain, dynamic 3:4) | 186 | 261 | 263 |
+| DFlash2, K=7 verify (13.5 + 1.5 ms) | **238** | **358** | **384** |
+| + a Marlin-class M-row GEMM (verify ~11.5 ms) | ~275 | ~413 | ~443 |
+
+That is every effective-throughput target in `CLAUDE.md` (prose 200–240,
+code 230–280, math 300–380) from the first row alone. Cost to build: the
+draft's forward through our fused kernels (its attention needs the KV
+injection and the in-block bidirectional mask; the convs and selector are
+small), capture of the target's five layer outputs inside the spec graph
+(free: the residual stream is there), int4 packing of the draft, and the
+verify at K=7. Estimate 2–3 days. Its own cache is a 2048-token window, so
+long context costs it nothing.
+
+### 2. A Marlin-class M-row int4 GEMM — the second lever
+
+The verify overhead (1.2x at K=3, 1.35x at K=7) is the M-row kernel's fixed
+per-block work (step 19). Marlin (IST-DASLab, Apache-2, 822 lines of CUDA)
+is built for exactly this regime: dequantization in registers overlapped
+with `mma.sync`, near-full bandwidth for M up to 16–64, `sm_80+`
+instructions all present on `sm_120`. Vendoring it means a small CUDA
+extension built against torch 2.14 / CUDA 13.3, a repack from our packing
+to its layout (symmetric int4 with fp16 group scales; our asymmetric
+scale+min becomes a zero-point variant or a symmetric re-quantization —
+the quality table decides), and fp16 activations (its original operand
+type; Qwen activations are bf16, so the range needs checking). If it holds
+~88% at M=8 as it does at M=1, a K=7 verify drops from 13.5 to ~11.5 ms:
++15% on every speculative number. 1–2 days if the build cooperates.
+
+### Not worth it here
+
+- **Draft trees** (step 23): +10% acceptance for +20% step cost.
+- **DSpark** (step 23): a 1.86B autoregressive draft, no better per draft
+  than the MTP head on prose/code; DFlash2 supersedes it.
+- **Prompt-lookup / n-gram drafts**: free drafts for text that repeats the
+  prompt; our code acceptance is already 3.5–5.4 per step and prose gains
+  little. Could be an opportunistic add-on later.
+- **NVFP4 kernels / "160 tok/s" claims**: 4.5 bpw reads 6% more bytes than
+  our int4 g128, and the public 5090 figures do not say whether MTP was on.
+- **EAGLE-3-style heads**: no trained head exists for this model; DFlash2
+  is the trained draft that does exist.
+
+Sources: [DFlash paper](https://arxiv.org/abs/2602.06036), [z-lab/dflash](https://github.com/z-lab/dflash),
+[vLLM speculators DFlash](https://docs.vllm.ai/projects/speculators/en/latest/user_guide/algorithms/dflash/),
+[DFlash & DSpark write-up](https://jianyuh.github.io/llm/inference/speculative%20decoding/2026/06/29/DFlash-DSpark-Diffusion-Speculative-Decoding.html),
+[NVIDIA on DFlash](https://developer.nvidia.com/blog/boost-inference-performance-up-to-15x-on-nvidia-blackwell-using-dflash-speculative-decoding/),
+[Marlin](https://github.com/IST-DASLab/marlin), [AutoAWQ+Marlin notes](https://www.emergentmind.com/topics/autoawq-marlin),
+[prompt lookup decoding](https://github.com/apoorvumang/prompt-lookup-decoding),
+[EAGLE-3 overview](https://www.spheron.network/blog/eagle-3-speculative-decoding-gpu-cloud/),
+[5090 NVFP4 guide](https://runaihome.com/blog/qwen36-27b-nvfp4-blackwell-2x-speed-guide-2026/).
+
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
   258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
   at 200k (195 prose after step 22); 186 / 261 / 263 with the 128k draft
-  vocabulary. Trees and DSpark assessed and dropped (step 23). Remaining:
-  rejection-sampling acceptance for sampled decoding (a small gain at
-  temperature > 0), then Phase 3 closes.
+  vocabulary. Trees and DSpark dropped (step 23). Step 24's research found
+  two levers worth building: **DFlash2** as the draft (projected 238 / 358
+  / 384) and a **Marlin-class M-row GEMM** (+15% on top). Then
+  rejection-sampling acceptance for sampled decoding, and Phase 3 closes.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are

@@ -22,3 +22,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 21,2026-09-08,corpus-specific draft vocabularies measured; id-order 128k stays default; mix_96k for zh-en use,102.2,82,9.78,1500
 22,2026-09-09,flash-decoding kernel: 3 pipeline stages; at 200k raw 71.7 (85.6% wall) spec prose 195,100.9,81,9.91,1500
 23,2026-09-09,draft trees simulated and costed: net negative; dropped. smem overflow at M>=6 fixed,100.9,81,9.91,1500
+24,2026-09-09,research: DFlash2 draft measured at 3.57/5.37/5.76 accepted per 7-draft step; Marlin-class GEMM lead,100.9,81,9.91,1500
