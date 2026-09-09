@@ -202,13 +202,23 @@ RTN's 0.10, output error below. Any conversion must therefore take every
 non-quantized tensor from that checkpoint too, not from the base weights.
 
 On layer 0's real input, its matrices are only a little better than
-round-to-nearest:
+round-to-nearest. `bench/quality_layer_probe.py` measures relative output
+error `‖(Ŵ − W)x‖/‖Wx‖` on 16,384 held-out WikiText-2 positions, restricted
+to the two matrices whose input genuinely is `rmsnorm(embed[ids])` and so
+needs no forward pass — everything deeper would need the residual stream
+carried through each candidate's own layers, which is what the KL table
+measures anyway:
 
-| layer-0 output error on held-out text | `in_proj_qkv` | `gate_proj` |
+| layer-0 output error, held-out text | `in_proj_qkv` | `in_proj_z` |
 |---|---|---|
-| RTN | 0.032 | 0.091 |
-| RedHatAI (AWQ + GPTQ) | 0.024 | 0.092 |
-| our GPTQ | 0.018 | 0.052 |
+| RTN | 0.0316 | 0.0434 |
+| RedHatAI (AWQ + GPTQ, smoothing undone) | 0.0237 | 0.0328 |
+| our GPTQ | 0.0184 | 0.0254 |
+| our GPTQ + MSE | **0.0176** | **0.0243** |
+
+Note the weight-space errors move the other way — RTN 0.101, ours 0.118,
+RedHatAI 0.159 — which is the GPTQ trade visible per matrix: worse weights,
+better outputs.
 
 Verdict: **build**. Not because the conversion was hard — it took an afternoon
 and works — but because nothing on the Hub at our bits beats what a plain GPTQ
@@ -370,6 +380,19 @@ The corpora are in the repo and are the ones every number above used:
 The builders (`bench/quality_calib.py`, `bench/quality_corpus.py`) are kept for
 the record of how the ids were chosen, but re-running them under a different
 torch gives different code text and therefore different ids.
+
+Tools, all of them used for the numbers above:
+
+| script | what it does |
+|---|---|
+| `bench/quality_logits.py` | KL / perplexity / top-1 of one candidate against the bf16 reference; `--keep-bf16 <regex>` for attribution, `--head-from` to mix a rival's body with our head |
+| `bench/quality_table.py` | regenerates the comparison tables in this file from `results/quality/*.json` |
+| `bench/quality_layer_probe.py` | per-matrix output error on held-out text, and undoes AWQ smoothing |
+| `bench/quality_hf.py` | the HF side: GSM8K, and the yardstick's noise floor (needs two cards for a bf16 model) |
+| `bench/quality_gsm8k_engine.py` | GSM8K through our own engine, one card |
+| `bench/exl3_export.py` | dequantizes an EXL3 checkpoint with its own kernels, in the exl3 venv |
+| `tokenrush/gptq.py`, `tokenrush/convert.py` | the quantizer, and the re-packer for compressed-tensors int4 |
+| `scripts/check_baselines.py` | verifies the roofline arithmetic in `docs/baselines.md` |
 
 To measure a rival, point `bench/quality_logits.py` at a source spec:
 `packed:<dir>` (ours), `gguf:<file>`, `nvfp4:<dir>`, `ct:<dir>`
