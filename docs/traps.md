@@ -30,6 +30,9 @@ Each of these cost real time. Do not rediscover them.
 - **Never name a scratch script after a stdlib module** (`nt.py`, `os.py`). The
   interpreter dies before CUDA init and `nsys` records an empty trace that
   looks exactly like a permission failure. `nsys` traces `sm_120` fine.
+- **`grep` in a pipeline into a log file buffers.** Without `--line-buffered`
+  a long run shows nothing for half an hour and then prints everything at
+  once, which is indistinguishable from a hang.
 - **`pkill -f <pattern>` matches your own shell** when the pattern appears in
   the command line you are running — including a `kill-then-relaunch` one-liner
   whose relaunch half contains the very string being killed. Anchor the pattern
@@ -42,6 +45,33 @@ Each of these cost real time. Do not rediscover them.
   after the last request, holding ~20 GB of VRAM; the next engine's startup
   fails with "free memory less than desired utilization". `ollama stop
   <model>` or kill the runner before launching anything else.
+
+## Quantization and rival checkpoints
+
+(The full thread is `docs/quantization.md`; these are the ones that cost time.)
+
+- **A rival converter may permute heads.** llama.cpp's GGUF reorders the 48
+  GDN value heads (its head `j` is HF's `3*(j % 16) + j // 16`). A relative
+  error near 1.0 on *some* tensors and 0.08 on the rest is a layout
+  difference, not a quality difference — match rows against the bf16 weights
+  before believing any number computed from a foreign checkpoint.
+- **A rival's *unquantized* tensors may differ too.** AWQ smoothing folds
+  per-channel scales into the layer norms and small projections, so such a
+  checkpoint must be read whole and never overlaid on the base model's norms.
+  Qwen's RMSNorm gain is `1 + w`; undoing a smoothing with `w` gives
+  infinities that look like a broken reader.
+- **Published task-accuracy "99–101% recovery" can sit on a 5x worse KL.**
+  Task scores are a floor, not a ranking; a 200-problem GSM8K has a ±3.5 point
+  noise band and cannot rank 4-bit quantizations.
+- **Cap generation length by looking at the outputs.** A 512-token limit
+  truncated a third of the GSM8K answers and read as 65% accuracy where the
+  same checkpoint scores 96.5% at 1024.
+- **Save the expensive intermediate before the cheap step that can fail.**
+  17 minutes of GPTQ died in `save_file` on a full disk; the quantizer now
+  writes its codes first and can re-pack with `--from-codes`.
+- **Differential-test a quantizer against its own degenerate case.** With an
+  identity Hessian, GPTQ must reproduce round-to-nearest code for code; that
+  one line catches sign, ordering and grid bugs.
 
 ## Building the engine
 

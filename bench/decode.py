@@ -33,7 +33,8 @@ def main():
     ap.add_argument("--kv", default="bf16", choices=("bf16", "fp8"), help="KV cache dtype")
     a = ap.parse_args()
 
-    cfg, w, _ = load_packed(a.model, backend=a.backend)
+    from tokenrush.quant import DEFAULT_BACKEND
+    cfg, w, _ = load_packed(a.model, backend=a.backend or DEFAULT_BACKEND)
     eng = Engine(cfg, w, max_len=a.max_len, kv_dtype=torch.float8_e4m3fn if a.kv == "fp8" else torch.bfloat16)
     if not a.eager:
         t0 = time.perf_counter()

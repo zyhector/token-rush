@@ -1,0 +1,52 @@
+{
+ "src": "hf:/workspace/models/Qwen3.8-27B",
+ "label": "bf16",
+ "streamed_bpw": 16.0,
+ "streamed_params": 25598361600,
+ "per_corpus": {
+  "wikitext2": {
+   "positions": 65536,
+   "kl_mean": 0.0,
+   "kl_median": 0.0,
+   "kl_p99": 0.0,
+   "kl_max": 0.0,
+   "top1_agreement": 1.0,
+   "ppl_ref": 6.254543304443359,
+   "ppl": 6.254543304443359,
+   "ppl_delta": 0.0
+  },
+  "code": {
+   "positions": 8192,
+   "kl_mean": 0.0,
+   "kl_median": 0.0,
+   "kl_p99": 0.0,
+   "kl_max": 0.0,
+   "top1_agreement": 1.0,
+   "ppl_ref": 1.514223337173462,
+   "ppl": 1.514223337173462,
+   "ppl_delta": 0.0
+  },
+  "math": {
+   "positions": 8192,
+   "kl_mean": 0.0,
+   "kl_median": 0.0,
+   "kl_p99": 0.0,
+   "kl_max": 0.0,
+   "top1_agreement": 1.0,
+   "ppl_ref": 1.986730694770813,
+   "ppl": 1.986730694770813,
+   "ppl_delta": 0.0
+  }
+ },
+ "pooled": {
+  "positions": 81920,
+  "kl_mean": 0.0,
+  "kl_median": 0.0,
+  "kl_p99": 0.0,
+  "kl_max": 0.0,
+  "top1_agreement": 1.0,
+  "ppl_ref": 4.839376449584961,
+  "ppl": 4.839376449584961,
+  "ppl_delta": 0.0
+ }
+}

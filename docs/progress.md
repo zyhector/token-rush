@@ -10,7 +10,7 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 29, 2026-09-09)
+## Where things stand (after step 30, 2026-09-09)
 
 | | | |
 |---|---|---|
@@ -20,8 +20,8 @@ fla 0.6.0. 150 GB disk, 60 GB RAM.
 | speculative at 200k context, fp8 KV, prose / code | **211 (MTP) / 238 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall on the Triton GEMV, 69.8 on Marlin) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
 | correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | |
-| quantization | int4 g128 RTN, uncalibrated: teacher-forced KL 0.06 vs bf16, 2–4x a calibrated quant's; **the quality gate is not met** (`docs/quality_plan.md`, deferred to a two-GPU box) | |
-| phases | 0 done (frozen), 1a done, 1b half (gate done, quality owed), 2 done, **3 done**, 4 not started | |
+| quantization | **int4 g128 GPTQ** (step 30, same packing): KL to bf16 0.0265 over 82k positions, WikiText-2 PPL +0.098, top-1 0.937, GSM8K 96.5%; RTN was 0.0546. **The quality row is not met**: ExLlamaV3 4.00bpw is 0.0128 and the uniform int4 grid, not the calibration, is what is left | rivals: GGUF UD-Q4_K_M 0.0093 at 4.80 bpw, EXL3 0.0128 at 4.10, NVFP4 0.0231 at 5.07, RedHatAI INT4 0.0458 at 4.71 |
+| phases | 0 done (frozen), 1a done, **1b done as measurement** (gate, quality table, GPTQ; the bar itself is not met), 2 done, 3 done, 4 not started | |
 
 Every number above is a development number on this instance; Phase 4
 re-measures everything on one machine.
@@ -57,6 +57,7 @@ re-measures everything on one machine.
 | 27. Phase 3b: DFlash across families and context; ring cache | 2026-09-09 | + the draft's context cache is a 4096-row ring (its window is 2048), so 256k fits (29.4 GB peak); its conv/selector projections int4 too; measured on six families and at 200k. Chinese prose is the one family where the MTP chain stays better (DFlash2 accepts 1.77/step there) | — | six families: **217 / 355 / 350 / 121 / 289 / 212** (essay / code / math / zh-essay / zh-math / mixed); at 200k: prose 179, code 229 (MTP: 195 / 199) |
 | 28. Phase 3c: Marlin-class int4 GEMM | 2026-09-09 | + Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction, a lock-free partial mode for the split-K shapes, no L2 cache hints (illegal on sm_120); one kernel for M <= 16 in Marlin's weight layout, the default. Verify K=7 = **1.13x** a raw step (was 1.35x), raw step 4% dearer (the layout has no better M=1 kernel than the mma one) | — | **224 / 373 / 373** DFlash, 213 / 306 / 286 MTP (essay / code / math); zh-essay / zh-math / mixed 179 / 310 / 251 (MTP); 200k: prose 211 (MTP) / code 238 (DFlash); raw 97.6 (102 on `--backend triton`) |
 | 29. Phase 3 closed: sampled decoding measured, per-content draft choice | 2026-09-09 | + the verify step's accept-if-equal-to-the-draw rule shown to *be* rejection sampling for deterministic drafts (no change needed); `--draft auto` (default) keeps both drafts resident and picks the MTP chain for prompts >= 20% CJK, DFlash2 otherwise; two shared-buffer bugs fixed on the way (a graph holds tensors by address) | — | sampled T=0.7 top-p 0.9: **211 / 391 / 358** DFlash2, 210 / 292 / 294 MTP (essay / code / math); zh-essay 171 (MTP); auto: English essay 232, Chinese essay 182 |
+| 30. Phase 1b, second half: the quality table and GPTQ | 2026-09-09 | + the yardstick (KL to bf16 over 82k positions, PPL, top-1, noise floor 5e-4) for ours and four rivals; our own GPTQ into the same packing: **KL 0.0546 -> 0.0265** (EXL3, the bar, 0.0128; GGUF 0.0093; NVFP4 0.0231; RedHatAI 0.0458); GSM8K 96.5%; speed unchanged (same packing) | 1500 | 95.7 (this box; both checkpoints identical) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1337,15 +1338,216 @@ context (M=8 body attention at ~700 GB/s over a 6.7 GB cache); partial-mode
 Marlin on the wide shapes (+2%); a Marlin-layout kernel that matches the
 Triton GEMV at M=1 (would recover raw decode's 4%).
 
+## Step 30 — Phase 1b, second half: the quantization quality table (2026-09-09)
+
+The yardstick owed since step 5, measured on the two-GPU box (two RTX 5090s,
+vast instance of 2026-09-09; torch 2.14.0+cu130, triton 3.8.0, transformers
+5.17.0, fla 0.6.0). Part 1 of `docs/quality_plan.md`: every quantization of
+Qwen3.8-27B that competes with ours, through the same bf16 forward, against
+the same bf16 logits. Nothing about the engine or its weights changed in this
+step; it produces numbers.
+
+**Method.** `bench/quality_corpus.py` cuts three corpora into independent
+4096-token chunks: WikiText-2 test (raw, the first 65,536 of its 297k tokens,
+16 chunks), code (torch's `nn/modules/*.py`, 2 chunks), math (GSM8K *train*
+questions with their worked solutions, 2 chunks; the accuracy task uses the
+disjoint test split). `bench/quality_logits.py` runs the bf16 checkpoint
+through the engine's eager prefill path (fla chunk kernel + SDPA — the path
+the engine-correctness gate verified against HF in step 5), one layer built
+from the checkpoint at a time, and keeps the full-vocabulary bf16 logits of
+every position (81,920 positions, 41 GB). Each candidate is then a tensor
+source (`bench/quality_sources.py`) that presents its quantized matrices
+dequantized to bf16 and everything else from the HF checkpoint, run through
+the identical forward: KL(bf16 ‖ candidate) over the full vocabulary in fp32
+per position, top-1 agreement, and the next-token NLL for perplexity.
+
+The noise floor of the yardstick — HF transformers' own bf16 forward
+(`bench/quality_hf.py --logits-check`, fla blocked, two cards) against our
+bf16 reference on two chunks per corpus: KL 2.5e-4 to 6.2e-4 mean, p99
+3e-3 to 8e-3, top-1 agreement 0.988–0.996, perplexity within ±0.005. Every
+number below is at least 15x above that floor.
+
+**What each rival's format needed.** llama.cpp's converter reorders the 48
+GDN value heads (its head j is HF's head 3·(j mod 16) + j div 16; q/k keep
+their order) — found by matching rows against bf16, since the first attempt
+gave a relative error of 1.0–1.4 on exactly the four GDN projections; after
+the un-permutation every tensor is within its type's expected error
+(Q4_K 0.077, Q5_K 0.039, Q6_K 0.020, Q8_0 0.006 relative). The GGUF also
+quantizes the embedding (Q4_K) and the output head (Q6_K), and UD-Q4_K_M is
+mixed per tensor (131 Q5_K, 117 IQ4_XS, 104 Q4_K, 29 Q6_K, 7 Q3_K, 7 IQ4_NL,
+4 IQ3_S, 106 Q8_0), so its 4.80 bits/weight is an average. NVFP4
+(compressed-tensors `nvfp4-pack-quantized`): e2m1 codes × e4m3 block-16
+scale ÷ fp32 global scale; its `lm_head` is bf16 and the QAT left the
+embedding, norms, conv and A/dt exactly at the original values (relative
+error 0.000). ExLlamaV3's trellis format is reconstructed by its own code
+(`bench/exl3_export.py`, in the exl3 venv: `get_weight_tensor`, the
+`mul1` codebook, both Hadamards and the sign vectors) into bf16 shards, 56 s
+for the model; 4.005 bits/weight on the body, a 6-bit head, 4.10 overall.
+
+**The table.** 81,920 positions pooled; bits/weight over the 25.60B weights
+the engine streams per token (the 401 matrices we quantize; the embedding
+is read one row per token and does not count).
+
+| candidate | bits/weight | KL mean | KL p99 | top-1 | WikiText-2 PPL (Δ vs bf16 6.255) | KL wiki / code / math |
+|---|---|---|---|---|---|---|
+| bf16 | 16 | — | — | — | 6.255 | — |
+| **ours, int4 g128 RTN, no calibration** | **4.25** | **0.0546** | 0.549 | 0.905 | 6.495 (+0.240) | 0.054 / 0.034 / 0.084 |
+| ExLlamaV3 4.00 bpw, 6-bit head (the bar) | 4.10 | 0.0128 | 0.158 | 0.960 | 6.274 (+0.019) | 0.011 / 0.011 / 0.028 |
+| llama.cpp UD-Q4_K_M (imatrix) | 4.80 | 0.0093 | 0.109 | 0.966 | 6.270 (+0.015) | 0.007 / 0.008 / 0.025 |
+| NVFP4, QUASAR-QAT (bf16 head) | 5.07 (body 4.5) | 0.0231 | 0.273 | 0.943 | 6.369 (+0.114) | 0.022 / 0.016 / 0.041 |
+| RedHatAI INT4 (AWQ+GPTQ, bf16 head) | 4.71 (body 4.125) | 0.0458 | 0.597 | 0.924 | 6.460 (+0.205) | 0.045 / 0.036 / 0.062 |
+| **ours, int4 g128 GPTQ** (Part 2, first version) | **4.25** | **0.0265** | 0.320 | 0.937 | 6.353 (+0.098) | 0.025 / 0.021 / 0.047 |
+| noise floor (HF bf16 vs ours) | 16 | 0.0005 | 0.005 | 0.992 | ±0.005 | — |
+
+**Speed and the downstream task on the GPTQ checkpoint** (this box, one card,
+the other card busy with a quantization run): raw decode 95.7 tok/s on both
+checkpoints, the same 10.45 ms/step to the hundredth (the packing is the
+same, so the kernels read the same bytes); six families, DFlash2 / MTP chain,
+GPTQ 229 / 366 / 368 / 120 / 276 / 226 and 204 / 258 / 275 / 157 / 255 / 234
+against RTN 218 / 368 / 376 / 117 / 291 / 218 and 209 / 255 / 277 / 160 /
+294 / 228 on the same machine (step times 14.1 / 13.1 ms for both — the
+MTP-chain code figure of 306 in step 28 was the previous instance). GSM8K,
+200 test problems, greedy through the engine (chat template, thinking off,
+1024 new tokens, the answer read from the last `\boxed{}`): **GPTQ 193/200 =
+96.5%**, no unparsed answers; bf16 reference through HF transformers:
+GSM8K_BF16. (A 512-token limit truncated a third of the answers — the model
+writes 300–600 tokens of worked steps — and read as 65% accuracy on the
+first tries; the limit, not the quant.) All 76 tests pass; one test's HF
+rotary call needed the (3, bs, T) position ids transformers 5.17 expects.
+
+**Reading it.**
+
+- **The quality row in `CLAUDE.md` is not met, by a wide margin.** The
+  target is mean KL no worse than ExLlamaV3's 4.00 bpw: 0.0128. Ours is
+  0.0546, **4.3x**, at more bits (4.25 vs 4.10). Against the GGUF it is 5.9x
+  at 0.55 fewer bits. Perplexity says the same: +0.24 on WikiText-2 where
+  the calibrated 4-bit formats lose +0.02. Step 5's one-prompt estimate
+  (0.06, "2–4x a calibrated quant") was right in kind and slightly kind in
+  degree.
+- **Calibration is the whole gap.** The three rivals are all calibrated
+  (imatrix, EXL3's 250×2048 calibration rows, QAT); ours rounds to nearest
+  with per-group min/max. Nothing in the table separates 4.0 from 4.8 bits
+  the way calibration separates 0.05 from 0.01.
+- **Math is the hardest corpus for every quant** (KL 2–3x the prose value
+  for all four), and prose the easiest by p99; code has the lowest median
+  (most positions near-deterministic) and a heavy tail.
+- **NVFP4 QAT at 4.5 bits on the body is 2x worse than the calibrated int4
+  formats**, with the head in bf16 — the format, not the training, is what
+  its rivals' vLLM/SGLang numbers in `docs/baselines.md` run on.
+- **Where our RTN loss sits** (`--keep-bf16`, the candidate with a tensor
+  set taken from bf16 instead): body int4 + head bf16 gives KL 0.0469; body
+  bf16 + head int4 gives 0.0075; the full quant 0.0546 — the two parts add.
+  The body is 86% of the loss, so a higher-precision head alone cannot reach
+  the bar; but the RTN head by itself (0.0075) already spends 60% of the
+  EXL3 budget, so once the body is calibrated the head has to be too.
+
+**The Hub's int4 g128 checkpoints, and why they do not help.** A search of
+the Hub (1,993 repos matching Qwen3.8; 516 tagged as quantizations of the
+27B: 211 MLX, 124 GGUF, 79 compressed-tensors, 45 FP8, 30 GPTQ, 23 AWQ, 20
+EXL3, 12 AutoRound) found no official int4 and ~30 community int4 g128
+checkpoints, all symmetric, all keeping `lm_head` in bf16 (400 of our 401
+matrices). Their format is a re-pack away from ours — the codes are the
+same nibbles, `mn = -8·scale` is exact in bf16, no column permutation
+(`tokenrush/convert.py` does it; `bench/quality_sources.py` reads the
+compressed-tensors layout). The strongest candidate by evidence,
+`RedHatAI/Qwen3.8-27B-INT4` (AWQ smoothing + GPTQ, 512 calibration samples,
+published bf16-relative evals at 99–101% recovery, 182k downloads), measures
+**0.0458** on this yardstick with its bf16 head — the level of our
+uncalibrated RTN body (0.0469). Reading it right took one care: its AWQ
+smoothing folds per-channel scales into the layer norms (Qwen's norms are
+`1 + w`) and the small projections, so every non-quantized tensor must come
+from that checkpoint too; undoing the smoothing puts its unquantized
+`in_proj_a` within 0.3% of the original (bf16 rounding) and its quantized
+matrices at 0.14–0.16 relative error, the GPTQ signature (weight error above
+RTN's 0.10, output error below). On layer 0's real input its `in_proj_qkv`
+is only a little better than RTN (output error 0.024 vs 0.032; our GPTQ
+0.018) and its `gate_proj` no better (0.092 vs 0.091; ours 0.052).
+Task accuracies at 99–101% recovery do not see a KL of 0.046; that is why
+the project measures KL.
+
+**Part 2, first version: GPTQ into the same packing** (`tokenrush/gptq.py`,
+~200 lines, no tool). Plain GPTQ: per linear, the Hessian of its input over
+256 calibration sequences × 2048 tokens (`bench/quality_calib.py`: 160
+WikiText-103 train, 64 torch sources outside `nn/modules`, 32 GSM8K train
+rows ≥ 2000 — disjoint from the table's corpora), columns quantized in
+blocks of 128 with the OBS error update through H⁻¹ (damp 1%), group
+parameters from the error-updated weights rounded to bf16 exactly as
+`quantize_int4` does, layers in sequence with each layer's calibration input
+computed through the already-quantized layers, `lm_head` last on the
+final-normed hidden states. The output is `pack_checkpoint`'s format with
+the codes chosen differently, so the Marlin kernel, the graphs, the drafts
+and the tests carry over untouched. 17 min on one card. Differential checks:
+with an identity Hessian it reproduces RTN code for code; with correlated
+inputs its output error is 0.070 vs RTN's 0.100 while its weight error rises
+to 0.157 — the trade GPTQ makes. On the model: **KL 0.0546 → 0.0265**
+(2.06x), top-1 0.905 → 0.937, WikiText-2 PPL +0.240 → +0.098, code 0.034
+→ 0.021, math 0.084 → 0.047. Halfway to the bar in log terms: EXL3 is
+2.07x lower still.
+
+**What the remaining levers are worth** (each a 20-minute run; the
+attribution again with `--keep-bf16`):
+
+| variant | bits/weight | KL pooled | note |
+|---|---|---|---|
+| GPTQ, plain (the checkpoint) | 4.25 | 0.0265 | head bf16 → 0.0240, body bf16 → 0.0028: the body is 90% of it |
+| + act-order, static groups | 4.25 | 0.0254 | within noise; WikiText PPL worse (+0.121 vs +0.098); not adopted |
+| + MSE range search for the group parameters | 4.25 | **0.0232** | and the worst case: max KL 18.3 -> 6.1, math 0.047 -> 0.037; WikiText PPL slightly worse (+0.111 vs +0.098) |
+| group 64 (4.5 bits/weight) | 4.50 | 0.0210 | what 0.25 more bits buy; would run on the Triton kernels (Marlin is g128) |
+| an 8-bit head (not built) | 4.4 | ≈ 0.024 | bounded by the head-in-bf16 attribution: −0.0025 at most |
+
+**The MSE range search is adopted; the default checkpoint is
+`Qwen3.8-27B-int4g128-gptq-mse`.** It wins the metric the target row is
+written in (KL 0.0232 vs 0.0265) at the same bits and the same speed, and it
+wins the tail decisively (max KL 18.3 -> 6.1, math 0.047 -> 0.037). It loses
+a little on WikiText-2 perplexity (6.365 vs 6.353 against bf16's 6.255): the
+two metrics disagree, and the choice went to KL and top-1 because they read
+the whole distribution while perplexity reads only the correct token's
+probability. Recorded here because a disagreement between metrics is worth
+keeping visible.
+
+The bar (0.0128) is 1.8x below it, and nothing in the table closes 1.8x:
+the uniform int4 grid is the limit, not the calibration. ExLlamaV3 sits
+there at 4.00 bits with a trellis (non-uniform) codebook; llama.cpp's
+Q4_K_M at 4.80 bits with mixed types and an importance matrix. Reaching it
+at <= 4.25 bits means a different codebook, which is a kernel and a format,
+not a quantizer setting. That is the decision left open at the end of this
+step, and the argument for both sides is in `docs/quantization.md`.
+
+**Reproducibility.** Nothing on a vast instance survives, so the recipe is
+in git: `scripts/quantize/build.sh` goes from the public bf16 weights to the
+checkpoint on one card in ~25 minutes, `measure.sh` rebuilds the bf16
+reference (41 GB, ~2 min on one card) and measures a candidate. The
+calibration ids and the evaluation corpora are committed as
+`data/quality/*.npz` (0.8 MB) rather than rebuilt, because their code
+portion is read from the installed torch and is not reproducible across
+torch versions; their hashes are in `docs/quantization.md`.
+`results/quality/*.json` hold every candidate's per-corpus and pooled
+metrics and every GSM8K answer. The rival checkpoints were evaluated and
+deleted, one at a time.
+
+**Not changed in this step**: the packing (every checkpoint here loads in
+the same engine, on the same kernels and graphs, with the same 76 tests),
+and the Targets table's verdict in `CLAUDE.md` — the bar is still not met.
+
+**The whole thread, by subject rather than by step** — why round-to-nearest
+on day 2, why the yardstick was built before any quantizer was chosen, what
+the Hub survey found, why GPTQ, what each refinement was worth, and the two
+honest positions left — is in `docs/quantization.md`.
+
 ## Next
 
+- **Phase 1b measured** (step 30): the quality table, and GPTQ in the same
+  packing at KL 0.0265 (RTN 0.0546); the bar, ExLlamaV3's 0.0128, is 2x
+  away and no GPTQ setting closes it. **Open decision**: change the codebook
+  (a non-uniform grid means a kernel and a format) or keep uniform int4 at
+  ~0.026 and restate the quality row with the measured number. The GPTQ
+  checkpoint (`/workspace/models/Qwen3.8-27B-int4g128-gptq`, `python -m
+  tokenrush.gptq`) is the one to use either way. Then **Phase 4** on one
+  card. Optional Phase 3 items are listed at the end of step 29.
 - **Phase 3 done** (steps 12–29): 224 / 373 / 373 greedy, 211 / 391 / 358
   sampled (DFlash2, essay / code / math), 179 / 310 / 251 on the Chinese
   families (MTP chain, chosen automatically), 211 / 238 at 200k, verify K=7 at
-  1.13x a raw step. Next is **Phase 1b on a two-GPU box** (`docs/quality_plan.md`:
-  the quality table, then a calibrated int4 in the same packing), then
-  **Phase 4** on one card with the final checkpoint. Optional Phase 3 items are
-  listed at the end of step 29.
+  1.13x a raw step.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are

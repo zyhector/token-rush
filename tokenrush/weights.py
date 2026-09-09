@@ -55,12 +55,13 @@ def iter_hf_tensors(src: str):
                     yield ours, f.get_tensor(name)
 
 
-def pack_checkpoint(src: str, dst: str, group: int = GROUP, shard_bytes: int = 4 << 30, device="cuda"):
-    """bf16 HF checkpoint -> packed int4 checkpoint at dst."""
+def write_packed(dst: str, items, group: int, copy_from: str, meta: dict, shard_bytes: int = 4 << 30):
+    """Write a packed checkpoint: items yields (our name, bf16 tensor) or
+    (our name, (qweight, scale, mn)); config/tokenizer files are copied from copy_from."""
     os.makedirs(dst, exist_ok=True)
     for fn in COPY_FILES:
-        if os.path.exists(os.path.join(src, fn)):
-            shutil.copy(os.path.join(src, fn), os.path.join(dst, fn))
+        if os.path.exists(os.path.join(copy_from, fn)):
+            shutil.copy(os.path.join(copy_from, fn), os.path.join(dst, fn))
     buf, size, shard_idx, quantized, total = {}, 0, 0, [], 0
     t0 = time.time()
 
@@ -71,27 +72,46 @@ def pack_checkpoint(src: str, dst: str, group: int = GROUP, shard_bytes: int = 4
             shard_idx += 1
             buf, size = {}, 0
 
-    for name, t in iter_hf_tensors(src):
-        if is_quantized(name):
-            q, s, m = quantize_int4(t.to(device), group)
+    for name, v in items:
+        if isinstance(v, tuple):
+            q, s, m = v
             outs = {name + ".qweight": q, name + ".scale": s, name + ".mn": m}
             quantized.append(name)
         else:
-            outs = {name: t}
-        for k, v in outs.items():
-            v = v.cpu().contiguous()
-            buf[k] = v
-            size += v.numel() * v.element_size()
-            total += v.numel() * v.element_size()
+            outs = {name: v}
+        for k, t in outs.items():
+            t = t.cpu().contiguous()
+            buf[k] = t
+            size += t.numel() * t.element_size()
+            total += t.numel() * t.element_size()
         if size >= shard_bytes:
             flush()
     flush()
-    meta = {"format": "int4", "group": group, "quantized": quantized, "shards": shard_idx,
-            "packed_bytes": total, "source": os.path.abspath(src)}
-    json.dump(meta, open(os.path.join(dst, PACK_META), "w"), indent=1)
+    out = {"format": "int4", "group": group, "quantized": quantized, "shards": shard_idx, "packed_bytes": total}
+    out.update(meta)
+    json.dump(out, open(os.path.join(dst, PACK_META), "w"), indent=1)
     print(f"packed {total / 1e9:.2f} GB into {shard_idx} shards in {time.time() - t0:.0f}s "
           f"({len(quantized)} tensors quantized)")
-    return meta
+    return out
+
+
+def pack_checkpoint(src: str, dst: str, group: int = GROUP, shard_bytes: int = 4 << 30, device="cuda",
+                    quantizer=None, meta_extra: dict = None):
+    """bf16 HF checkpoint -> packed int4 checkpoint at dst.
+
+    quantizer(name, bf16 tensor) -> (qweight, scale, mn) in the packing of
+    quant.py; default round-to-nearest (quantize_int4). A calibrated
+    quantizer (gptq.py) passes its precomputed triples through here so the
+    checkpoint layout is the same whatever chose the codes."""
+    def items():
+        for name, t in iter_hf_tensors(src):
+            if is_quantized(name):
+                yield name, (quantizer(name, t) if quantizer else quantize_int4(t.to(device), group))
+            else:
+                yield name, t
+    meta = {"source": os.path.abspath(src), "method": "rtn"}
+    meta.update(meta_extra or {})
+    return write_packed(dst, items(), group, src, meta, shard_bytes)
 
 
 def is_packed(path: str) -> bool:

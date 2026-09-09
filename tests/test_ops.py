@@ -67,6 +67,8 @@ def test_rope_matches_hf():
     T, pos0 = 5, 1000
     q, k = rnd(1, 24, T, 256, std=1.0), rnd(1, 4, T, 256, std=1.0)
     pid = torch.arange(pos0, pos0 + T, device=DEV)[None]
+    if hasattr(rot, "recomposition_frequencies"):        # transformers >= 5.17: mRoPE wants (3, bs, T) position ids
+        pid = pid[None].expand(3, 1, T)
     cos, sin = rot(q, pid)
     q_hf, k_hf = apply_rotary_pos_emb(q, k, cos, sin)
     cos_t, sin_t = ops.rope_table(4096, 64, 1e7, DEV)

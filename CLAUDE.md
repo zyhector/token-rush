@@ -28,7 +28,7 @@ headroom.
 | vs llama.cpp + MTP | 1.5–1.85x on prose (130), 2x on code and math |
 | Context | **256k usable**, not merely loadable — the model's native maximum |
 | Decode at 200k | hold **≥92% of the wall**, the same fraction as at short context (llama.cpp holds 60%, SGLang 74%, vLLM 90%) |
-| Quantization quality | at ≤4.25 bpw, mean KL divergence to bf16 **no worse than ExLlamaV3's 4.00 bpw** (the one rival at our bpw); GSM8K within noise of llama.cpp's Q4_K_M — without this row the byte advantage does not count |
+| Quantization quality | at ≤4.25 bpw, mean KL divergence to bf16 **no worse than ExLlamaV3's 4.00 bpw** (the one rival at our bpw); GSM8K within noise of llama.cpp's Q4_K_M — without this row the byte advantage does not count. **Measured 2026-09-09** (`docs/quantization.md`, `docs/progress.md` step 30): ExLlamaV3 0.0128; ours 0.0546 uncalibrated, **0.0232 with GPTQ + an MSE range search** at 4.25 bpw, GSM8K 96.5% — **not met**, 1.8x away, and what is left is the uniform int4 codebook, not the calibration |
 
 **% of the memory-bandwidth roofline** is the primary metric — unlike a margin over
 a rival, it does not move as rivals mature. The projection behind these rows,
@@ -74,7 +74,8 @@ of 27.78B in the repo. Weight bytes are computed against 26.90B, not 27B.
 
 Quantization is therefore the single largest lever on the headline number — it
 moves the ceiling by ~25 tok/s across that range, and **the 110–120 tok/s target
-is only reachable at or below ~4.25 bpw**. Pick accordingly in Phase 1.
+is only reachable at or below ~4.25 bpw**. Picked in Phase 1b: int4 g128 GPTQ
+with an MSE range search, 4.25 bpw (`docs/quantization.md`).
 
 Raw decode headroom equals the distance rivals sit from this wall.
 **The only way through the wall is speculative decoding** — and at bs=1 the 5090's
@@ -163,7 +164,7 @@ works" risk.
 |---|---|---|
 | 0 (1 wk) | Run llama.cpp (+MTP), SGLang (int4 + DSpark), vLLM on Qwen3.8-27B; slice per-token timeline with `nsys`; read GDN and MTP structure | Baseline report + overhead breakdown |
 | 1a (1 wk) | **Get it running first.** A ~1000-line PyTorch engine built for bs=1 from existing blocks: explicit state (preallocated contiguous KV, conv state, FP32 recurrent state, position counter), per-layer pure functions, chunked prefill, greedy loop; GDN via `fla`'s chunk kernel for prefill and the verified Triton step from `check_stack.py` for decode, SDPA attention. Quantization is the dumbest thing that fits: own int4 g128 RTN packing, dequant-then-matmul GEMV. Milestone: coherent greedy text on three prompts, an eager tok/s. Then the 4-bit GEMV shootout (torchao, Marlin, NVFP4, EXL3; packed GB/s in-graph at real shapes incl. `lm_head`) and swap the kernel in | A running, fully ours engine + first speed number (development number) |
-| 1b (1 wk) | Correctness and quality, once there is something to check. **Engine-correctness gate: done 2026-09-08** (bf16 vs HF, 48/48 greedy tokens). **Quality table and quantization choice: deferred to a two-GPU box, plan in `docs/quality_plan.md`** (the current int4 RTN is 2–4x worse in KL than a calibrated quant and does not yet meet the quality row above) | Correctness baseline (done) + quality table (owed) |
+| 1b (done as measurement) | Correctness and quality. **Engine-correctness gate: done 2026-09-08** (bf16 vs HF, 48/48 greedy tokens). **Quality table and quantization choice: done 2026-09-09** — the yardstick (KL to bf16 over 82k positions, PPL, top-1, a measured noise floor) for ours and four rivals, then our own GPTQ in the unchanged packing: KL 0.0546 -> **0.0232**, speed bit-identical. The bar is 0.0128 and the remaining gap is the codebook: `docs/quantization.md` has the whole thread and the open decision | Correctness baseline + quality table + the GPTQ checkpoint and its recipe in git; the quality row itself still owed |
 | 2 (3–4 wk) | Own kernels, in payoff order: full-step CUDA graph first, then fused GDN single step, attention decode, fused sampling; GEMV last and only if measurement demands it. **Done 2026-09-08** (`docs/progress.md` steps 4–11): 102 tok/s = 82% of the wall short-context, 69 tok/s = 83% at 200k with FP8 KV, 256k usable; GEMV redesign deferred | Raw decode near the wall |
 | 3a (done) | Speculation fused into the graph: MTP chain, acceptance-driven dynamic depth, sampling, long context, draft vocabulary; greedy speculative output identical to greedy raw output with shared kernels. **Done 2026-09-08/09** (`docs/progress.md` steps 12–22): 186 / 261 / 263 tok/s effective on prose / code / math, 195 prose at 200k. Trees and DSpark measured and dropped (step 23) | Effective-throughput headline, first version |
 | 3b (done) | **DFlash2 as the draft**: z-lab's 1.92B block-diffusion draft, 7 drafts from one forward conditioned on the target's layer 5/19/33/47/61 hidden states, on our fused kernels, int4, ring cache, K=7 verify. **Done 2026-09-09** (steps 25–27): 217 / 355 / 350 tok/s on prose / code / math, 229 code at 200k; Chinese prose keeps the MTP chain (`--draft mtp`) | The effective-throughput headline: prose over the 200 floor, code and math in or above their bands |
@@ -215,4 +216,6 @@ timing against known byte counts. `nsys` timelines work. See
   never a quantization metric and is not a goal.
 - **Time-box**: resume-ready milestone by **end of October 2026**.
 
-Longer-form argument, precedents and sources: `docs/feasibility.md`.
+Longer-form argument, precedents and sources: `docs/feasibility.md`. The
+quantization thread end to end — the format, the yardstick, the rivals, GPTQ,
+and what is left — is `docs/quantization.md`.

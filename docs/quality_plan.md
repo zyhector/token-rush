@@ -1,5 +1,11 @@
 # Phase 1b, second half: quantization quality — deferred, to be done on a two-GPU box
 
+> **Done 2026-09-09** (`docs/progress.md` step 30): Part 1 measured as written here
+> (`bench/quality_corpus.py`, `quality_logits.py`, `quality_sources.py`, `quality_hf.py`,
+> `exl3_export.py`); Part 2 step 1 (GPTQ, `tokenrush/gptq.py`) done: KL 0.0546 -> 0.0265.
+> The bar (0.0128) is not met; steps 2–4 below are the open decision. The
+> numbers below this line are the plan as written before the measurement.
+
 Written 2026-09-08, when Phase 1b's first half (the engine-correctness gate)
 passed and the decision was taken to go into Phase 2 first. This is the
 work that was skipped, written for the agent that picks it up on a machine
