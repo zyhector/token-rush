@@ -101,3 +101,14 @@ required:
    `CLAUDE_CODE_MAX_CONTEXT_TOKENS` to the server's `--ctx-size`.
 
 At 256k with `q8_0` KV this needs ~29.4 GB of 32.6 GB. f16 KV does not fit.
+
+## A captured graph holds tensors by address
+
+Anything a CUDA graph was captured over must stay allocated and must stay
+*that* tensor. Re-assigning an engine attribute after capture (a second
+`attach_*` allocating its own `drafts` buffer or its own copy of the draft
+head) leaves the graph reading the old allocation: silently stale data if the
+old tensor is still referenced somewhere, garbage and a device-side assert if
+it was freed and reused (step 29: the 128k-row draft head replaced under the
+DFlash graph produced out-of-range token ids). Allocate shared buffers once,
+at engine construction; make `attach_*` idempotent for what it shares.

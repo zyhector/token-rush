@@ -10,7 +10,7 @@ from .generate import generate
 from .model import Engine
 from .mtp import MTPHead, build_mtp
 from .quant import DEFAULT_BACKEND
-from .spec import generate_spec_graph
+from .spec import cjk_share, generate_spec_graph, pick_draft
 from .weights import is_packed, load_packed
 
 
@@ -28,8 +28,9 @@ def main():
     ap.add_argument("--eager", action="store_true", help="decode eagerly instead of replaying CUDA graphs")
     ap.add_argument("--no-spec", action="store_true", help="raw decode instead of speculative (MTP chain)")
     ap.add_argument("--spec-depth", default="3:4", help="Kmin:Kmax adaptive draft depth (mtp draft)")
-    ap.add_argument("--draft", default="dflash", choices=("dflash", "mtp"),
-                    help="the draft: z-lab's DFlash2 block draft (default; needs --dflash-path) or the shipped MTP head")
+    ap.add_argument("--draft", default="auto", choices=("auto", "dflash", "mtp"),
+                    help="the draft: z-lab's DFlash2 block draft (needs --dflash-path), the shipped MTP head, or "
+                         "auto (default): both resident, the MTP chain for prompts that are >= 20%% CJK, DFlash2 otherwise")
     ap.add_argument("--dflash-path", default="/workspace/models/Qwen3.8-27B-DFlash2")
     ap.add_argument("--draft-vocab", default="128k",
                     help="the draft chain's lm_head rows: 'full'; '128k' (the first 131072 token ids, i.e. the "
@@ -47,14 +48,16 @@ def main():
 
     import os
     spec = not a.no_spec and not a.eager
-    use_dflash = spec and a.draft == "dflash" and os.path.exists(a.dflash_path)
-    if spec and a.draft == "dflash" and not use_dflash:
+    have_dflash = os.path.exists(a.dflash_path)
+    if spec and a.draft != "mtp" and not have_dflash:
         print(f"[warn] DFlash2 checkpoint not found at {a.dflash_path}; using the MTP draft")
+    want_dflash = spec and a.draft != "mtp" and have_dflash
+    want_mtp = spec and (a.draft != "dflash" or not have_dflash)
     kmin, kmax = (int(v) for v in a.spec_depth.split(":"))
-    cfg, w, mtp_t = load_packed(a.model, backend=a.backend or DEFAULT_BACKEND, with_mtp=spec and not use_dflash)
+    cfg, w, mtp_t = load_packed(a.model, backend=a.backend or DEFAULT_BACKEND, with_mtp=want_mtp)
     tok = AutoTokenizer.from_pretrained(a.model)
     engine = Engine(cfg, w, max_len=a.max_len, kv_dtype=torch.float8_e4m3fn if a.kv == "fp8" else torch.bfloat16,
-                    max_spec=(7 if use_dflash else kmax) if spec else 0)
+                    max_spec=(7 if want_dflash else kmax) if spec else 0)
     mtp = draft = None
     if not a.eager:
         t0 = time.perf_counter()
@@ -70,13 +73,13 @@ def main():
                 dv = torch.load(named).long()
             else:
                 dv = torch.load(a.draft_vocab).long()
-            if use_dflash:
+            if want_dflash:
                 from .dflash import DFlashDraft, load_dflash
                 draft = DFlashDraft(load_dflash(a.dflash_path, int4=True), w.embed, w.lm_head, cfg.hidden, a.max_len)
                 engine.attach_dflash(draft, draft_vocab=dv)
                 engine.capture_spec_dflash()
                 msg += " and the DFlash2 speculative graph (7 drafts per step)"
-            else:
+            if want_mtp:
                 mtp = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len,
                               kv_dtype=engine.state.kv_dtype)
                 engine.attach_mtp(mtp, draft_vocab=dv)
@@ -94,6 +97,9 @@ def main():
         text = a.prompt
     ids = tok.encode(text)
     stop = set(cfg.eos_ids) | {tok.eos_token_id}
+    use_dflash = want_dflash and (not want_mtp or pick_draft(text) == "dflash")
+    if spec:
+        print(f"draft: {'DFlash2' if use_dflash else 'MTP chain'}" + (f" (auto, {cjk_share(text):.0%} CJK)" if a.draft == "auto" else ""))
     print(f"--- prompt ({len(ids)} tokens) ---\n{text}\n--- output ---")
     if use_dflash:
         from .spec import generate_dflash

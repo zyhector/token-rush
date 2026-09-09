@@ -29,6 +29,8 @@ def main():
     ap.add_argument("--new", type=int, default=300)
     ap.add_argument("--backend", default=None)
     ap.add_argument("--max-len", type=int, default=4096)
+    ap.add_argument("--temperature", type=float, default=0.0)
+    ap.add_argument("--top-p", type=float, default=1.0)
     a = ap.parse_args()
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(a.model)
@@ -41,7 +43,7 @@ def main():
     ids_by_prompt = {pn: tok.encode(tok.apply_chat_template([{"role": "user", "content": t}], tokenize=False,
                                                             add_generation_prompt=True, enable_thinking=False))
                      for pn, t in prompts.items()}
-    print(f"backend {backend}, {a.new} new tokens, 128k draft vocab")
+    print(f"backend {backend}, {a.new} new tokens, 128k draft vocab, T={a.temperature} top-p={a.top_p}")
     print("draft   | " + " | ".join(f"{pn:>14}" for pn in prompts) + "   (tok/s, accepted/step, ms/step)")
     for dname in drafts:
         if dname == "dflash":
@@ -50,14 +52,14 @@ def main():
             draft = DFlashDraft(load_dflash(a.dflash_path, int4=True), w.embed, w.lm_head, cfg.hidden, a.max_len)
             eng.attach_dflash(draft, draft_vocab=dv)
             eng.capture_spec_dflash()
-            run = lambda ids: generate_dflash(eng, draft, tok, ids, a.new, stop, stream=False)
+            run = lambda ids: generate_dflash(eng, draft, tok, ids, a.new, stop, stream=False, temperature=a.temperature, top_p=a.top_p, seed=0)
         else:
             eng = Engine(cfg, w, max_len=a.max_len, max_spec=4); eng.capture()
             draft = MTPHead(cfg, build_mtp(cfg, mtp_t, "cuda", int4=True), w.embed, w.lm_head, a.max_len)
             eng.attach_mtp(draft, draft_vocab=dv)
             for k in (3, 4):
                 eng.capture_spec(k)
-            run = lambda ids: generate_spec_graph(eng, draft, tok, ids, a.new, stop, stream=False, dynamic=(3, 4))
+            run = lambda ids: generate_spec_graph(eng, draft, tok, ids, a.new, stop, stream=False, dynamic=(3, 4), temperature=a.temperature, top_p=a.top_p, seed=0)
         cells = []
         for pn, ids in ids_by_prompt.items():
             out, st = run(ids)

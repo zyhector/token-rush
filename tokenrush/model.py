@@ -194,6 +194,7 @@ class Engine:
         # verify-step I/O: the committed-but-unprocessed token followed by K drafts,
         # the logits of all K+1 positions, the number of accepted drafts
         self.spec_toks = torch.zeros(max_spec + 1, device=self.device, dtype=torch.long)
+        self.drafts = torch.zeros(max(max_spec, 1), device=self.device, dtype=torch.long)   # shared by both drafts' graphs
         self.spec_logits = None       # [K+1, vocab]
         self.spec_hidden = None       # [K+1, hidden], post-final-norm (the MTP head's input)
         self.n_accepted = torch.zeros(1, device=self.device, dtype=torch.long)
@@ -328,15 +329,9 @@ class Engine:
         assert K <= self.max_spec
         R = K + 1
         self.feat_buf = torch.zeros(R, len(self.feature_layers) * self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
-        self.drafts = torch.zeros(K, device=self.device, dtype=torch.long)
+        self.dflash_K = K
         self.dflash_block = torch.full((R,), draft.w.mask_token_id, device=self.device, dtype=torch.long)
-        if draft_vocab is None:
-            self.draft_head, self.draft_map = self.w.lm_head, None
-        else:
-            ids = draft_vocab.to(self.device)
-            h = self.w.lm_head
-            self.draft_head = h.rows(ids)
-            self.draft_map = ids
+        self._set_draft_head(draft_vocab)
         if self.spec_logits is None:
             self.spec_logits = torch.empty(self.max_spec + 1, self.cfg.vocab, device=self.device, dtype=torch.bfloat16)
             self.spec_hidden = torch.empty(self.max_spec + 1, self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
@@ -347,20 +342,20 @@ class Engine:
         previous verify's rows 0..n hold the features of positions pos-n-1..pos-1, the
         draft's context cache ends at pos-n-1), drafts K = block-1."""
         d, st = self.dflash, self.state
-        K = self.drafts.numel()
+        K = self.dflash_K
         n_ctx = self.n_accepted + 1                                              # [1]: new context rows
         ctx_t = st.pos_t - n_ctx                                                 # the draft cache's end
         self.dflash_block[0].copy_(self.tok[0])
         head = None if self.draft_map is None else (self.draft_head, self.draft_map)
         new = d.forward_static(self.feat_buf, n_ctx, ctx_t, self.dflash_block, head)   # [K]
-        self.drafts.copy_(new)
+        self.drafts[:K].copy_(new)
         self.spec_toks[0].copy_(self.tok[0])
-        self.spec_toks[1:K + 1].copy_(self.drafts)
+        self.spec_toks[1:K + 1].copy_(self.drafts[:K])
         self._verify_step(K)                                                     # writes feat_buf rows for M = K+1
 
     @torch.no_grad()
     def capture_spec_dflash(self, warmup: int = 2):
-        K = self.drafts.numel()
+        K = self.dflash_K
         self.pool = self.pool or torch.cuda.graph_pool_handle()
         side = torch.cuda.Stream()
         side.wait_stream(torch.cuda.current_stream())
@@ -379,7 +374,7 @@ class Engine:
         torch.cuda.synchronize()
 
     def spec_step_dflash(self) -> int:
-        K = self.drafts.numel()
+        K = self.dflash_K
         self.spec_graphs[("dflash", K)].replay()
         n = int(self.n_accepted)
         self.state.pos += n + 1
@@ -396,17 +391,23 @@ class Engine:
         simply rejected), so this trades a little acceptance for ~0.6 GB less read per
         draft; the output is unaffected."""
         self.mtp = mtp
-        K = self.max_spec
-        self.drafts = torch.zeros(max(K, 1), device=self.device, dtype=torch.long)
+        assert self.drafts.numel() >= max(self.max_spec, 1)
         self.draft_hidden = torch.empty(1, self.cfg.hidden, device=self.device, dtype=torch.bfloat16)
+        self._set_draft_head(draft_vocab)
+
+    def _set_draft_head(self, draft_vocab):
+        """The drafts' lm_head rows. Kept when a second draft asks for the same vocabulary:
+        a captured graph holds the head's tensors by address, so it must not be replaced."""
         if draft_vocab is None:
             self.draft_head, self.draft_map = self.w.lm_head, None
-        else:
-            ids = draft_vocab.to(self.device)
-            h = self.w.lm_head
-            assert isinstance(h, QLinear), "draft vocab needs the int4 lm_head"
-            self.draft_head = h.rows(ids)
-            self.draft_map = ids
+            return
+        ids = draft_vocab.to(self.device)
+        if getattr(self, "draft_map", None) is not None and self.draft_map.numel() == ids.numel() and torch.equal(self.draft_map, ids):
+            return
+        h = self.w.lm_head
+        assert isinstance(h, QLinear), "draft vocab needs the int4 lm_head"
+        self.draft_head = h.rows(ids)
+        self.draft_map = ids
 
     def _draft_argmax(self, h: torch.Tensor) -> torch.Tensor:
         d = self.draft_head(h).argmax(-1)

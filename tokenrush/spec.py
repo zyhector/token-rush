@@ -236,3 +236,24 @@ def generate_dflash(engine, draft, tok, prompt_ids, max_new, stop_ids, stream=Tr
     return out, {"prompt_tokens": T, "prefill_s": t_prefill, "new_tokens": len(out), "decode_s": t_dec,
                  "decode_tok_s": len(out) / t_dec, "verify_steps": steps,
                  "accepted_per_step": len(out) / max(steps, 1), "ms_per_step": t_dec / max(steps, 1) * 1e3}
+
+
+# ------------------------------------------------------------ draft choice
+
+def cjk_share(text: str) -> float:
+    """Fraction of the non-blank characters that are CJK (Han, kana, hangul, CJK punctuation)."""
+    chars = [c for c in text if not c.isspace()]
+    if not chars:
+        return 0.0
+    cjk = sum(1 for c in chars if ("\u4e00" <= c <= "\u9fff") or ("\u3400" <= c <= "\u4dbf") or ("\u3000" <= c <= "\u30ff")
+              or ("\uac00" <= c <= "\ud7af") or ("\uff00" <= c <= "\uffef"))
+    return cjk / len(chars)
+
+
+def pick_draft(prompt_text: str, threshold: float = 0.2) -> str:
+    """'dflash' or 'mtp' for this prompt. DFlash2 accepts 3-5 drafts per step on
+    English prose, code and math but 1.8 on Chinese prose (it was trained on
+    little Chinese), where the MTP chain's 2.2 at a cheaper step wins by 40%;
+    on Chinese math they tie and on mixed text the MTP chain leads
+    (docs/progress.md step 28). The prompt's script is the cheapest proxy."""
+    return "mtp" if cjk_share(prompt_text) >= threshold else "dflash"

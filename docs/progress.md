@@ -10,18 +10,18 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 28, 2026-09-09)
+## Where things stand (after step 29, 2026-09-09)
 
 | | | |
 |---|---|---|
 | raw greedy decode, short context | **102 tok/s** on the Triton GEMV (`--backend triton`), 9.9 ms/step, 81% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6); 97.6 on the default Marlin kernel, whose one layout serves the speculative step | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
-| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **224 / 373 / 373 tok/s** (MTP chain: 213 / 306 / 286); Chinese essay 179 / math 310 / mixed 251 with the MTP chain (`--draft mtp`) | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
-| speculative sampled, T=0.7 top-p 0.9 | 167 / 237 / 239 (step 16, MTP chain, before 3b/3c) | output distribution identical to raw sampling |
+| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **224 / 373 / 373 tok/s** (MTP chain: 213 / 306 / 286); Chinese essay 179 / math 310 / mixed 251 with the MTP chain, which `--draft auto` (the default) picks for CJK prompts | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
+| speculative sampled, T=0.7 top-p 0.9 | **211 / 391 / 358** (DFlash2), 210 / 292 / 294 (MTP chain) | output distribution identical to raw sampling (exact rejection sampling for deterministic drafts) |
 | speculative at 200k context, fp8 KV, prose / code | **211 (MTP) / 238 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall on the Triton GEMV, 69.8 on Marlin) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
 | correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | |
 | quantization | int4 g128 RTN, uncalibrated: teacher-forced KL 0.06 vs bf16, 2–4x a calibrated quant's; **the quality gate is not met** (`docs/quality_plan.md`, deferred to a two-GPU box) | |
-| phases | 0 done (frozen), 1a done, 1b half (gate done, quality owed), 2 done, 3a/3b/3c done (sampled-decoding acceptance and a per-content draft switch open), 4 not started | |
+| phases | 0 done (frozen), 1a done, 1b half (gate done, quality owed), 2 done, **3 done**, 4 not started | |
 
 Every number above is a development number on this instance; Phase 4
 re-measures everything on one machine.
@@ -56,6 +56,7 @@ re-measures everything on one machine.
 | 26. Phase 3b: the DFlash step tuned | 2026-09-09 | + GDN at M>=4 with two programs per head and one M-row norm launch (2.4 -> 1.4 ms); the draft's norms and grouped convs as fused kernels; the draft's attention through our windowed split kernel + a block-keys kernel (SDPA with a mask was 7x slower than unmasked). Drafts identical to z-lab's at 3000 tokens of context (window active) | — | **220 / 342 / 353** at 14.8 ms/step (v1: 178 / 306 / 310 at 16.8) |
 | 27. Phase 3b: DFlash across families and context; ring cache | 2026-09-09 | + the draft's context cache is a 4096-row ring (its window is 2048), so 256k fits (29.4 GB peak); its conv/selector projections int4 too; measured on six families and at 200k. Chinese prose is the one family where the MTP chain stays better (DFlash2 accepts 1.77/step there) | — | six families: **217 / 355 / 350 / 121 / 289 / 212** (essay / code / math / zh-essay / zh-math / mixed); at 200k: prose 179, code 229 (MTP: 195 / 199) |
 | 28. Phase 3c: Marlin-class int4 GEMM | 2026-09-09 | + Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction, a lock-free partial mode for the split-K shapes, no L2 cache hints (illegal on sm_120); one kernel for M <= 16 in Marlin's weight layout, the default. Verify K=7 = **1.13x** a raw step (was 1.35x), raw step 4% dearer (the layout has no better M=1 kernel than the mma one) | — | **224 / 373 / 373** DFlash, 213 / 306 / 286 MTP (essay / code / math); zh-essay / zh-math / mixed 179 / 310 / 251 (MTP); 200k: prose 211 (MTP) / code 238 (DFlash); raw 97.6 (102 on `--backend triton`) |
+| 29. Phase 3 closed: sampled decoding measured, per-content draft choice | 2026-09-09 | + the verify step's accept-if-equal-to-the-draw rule shown to *be* rejection sampling for deterministic drafts (no change needed); `--draft auto` (default) keeps both drafts resident and picks the MTP chain for prompts >= 20% CJK, DFlash2 otherwise; two shared-buffer bugs fixed on the way (a graph holds tensors by address) | — | sampled T=0.7 top-p 0.9: **211 / 391 / 358** DFlash2, 210 / 292 / 294 MTP (essay / code / math); zh-essay 171 (MTP); auto: English essay 232, Chinese essay 182 |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1280,16 +1281,71 @@ rejection-sampling acceptance for sampled decoding, the per-content draft
 switch, and the two long-context items (the 64-row attention tile, wide-shape
 partial mode).
 
+## Step 29 — Phase 3 closed: sampled decoding, per-content draft choice (2026-09-09)
+
+**Rejection sampling was already there.** The item "rejection-sampling
+acceptance for sampled decoding" turned out to be a no-op. The verify step
+draws y ~ p (the target's distribution after temperature / top-k / top-p) at
+each position, accepts the draft x when y == x and otherwise commits y. For
+a *deterministic* draft — and both of ours are: the MTP chain drafts its
+argmax, DFlash2 its per-position argmax — the draft distribution q is a
+point mass at x, so textbook speculative sampling accepts x with probability
+min(1, p(x)/q(x)) = p(x) and on rejection samples from norm(max(0, p − q)) =
+p(·|≠x). The draw rule does exactly that: P(y = x) = p(x), and y | y ≠ x is
+p(·|≠x). Same acceptance, same output distribution, one draw per position.
+What *would* change acceptance is a stochastic draft (sample the chain
+instead of taking its argmax and keep its distribution for the residual):
+expected acceptance becomes Σ min(p, q) instead of p(argmax q), which wins
+when p is flat (creative prose at high temperature) and loses nothing else.
+Not built; the sampled numbers below are within a few percent of greedy, so
+the ceiling is small at T=0.7.
+
+Measured on the Marlin stack (T=0.7, top-p 0.9, `bench/families.py --temperature 0.7 --top-p 0.9`):
+
+| tok/s (accepted/step) | essay | code | math | zh-essay | zh-math | mixed |
+|---|---|---|---|---|---|---|
+| DFlash2 | 211 (2.89) | 391 (5.37) | 358 (4.92) | 129 (1.78) | 305 (4.19) | 216 (2.97) |
+| MTP chain | 210 (2.60) | 292 (3.68) | 294 (3.70) | 171 (2.10) | 299 (3.76) | 223 (2.78) |
+| step 16 (MTP, before 3b/3c) | 167 | 237 | 239 | — | — | — |
+
+**Per-content draft, `--draft auto` (the default).** Both drafts are
+resident (DFlash2 int4 1.0 GB + the MTP head 0.2 GB + both graphs; 21.8 GB
+allocated at a 32k bf16 context, and at 256k fp8 the MTP head's own cache
+adds 0.5 GB to the 29.4 GB peak, still under 31.4). The choice is made per
+prompt from its script: the MTP chain when >= 20% of the non-blank characters
+are CJK (`spec.pick_draft`), DFlash2 otherwise — the cheapest proxy for the
+one thing that decides it, DFlash2's 1.8 accepted per step on Chinese prose
+against the chain's 2.2 at a cheaper step. Chinese math is a tie either way,
+mixed text goes to the chain (251 vs 216), which the heuristic also picks.
+Measured through `run.py --chat`: the Roman-empire essay in English 232
+tok/s (DFlash2, 3.19/step), in Chinese 182 tok/s (MTP, 2.25/step); before,
+the Chinese prompt ran DFlash2 at 129.
+
+Two bugs when both drafts attach to one engine, both of the same kind: a
+captured graph holds its tensors by address, so an attribute that a second
+`attach_*` re-allocated (the shared `drafts` buffer, and the 128k-row draft
+head, whose old copy was freed under the DFlash graph and read back as
+garbage token ids -> a device-side assert) has to be allocated once and
+shared. `docs/traps.md`.
+
+**Phase 3 closes here.** Its output, the effective-throughput headline, on
+this instance: 224 / 373 / 373 greedy and 211 / 391 / 358 sampled on prose /
+code / math, 179 / 310 / 251 on the Chinese families, 211 / 238 at 200k, with
+the verify step at 1.13x a raw step. Left as optional items, none blocking:
+stochastic drafts with residual sampling; the 64-row attention tile at long
+context (M=8 body attention at ~700 GB/s over a 6.7 GB cache); partial-mode
+Marlin on the wide shapes (+2%); a Marlin-layout kernel that matches the
+Triton GEMV at M=1 (would recover raw decode's 4%).
+
 ## Next
 
-- **Phase 3**, 3a/3b/3c done (steps 12–28). Speculative greedy: 224 / 373
-  / 373 with DFlash2 (essay / code / math), 213 / 306 / 286 with the MTP
-  chain, which wins the Chinese families (179 / 310 / 251); 211 / 238 at 200k.
-  Verify K=7 at 1.13x a raw step. Remaining: rejection-sampling acceptance
-  for sampled decoding (the sampled row is still step 16's); a per-content
-  draft switch (both graphs resident); the 64-row attention tile at long
-  context; partial-mode Marlin on the wide shapes (+2%). Then Phase 3 closes
-  and Phase 1b's quality table (two-GPU box) and Phase 4 remain.
+- **Phase 3 done** (steps 12–29): 224 / 373 / 373 greedy, 211 / 391 / 358
+  sampled (DFlash2, essay / code / math), 179 / 310 / 251 on the Chinese
+  families (MTP chain, chosen automatically), 211 / 238 at 200k, verify K=7 at
+  1.13x a raw step. Next is **Phase 1b on a two-GPU box** (`docs/quality_plan.md`:
+  the quality table, then a calibrated int4 in the same packing), then
+  **Phase 4** on one card with the final checkpoint. Optional Phase 3 items are
+  listed at the end of step 29.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are
