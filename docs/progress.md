@@ -10,12 +10,12 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 22, 2026-09-09)
+## Where things stand (after step 26, 2026-09-09)
 
 | | | |
 |---|---|---|
 | raw greedy decode, short context | **102 tok/s**, 9.8 ms/step, 82% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6) | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
-| speculative greedy (MTP chain in-graph, depth 3:4, 128k draft vocab), essay / code / math | **186 / 261 / 263 tok/s**; Chinese essay / math 162 / 279 | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
+| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **220 / 342 / 353 tok/s** (MTP chain: 186 / 261 / 263; Chinese essay / math 162 / 279 with MTP) | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
 | speculative sampled, T=0.7 top-p 0.9 | 167 / 237 / 239 | output distribution identical to raw sampling |
 | speculative at 200k context, fp8 KV, prose / code | **195 / ~200 tok/s** (raw 71.7 = 85.6% of the wall) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
@@ -53,6 +53,7 @@ re-measures everything on one machine.
 | 23. Draft trees: simulated, not built | 2026-09-09 | + `bench/tree_accept.py` (teacher-forced acceptance of static trees with the eager MTP) and verify cost measured to M=8: the best 7-node tree gains +10% acceptance on prose, +3–4% on code/math, for a step ~20% dearer. **Net negative on this stack; trees dropped.** A shared-memory overflow for M >= 6 fixed on the way | — | unchanged |
 | 24. Research: what is left to gain | 2026-09-09 | + surveyed 2025–26 single-stream speculation and small-M int4 GEMM work; measured z-lab's **DFlash2** block-diffusion draft teacher-forced on our target: 3.57 / 5.37 / 5.76 accepted per 7-draft step (essay / code / math) vs the MTP chain's 2.75 / 3.88 / 4.05 at K=4, from one draft forward. Projected 238 / 358 / 384 tok/s in-graph; with a Marlin-class M-row GEMM ~275 / 413 / 443 | — | unchanged |
 | 25. Phase 3b: DFlash2 draft inside the graph (first version) | 2026-09-09 | + our implementation of the DFlash2 forward (bit-identical to z-lab's reference), int4-packed, graph-capturable with a fixed context-row count and a fixed 2048-key window; the verify body captures the five feature layers; one graph = draft block + K=7 verify. Exact vs raw greedy 300/300 | — | **178 / 306 / 310** (essay / code / math) at 16.8 ms/step; MTP chain was 186 / 261 / 263 |
+| 26. Phase 3b: the DFlash step tuned | 2026-09-09 | + GDN at M>=4 with two programs per head and one M-row norm launch (2.4 -> 1.4 ms); the draft's norms and grouped convs as fused kernels; the draft's attention through our windowed split kernel + a block-keys kernel (SDPA with a mask was 7x slower than unmasked). Drafts identical to z-lab's at 3000 tokens of context (window active) | — | **220 / 342 / 353** at 14.8 ms/step (v1: 178 / 306 / 310 at 16.8) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1059,6 +1060,50 @@ the snapshot writes parallelize; or fewer/cheaper snapshots), the draft's
 attention through our split kernel with a window, and fusing the draft's
 convs, norms and selector. Target: ~13.5 ms per step -> ~220 / 375 / 380;
 then 3c (Marlin-class GEMM) on top.
+
+## Step 26 — the DFlash step tuned (2026-09-09)
+
+Three changes from the profile of step 25, each verified separately:
+
+- **GDN kernel at M >= 4**: two programs per V head (`BV=64`) with the gated
+  norm as one extra launch for all M rows. In-graph microbench at M=8:
+  33 -> 27 us per layer; in the step 2.37 -> 1.44 ms. (M=1 keeps one program
+  per head: 6.1 us, the norm folded in.) The cost at M=8 is the 8 x 64 KB
+  snapshot writes per program more than the recurrence itself.
+- **The draft's norms and convs as kernels**: `add_rmsnorm(plain=True)` (the
+  Qwen3 gain, weight * x) replaces three torch ops per norm; `grouped_conv`
+  does a dynamic causal conv over the block rows in one launch, rounding in
+  the reference's order (bf16 add of the static term, fp32 addcmul of the
+  dynamic term, rounded once). ~350 launches fewer per step.
+- **The draft's attention through our kernels**: SDPA with any mask ran at
+  141 us per call against 21 us unmasked (7x; the masked path is a slow
+  kernel), 5 calls per step. Now the context keys go through the split kernel
+  with two new modes — `NEWROWS=0` (the queries are not cache rows) and a
+  per-row `WINDOW` lower bound — and the 8 block keys through a small
+  `_attn_block_kernel` that writes one more partial; the reduce merges 15 + 1
+  partials, ungated. 0.68 -> ~0.1 ms.
+
+A finding on the way: my eager `DFlashDraft.forward` and the first unit
+test both truncated the context keys at the *last* block row's window bound
+for every row; z-lab's mask gives each row its own bound. Beyond 2048 tokens
+of context that excluded up to seven keys per row — the kernel had it right
+and the references were wrong (the split kernel alone matches an fp32
+reference with z-lab's semantics at 0.2% per row). Fixed; then at 3000
+tokens of context, z-lab's reference, our eager path and our static path
+produce identical drafts (42/42).
+
+| 300 greedy tokens | essay | code | math |
+|---|---|---|---|
+| MTP chain, dynamic 3:4 (step 21) | 186 (2.53/step, 13.6 ms) | 261 (3.61) | 263 (3.64) |
+| DFlash2 v1 (step 25) | 178 (2.98, 16.8 ms) | 306 (5.14) | 310 (5.21) |
+| **DFlash2 v3** | **220** (3.25, 14.8 ms) | **342** (5.05) | **353** (5.21) |
+
+The step's profile now (14.72 ms GPU, 1113 launches): body rows GEMM
+~10.3, draft rows GEMM ~1.3, GDN 1.44, norms 0.38, the draft's bf16 conv
+projections through cuBLAS 0.29 (11 launches at 26 us each: the small-M
+cuBLAS path is slow; int4 rows would be ~0.1), attention 0.15, the rest
+~0.5. The prose floor of 200 is crossed; code and math are inside their
+target bands (230–280 and 300–380) and above them respectively.
 
 ## Next
 

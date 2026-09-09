@@ -321,3 +321,41 @@ def test_engine_fp8_end_to_end():
             eng.tok.copy_(toks[t:t + 1]); eng.step(); got.append(eng.logits.clone())
         outs[dt] = torch.cat(got).float()
     assert rel(outs[torch.float8_e4m3fn], outs[torch.bfloat16]) < 5e-2
+
+
+def test_plain_norm_and_grouped_conv():
+    from tokenrush.dflash import rmsnorm_plain, grouped_dynamic_conv
+    x, h, w = rnd(3, 5120, std=1.0), rnd(3, 5120, std=0.3), rnd(5120, std=0.5) + 1
+    xo, y = fused.add_rmsnorm(x, h, w, 1e-6, plain=True)
+    torch.testing.assert_close(xo, x + h, rtol=0, atol=0)
+    torch.testing.assert_close(y, rmsnorm_plain(x + h, w, 1e-6), rtol=1e-2, atol=1e-2)
+    L, H, G, KS = 8, 5120, 16, 2
+    hh = rnd(L, H, std=1.0)
+    proj = rnd(L, 2 * KS * (H // G), std=0.3)                  # the kernel_projection output layout
+    dyn = proj.view(L, 2, KS, H // G)
+    base = rnd(2, KS, H, std=0.3)
+    for j in range(2):
+        ref = grouped_dynamic_conv(hh, dyn[:, j], base[j], G)
+        got = fused.grouped_conv(hh, dyn[:, j], base[j], G)
+        assert ((got.float() - ref.float()).norm() / ref.float().norm()).item() < 1e-2
+
+
+def test_attn_window_block_matches_sdpa():
+    """The draft's attention (context keys < pos within a window, plus B bidirectional
+    block keys, ungated) against masked SDPA, at a position inside and beyond the window."""
+    HQ, HKV, D, B, W = 32, 8, 128, 8, 2048
+    max_len = 4096
+    K = rnd(HKV, max_len, D, std=1.0); V = rnd(HKV, max_len, D, std=1.0)
+    for pos in (60, 3000):
+        q = rnd(B, HQ * D, std=1.0)
+        kb, vb = rnd(HKV, B, D, std=1.0), rnd(HKV, B, D, std=1.0)
+        got = fused.attn_window_block(q, K, V, torch.tensor([pos], device=DEV), kb, vb, HQ, HKV, D, W)
+        lo = max(0, pos - (W - 1))                     # row 0's bound; each row masks its own
+        keys = torch.arange(lo, pos, device=DEV)
+        blk = pos + torch.arange(B, device=DEV)
+        vis = (blk[:, None] - keys[None, :]) < W
+        mask = torch.cat([vis, torch.ones(B, B, dtype=torch.bool, device=DEV)], 1)
+        Kf = torch.cat([K[:, lo:pos], kb], 1); Vf = torch.cat([V[:, lo:pos], vb], 1)
+        ref = F.scaled_dot_product_attention(q.view(B, HQ, D).transpose(0, 1)[None], Kf[None], Vf[None],
+                                             attn_mask=mask, enable_gqa=True)[0].transpose(0, 1).reshape(B, HQ * D)
+        assert rel(got, ref) < 2e-2, (pos, rel(got, ref))

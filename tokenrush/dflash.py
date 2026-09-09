@@ -163,12 +163,15 @@ class DFlashDraft:
         w = self.w
         n_ctx, B = features.shape[0], block.shape[0]
         p0 = self.ctx + n_ctx                          # first block position
-        th = rmsnorm_plain(w.fc(features), w.hidden_norm, w.eps)              # [n_ctx, H]
+        if n_ctx:
+            th = rmsnorm_plain(w.fc(features), w.hidden_norm, w.eps)          # [n_ctx, H]
+        else:
+            th = torch.empty(0, self.hidden, device=self.device, dtype=torch.bfloat16)
         h = self.embed[block]                                                  # [B, H]
         ctx_pos = torch.arange(self.ctx, p0, device=self.device)
         blk_pos = torch.arange(p0, p0 + B, device=self.device)
-        lo = max(0, p0 + B - 1 - (w.window - 1))       # earliest context position any block row can see
-        keys_pos = torch.arange(lo, p0, device=self.device)                    # context keys in the window
+        lo = max(0, p0 - (w.window - 1))               # earliest context position row 0 can see
+        keys_pos = torch.arange(lo, p0, device=self.device)                    # context keys; rows mask their own bound
         # mask: block row i (position p0+i) sees context key j if (p0+i) - j < window; all block rows
         vis_ctx = (blk_pos[:, None] - keys_pos[None, :]) < w.window            # [B, n_keys]
         mask = torch.cat([vis_ctx, torch.ones(B, B, dtype=torch.bool, device=self.device)], 1)
@@ -177,14 +180,14 @@ class DFlashDraft:
             dyn = lw.attn_conv_proj(n).view(B, 2, w.conv_ks, -1)
             n = grouped_dynamic_conv(n, dyn[:, 0], lw.attn_conv_base[0], w.conv_group)
             q = rmsnorm_plain(lw.q(n).view(B, w.n_heads, w.head_dim), lw.q_norm_w, w.eps)
-            k_ctx = rmsnorm_plain(lw.k(th).view(n_ctx, w.n_kv_heads, w.head_dim), lw.k_norm_w, w.eps)
-            v_ctx = lw.v(th).view(n_ctx, w.n_kv_heads, w.head_dim)
             k_blk = rmsnorm_plain(lw.k(n).view(B, w.n_kv_heads, w.head_dim), lw.k_norm_w, w.eps)
             v_blk = lw.v(n).view(B, w.n_kv_heads, w.head_dim)
             q = self._rope(q.transpose(0, 1), self.cos[blk_pos], self.sin[blk_pos])          # [Hq, B, D]
-            k_ctx = self._rope(k_ctx.transpose(0, 1), self.cos[ctx_pos], self.sin[ctx_pos])  # [Hkv, n_ctx, D]
             k_blk = self._rope(k_blk.transpose(0, 1), self.cos[blk_pos], self.sin[blk_pos])
             if n_ctx:
+                k_ctx = rmsnorm_plain(lw.k(th).view(n_ctx, w.n_kv_heads, w.head_dim), lw.k_norm_w, w.eps)
+                v_ctx = lw.v(th).view(n_ctx, w.n_kv_heads, w.head_dim)
+                k_ctx = self._rope(k_ctx.transpose(0, 1), self.cos[ctx_pos], self.sin[ctx_pos])  # [Hkv, n_ctx, D]
                 self.k[li, :, self.ctx:p0] = k_ctx.to(self.k.dtype)
                 self.v[li, :, self.ctx:p0] = v_ctx.transpose(0, 1).to(self.v.dtype)
             K = torch.cat([self.k[li, :, lo:p0].to(q.dtype), k_blk], 1)                      # [Hkv, n_keys+B, D]
@@ -263,16 +266,14 @@ class DFlashDraft:
         ar_r = torch.arange(R, device=dev)
         ctx_pos = ctx_t + ar_r                                                   # [R]
         blk_pos = p0 + torch.arange(B, device=dev)                               # [B]
-        key_pos = p0 - W + torch.arange(W, device=dev)                           # [W] window ending at p0
-        key_idx = key_pos.clamp(min=0)
-        vis = (key_pos[None, :] >= 0) & ((blk_pos[:, None] - key_pos[None, :]) < W)   # [B, W]
-        mask = torch.cat([vis, torch.ones(B, B, dtype=torch.bool, device=dev)], 1)
         cos_c, sin_c = self.cos.index_select(0, ctx_pos), self.sin.index_select(0, ctx_pos)
         cos_b, sin_b = self.cos.index_select(0, blk_pos), self.sin.index_select(0, blk_pos)
+        from . import fused as fused_k
+        pending = None                                  # residual contribution not yet added to h
         for li, lw in enumerate(w.layers):
-            n = rmsnorm_plain(h, lw.ln1, w.eps)
+            h, n = fused_k.add_rmsnorm(h, pending, lw.ln1, w.eps, plain=True)
             dyn = lw.attn_conv_proj(n).view(B, 2, w.conv_ks, -1)
-            n = grouped_dynamic_conv(n, dyn[:, 0], lw.attn_conv_base[0], w.conv_group)
+            n = fused_k.grouped_conv(n, dyn[:, 0], lw.attn_conv_base[0], w.conv_group)
             q = rmsnorm_plain(lw.q(n).view(B, w.n_heads, w.head_dim), lw.q_norm_w, w.eps)
             k_ctx = rmsnorm_plain(lw.k(th).view(R, w.n_kv_heads, w.head_dim), lw.k_norm_w, w.eps)
             v_ctx = lw.v(th).view(R, w.n_kv_heads, w.head_dim)
@@ -283,18 +284,19 @@ class DFlashDraft:
             k_blk = self._rope(k_blk.transpose(0, 1), cos_b, sin_b)
             self.k[li].index_copy_(1, ctx_pos, k_ctx.to(self.k.dtype))
             self.v[li].index_copy_(1, ctx_pos, v_ctx.transpose(0, 1).to(self.v.dtype))
-            K = torch.cat([self.k[li].index_select(1, key_idx).to(q.dtype), k_blk], 1)     # [Hkv, W+B, D]
-            V = torch.cat([self.v[li].index_select(1, key_idx).to(q.dtype), v_blk.transpose(0, 1)], 1)
-            o = F.scaled_dot_product_attention(q[None], K[None], V[None], attn_mask=mask, enable_gqa=True)[0]
-            o = lw.o(o.transpose(0, 1).reshape(B, w.n_heads * w.head_dim))
-            o = grouped_dynamic_conv(o, dyn[:, 1], lw.attn_conv_base[1], w.conv_group)
-            h = h + o
-            n = rmsnorm_plain(h, lw.ln2, w.eps)
+            # context keys < p0 within the window (our split kernel) + the B block keys
+            # (bidirectional, a small kernel), merged in the reduce; no torch mask, no copies
+            o = fused_k.attn_window_block(q.transpose(0, 1).reshape(B, w.n_heads * w.head_dim).contiguous(),
+                                          self.k[li], self.v[li], p0, k_blk.contiguous(), v_blk.transpose(0, 1).contiguous(),
+                                          w.n_heads, w.n_kv_heads, w.head_dim, W)
+            o = lw.o(o)
+            o = fused_k.grouped_conv(o, dyn[:, 1], lw.attn_conv_base[1], w.conv_group)
+            h, n = fused_k.add_rmsnorm(h, o, lw.ln2, w.eps, plain=True)
             dyn = lw.mlp_conv_proj(n).view(B, 2, w.conv_ks, -1)
-            n = grouped_dynamic_conv(n, dyn[:, 0], lw.mlp_conv_base[0], w.conv_group)
+            n = fused_k.grouped_conv(n, dyn[:, 0], lw.mlp_conv_base[0], w.conv_group)
             g, u = lw.gate_up(n).chunk(2, -1)
             m = lw.down(F.silu(g) * u)
-            m = grouped_dynamic_conv(m, dyn[:, 1], lw.mlp_conv_base[1], w.conv_group)
-            h = h + m
-        hn = rmsnorm_plain(h, w.norm, w.eps)
+            pending = fused_k.grouped_conv(m, dyn[:, 1], lw.mlp_conv_base[1], w.conv_group)
+        _, hn = fused_k.add_rmsnorm(h, pending, w.norm, w.eps, plain=True)
+        self.last_block_hidden = hn
         return self.select(hn[1:], block[0], draft_head)
