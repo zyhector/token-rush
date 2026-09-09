@@ -50,6 +50,7 @@ re-measures everything on one machine.
 | 20. Truncated draft vocabulary | 2026-09-08 | + the draft chain's argmax reads the first 131072 rows of lm_head (id order = BPE merge rank, language-neutral) instead of all 248k: −0.7 ms per step, no family loses. A 64k English-corpus list was tried first and cut Chinese below raw | — | **186 / 261 / 263** (essay / code / math), Chinese essay / math 162 / 279; raw 100 |
 | 21. Corpus-specific draft vocabularies (en_64k, mix_64k, mix_96k) | 2026-09-08 | + lists built from English, code and Chinese Wikipedia corpora, shipped in `tokenrush/draft_vocab/`, selectable by name; measured on six families incl. Chinese and mixed. None beats the id-order 128k default by more than noise; mix_96k is the pick for a Chinese-English daily driver | — | id_128k 186 / 261 / 263 / 162 / 279 / 216 vs mix_96k 185 / 253 / 262 / 162 / 279 / 227 (essay / code / math / zh-essay / zh-math / mixed) |
 | 22. Profile of the spec step at 200k; flash-decoding pipeline depth | 2026-09-09 | + the spec step's extra growth with context attributed (M-row attention kernel under-occupied, MTP's own attention); one config change (3 pipeline stages) lifts the kernel from 1390/1147 GB/s (M=1/M=4) to 1587/1558 | — | at 200k: raw **71.7** (85.6% of wall, was 68.4 / 82.6%), spec prose **195** (was 180); short context unchanged |
+| 23. Draft trees: simulated, not built | 2026-09-09 | + `bench/tree_accept.py` (teacher-forced acceptance of static trees with the eager MTP) and verify cost measured to M=8: the best 7-node tree gains +10% acceptance on prose, +3–4% on code/math, for a step ~20% dearer. **Net negative on this stack; trees dropped.** A shared-memory overflow for M >= 6 fixed on the way | — | unchanged |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -848,13 +849,72 @@ Short context is unchanged (100.9 raw, 228 spec prose). The `CLAUDE.md`
 target of 92% of the wall at 200k is now 6 points away; the remaining gap
 at long context is the same GEMV share as at short context.
 
+## Step 23 — draft trees: simulated, costed, dropped (2026-09-09)
+
+The plan's last lever for prose was a draft *tree* (top-2 branches instead
+of one chain) verified in one step. Before building it — siblings share a
+position, so the conv ring, the KV writes and the MTP head's own cache all
+need scratch-then-commit paths, the GDN kernel needs parent-slot reads, the
+attention kernel a tree mask, and the MTP has to draft every node — the
+gain and the cost were measured separately.
+
+**Acceptance**, `bench/tree_accept.py`: static trees drafted with the eager
+MTP head (top-k at each node), teacher-forced against the target's greedy
+continuation, 256 tokens per family; nodes as (parent, rank):
+
+| tree | nodes | essay | code | math |
+|---|---|---|---|---|
+| chain, depth 3 | 3 | 2.57 | 3.34 | 3.46 |
+| chain, depth 4 | 4 | 2.75 | 3.88 | 4.05 |
+| 2 roots; chains 3 and 2 | 5 | 2.80 | 3.44 | 3.56 |
+| 2 roots, 2 children under the first; depth 3 | 7 | 2.98 | 3.57 | 3.67 |
+| **2 roots; chains 4 and 3** | 7 | **3.04** | **4.02** | **4.18** |
+| 3 roots; chains 3, 1, 1 | 7 | 2.86 | 3.46 | 3.58 |
+
+The best 7-node tree beats the 4-chain by +10.5% on prose and +3–4% on
+code and math. Branching only pays where the first draft is unsure
+(prose); the extra nodes mostly duplicate what a longer chain gets.
+
+**Cost**, `bench/verify_cost.py` to M=8 (K=7), measured:
+
+| K (M = K+1) | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| ms / verify step | 10.01 | 10.98 | 11.50 | 11.86 | 12.36 | 12.71 | 13.44 | 13.51 |
+
+A 7-node tree verify costs 13.5 ms against 12.4 for the 4-chain (+1.15 ms),
+plus 7 MTP draft calls instead of 4 (+1.0 ms), plus the scratch-to-cache
+commits and the parent-slot state reads (~+0.5 ms): the step goes from
+~13.6 to ~16.3 ms, +20%, for +10% tokens on prose and +4% elsewhere.
+**Net: about -8% on prose, -13% on code and math.** Even an unrealistically
+free implementation (+1.2 ms) only breaks even on prose. The per-row cost
+of verification here (~3% of a step per extra token) is higher than the
+per-node acceptance gain a second branch buys with this draft head.
+
+Dropped. The prose number stays at 186–192 short-context, below the 200
+floor; what would move it is a cheaper verify row (the M-row GEMM's fixed
+per-block work) rather than more rows.
+
+Found on the way: for M >= 6 the attention kernel's 64-row query tile with
+three pipeline stages needed 102,400 bytes of shared memory against a
+101,376-byte limit; it now uses two stages above 32 rows. (Depths 3:4 never
+reached it.)
+
+**DSpark, assessed without building it.** SGLang's measured DSpark chain at
+gamma 7 accepts 2.39 / 3.11 / 4.68 per step on essay / code / math
+(`docs/baselines.md`); our MTP chain at depth 3–4 accepts 2.55–2.75 /
+3.5–3.9 / 3.7–4.05. Per draft, the 1.86B DSpark head is not better than the
+0.42B MTP head on prose or code, and each of its draft calls reads 4x the
+weights. Only math would gain (4.68 vs 4.05), and by the tree arithmetic
+above the extra draft cost eats most of it. Not built.
+
 ## Next
 
 - **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
   258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
   at 200k (195 prose after step 22); 186 / 261 / 263 with the 128k draft
-  vocabulary. Remaining, in order: a draft tree for prose; DSpark as an
-  alternative draft; rejection-sampling acceptance for sampled decoding.
+  vocabulary. Trees and DSpark assessed and dropped (step 23). Remaining:
+  rejection-sampling acceptance for sampled decoding (a small gain at
+  temperature > 0), then Phase 3 closes.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are

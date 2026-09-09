@@ -424,10 +424,13 @@ def attn_decode_fused(q, qkv, k_cache, v_cache, pos_t, cfg, k_scale=None, v_scal
     l = torch.empty_like(m)
     acc = torch.empty(M * HQ, NSPLIT, D, device=dev, dtype=torch.float32)
     out = torch.empty(M, HQ * D, device=dev, dtype=q.dtype)
+    # 3 pipeline stages read ~15% faster (docs/progress.md step 22) but a 64-row query
+    # tile with 3 stages is 1 KB over this card's 101 KB of shared memory
+    stages = 3 if rows <= 32 else 2
     _attn_split_kernel[(HKV * NSPLIT,)](q, k_cache, v_cache, k_scale if fp8 else m, v_scale if fp8 else m, pos_t,
                                         m, l, acc, D ** -0.5,
                                         HQ=HQ, HKV=HKV, D=D, MAXLEN=k_cache.shape[1], NSPLIT=NSPLIT,
-                                        BLOCK_N=BLOCK_N, ROWS=rows, FP8=fp8, M=M, num_warps=4, num_stages=3)
+                                        BLOCK_N=BLOCK_N, ROWS=rows, FP8=fp8, M=M, num_warps=4, num_stages=stages)
     _attn_reduce_kernel[(M * HQ,)](m, l, acc, qkv, out, D=D, NSPLIT=NSPLIT, HQ=HQ, QKV=qkv.shape[1], num_warps=1)
     return out
 
