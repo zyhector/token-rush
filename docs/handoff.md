@@ -30,14 +30,20 @@ re-measured in Phase 4):
 
 ## The checkpoint
 
-**`/workspace/models/Qwen3.8-27B-int4g128-gptq-mse`, 17.04 GB.** Rebuild it
-with `bash scripts/quantize/build.sh` (one card, ~25 min including the 55.6 GB
-bf16 download). The calibration ids are committed, so the recipe is
-deterministic in intent — but GPU floating point is not bit-deterministic, so
-a rebuild is a statistical sibling, not the same file. **If the user has
-uploaded it to the Hub, prefer downloading it**: the quality numbers in
-`docs/quantization.md` were measured on that exact file. Ask before spending
-20 minutes rebuilding.
+**Published at
+[`zyhector/Qwen3.8-27B-TokenRush-int4g128`](https://huggingface.co/zyhector/Qwen3.8-27B-TokenRush-int4g128),
+17.04 GB.** Download it:
+
+```
+hf download zyhector/Qwen3.8-27B-TokenRush-int4g128 --local-dir /workspace/models/Qwen3.8-27B-int4g128-gptq-mse
+```
+
+**Prefer this over rebuilding.** `bash scripts/quantize/build.sh` reproduces
+it in ~25 minutes on one card and the calibration ids are committed, so the
+recipe is deterministic in intent — but GPU floating point is not
+bit-deterministic, so a rebuild is a statistical sibling, not the same file,
+and every quality number in `docs/quantization.md` was measured on the
+published one.
 
 Also needed: `z-lab/Qwen3.8-27B-DFlash2` (the draft, 3.9 GB) at
 `/workspace/models/Qwen3.8-27B-DFlash2`. The MTP head ships inside our packed

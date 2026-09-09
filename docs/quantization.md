@@ -9,7 +9,11 @@ keeping in one place.
 Reproducing anything here needs no two-GPU box and no state from a dead vast
 instance: `scripts/quantize/build.sh` makes the checkpoint, `measure.sh`
 measures it, and the calibration and evaluation token ids are in this repo
-(`data/quality/*.npz`).
+(`data/quality/*.npz`). The adopted checkpoint itself is published at
+[`zyhector/Qwen3.8-27B-TokenRush-int4g128`](https://huggingface.co/zyhector/Qwen3.8-27B-TokenRush-int4g128)
+— prefer downloading it over rebuilding, since GPU floating point is not
+bit-deterministic and every quality number below was measured on that exact
+file.
 
 ## Why it matters here, and how much
 
@@ -393,6 +397,11 @@ Tools, all of them used for the numbers above:
 | `bench/exl3_export.py` | dequantizes an EXL3 checkpoint with its own kernels, in the exl3 venv |
 | `tokenrush/gptq.py`, `tokenrush/convert.py` | the quantizer, and the re-packer for compressed-tensors int4 |
 | `scripts/check_baselines.py` | verifies the roofline arithmetic in `docs/baselines.md` |
+
+The published checkpoint's card is `docs/model_card.md` (the copy uploaded as
+its `README.md`); the metadata that records how it was made travels with it as
+`tokenrush.json`, and a copy is kept here as
+`results/quality/checkpoint_gptq_mse_tokenrush.json`.
 
 To measure a rival, point `bench/quality_logits.py` at a source spec:
 `packed:<dir>` (ours), `gguf:<file>`, `nvfp4:<dir>`, `ct:<dir>`

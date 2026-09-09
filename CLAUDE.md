@@ -75,7 +75,8 @@ of 27.78B in the repo. Weight bytes are computed against 26.90B, not 27B.
 Quantization is therefore the single largest lever on the headline number — it
 moves the ceiling by ~25 tok/s across that range, and **the 110–120 tok/s target
 is only reachable at or below ~4.25 bpw**. Picked in Phase 1b: int4 g128 GPTQ
-with an MSE range search, 4.25 bpw (`docs/quantization.md`).
+with an MSE range search, 4.25 bpw (`docs/quantization.md`); the checkpoint is
+published at `zyhector/Qwen3.8-27B-TokenRush-int4g128`.
 
 Raw decode headroom equals the distance rivals sit from this wall.
 **The only way through the wall is speculative decoding** — and at bs=1 the 5090's
