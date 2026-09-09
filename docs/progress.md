@@ -10,18 +10,18 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 27, 2026-09-09)
+## Where things stand (after step 28, 2026-09-09)
 
 | | | |
 |---|---|---|
-| raw greedy decode, short context | **102 tok/s**, 9.8 ms/step, 82% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6) | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
-| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **217 / 355 / 350 tok/s** (MTP chain: 186 / 261 / 263); Chinese essay 162 (MTP) / math 289 | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
-| speculative sampled, T=0.7 top-p 0.9 | 167 / 237 / 239 | output distribution identical to raw sampling |
-| speculative at 200k context, fp8 KV, prose / code | **195 (MTP) / 229 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
+| raw greedy decode, short context | **102 tok/s** on the Triton GEMV (`--backend triton`), 9.9 ms/step, 81% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6); 97.6 on the default Marlin kernel, whose one layout serves the speculative step | rivals: llama.cpp 83 (78%), vLLM 80 (88%, ~76% recounted), ExLlamaV3 77, SGLang 63 |
+| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **224 / 373 / 373 tok/s** (MTP chain: 213 / 306 / 286); Chinese essay 179 / math 310 / mixed 251 with the MTP chain (`--draft mtp`) | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
+| speculative sampled, T=0.7 top-p 0.9 | 167 / 237 / 239 (step 16, MTP chain, before 3b/3c) | output distribution identical to raw sampling |
+| speculative at 200k context, fp8 KV, prose / code | **211 (MTP) / 238 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall on the Triton GEMV, 69.8 on Marlin) | vLLM 61, SGLang 50, llama.cpp 44 at 200k |
 | context | 256k usable (needle at 128k and 256k), 26 GB peak | |
-| correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 39 tests | |
+| correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | |
 | quantization | int4 g128 RTN, uncalibrated: teacher-forced KL 0.06 vs bf16, 2–4x a calibrated quant's; **the quality gate is not met** (`docs/quality_plan.md`, deferred to a two-GPU box) | |
-| phases | 0 done (frozen), 1a done, 1b half (gate done, quality owed), 2 done, 3 in progress (chain done; tree, DSpark, GEMV tuning open), 4 not started | |
+| phases | 0 done (frozen), 1a done, 1b half (gate done, quality owed), 2 done, 3a/3b/3c done (sampled-decoding acceptance and a per-content draft switch open), 4 not started | |
 
 Every number above is a development number on this instance; Phase 4
 re-measures everything on one machine.
@@ -55,6 +55,7 @@ re-measures everything on one machine.
 | 25. Phase 3b: DFlash2 draft inside the graph (first version) | 2026-09-09 | + our implementation of the DFlash2 forward (bit-identical to z-lab's reference), int4-packed, graph-capturable with a fixed context-row count and a fixed 2048-key window; the verify body captures the five feature layers; one graph = draft block + K=7 verify. Exact vs raw greedy 300/300 | — | **178 / 306 / 310** (essay / code / math) at 16.8 ms/step; MTP chain was 186 / 261 / 263 |
 | 26. Phase 3b: the DFlash step tuned | 2026-09-09 | + GDN at M>=4 with two programs per head and one M-row norm launch (2.4 -> 1.4 ms); the draft's norms and grouped convs as fused kernels; the draft's attention through our windowed split kernel + a block-keys kernel (SDPA with a mask was 7x slower than unmasked). Drafts identical to z-lab's at 3000 tokens of context (window active) | — | **220 / 342 / 353** at 14.8 ms/step (v1: 178 / 306 / 310 at 16.8) |
 | 27. Phase 3b: DFlash across families and context; ring cache | 2026-09-09 | + the draft's context cache is a 4096-row ring (its window is 2048), so 256k fits (29.4 GB peak); its conv/selector projections int4 too; measured on six families and at 200k. Chinese prose is the one family where the MTP chain stays better (DFlash2 accepts 1.77/step there) | — | six families: **217 / 355 / 350 / 121 / 289 / 212** (essay / code / math / zh-essay / zh-math / mixed); at 200k: prose 179, code 229 (MTP: 195 / 199) |
+| 28. Phase 3c: Marlin-class int4 GEMM | 2026-09-09 | + Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction, a lock-free partial mode for the split-K shapes, no L2 cache hints (illegal on sm_120); one kernel for M <= 16 in Marlin's weight layout, the default. Verify K=7 = **1.13x** a raw step (was 1.35x), raw step 4% dearer (the layout has no better M=1 kernel than the mma one) | — | **224 / 373 / 373** DFlash, 213 / 306 / 286 MTP (essay / code / math); zh-essay / zh-math / mixed 179 / 310 / 251 (MTP); 200k: prose 211 (MTP) / code 238 (DFlash); raw 97.6 (102 on `--backend triton`) |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1153,17 +1154,142 @@ kernel that splits the head dimension is the real fix. Recorded as an item;
 prose at 200k therefore stays with the MTP number (195) as the best
 measured, code at 200k improves to 229.
 
+## Step 28 — Phase 3c: a Marlin-class int4 GEMM for the M-row step (2026-09-09)
+
+**What.** Steps 19 and 23 left the verify step's overhead in one place: the
+Triton M-row kernel dequantizes a block to bf16 and dots it, and that
+per-block work put it at 79–84% of the wall at M = 4 against the single-row
+GEMV's 92%; K = 7 cost 1.35x a raw step. Marlin (IST-DASLab, Apache-2,
+`/workspace/marlin`) is the kernel built for exactly this: 16-row tiles on
+`mma.sync`, a 4-stage `cp.async` pipeline into shared memory, the int4 -> fp16
+conversion done with two `lop3` per pair, the weight pre-permuted into the
+fragment order so every thread's 32-bit word is its own B fragment.
+
+**Port** (`tokenrush/csrc/marlin_bf16.cu`, `tokenrush/marlin.py`, built on
+first import with `torch.utils.cpp_extension.load`, ~10 s):
+
+- **bf16 activations** (the `.bf16` mma; the magic-number dequant becomes
+  OR-into-the-mantissa-of-128 then subtract 128, which yields the code
+  exactly);
+- **our asymmetric format**: w = q * s + m as one `hfma2` with a second
+  fragment of per-group minimums fetched beside the scales, so the packed
+  checkpoint (`quantize.py`) is unchanged and `pack`/`unpack` convert to and
+  from Marlin's layout at load (5 s for the model; `unpack` also serves
+  prefill's dequant path and the draft head's row selection);
+- **fp32 cross-block reduction** through a workspace instead of Marlin's
+  bf16 round trip through the output (K = 17408 costs bits otherwise);
+- **no L2 cache hint**: stock Marlin dies with `cudaErrorIllegalInstruction`
+  on sm_120 — the `createpolicy … L2::evict_first` + `cp.async …
+  L2::cache_hint` pair is not executable there (`docs/environment.md`);
+  a plain `cp.async.cg` costs nothing measurable;
+- **a lock-free partial mode** (below); M <= 16 only (one row tile), the
+  two grouped configs Marlin uses for small M, exact shared-memory size
+  (50 KB instead of Marlin's 96 KB request).
+
+**Measured, in-graph, weights cycled through 400 MB** (GB/s; "ours" is the
+Triton GEMV at M = 1 and the M-row kernel at M = 8, split-K 4 on the narrow
+shapes):
+
+| shape | ours M=1 | ours M=8 | Marlin M=1 | Marlin M=8 |
+|---|---|---|---|---|
+| in_qkvz 16384x5120 | 1454 | 1350 | 1537 | 1538 |
+| qkv 14336x5120 | 1478 | 1257 | 1376 | 1377 |
+| gate_up 34816x5120 | 1601 | 1425 | 1569 | 1564 |
+| out 5120x6144 | 1364 | 1282 | 1325 (chained: 1070) | 1318 (1093) |
+| down 5120x17408 | 1602 | 1414 | 1580 (1457) | 1578 (1462) |
+| lm_head 248320x5120 | 1687 | 1610 | 1591 | 1580 |
+
+Marlin is flat in M — M = 16 costs what M = 1 costs — where the Triton
+M-row kernel had lost 15–20% by M = 8. Its M = 1 is 2–7% behind the
+folding GEMV on most shapes (a 16-row tile's ramp and tail per block, one
+block per SM); a Triton GEMV reading the Marlin layout was written and
+measured too (the layout is regular enough: per 64-column chunk, word 4i+j
+is thread i's fragment of n-tile j) and came out 10–25% *slower* than the
+mma kernel on every shape but lm_head, so it was dropped — one layout, one
+kernel. Tile configs (128x128 vs 64x256), pipeline depth (2, 6, 8) and
+more blocks per SM (340–680) were all measured: Marlin's defaults win.
+
+**The narrow shapes and the chain.** On N = 5120 Marlin's stripe partition
+puts 4–6 blocks on each column slice and reduces them *serially* through a
+lock chain; on a 19 MB matrix that chain is a quarter of the kernel
+(1070 GB/s). Those two projections already feed `add_rmsnorm`, which sums
+split-K partials, so the port has a partial mode: every block writes its own
+fp32 slot `[S, M, N]` (the last block of a slice zero-fills the slots its
+column does not use; `partial_slots()` replays the partition on the host to
+size S = 5–6), no locks, and the consumer sums. 1070 -> 1325 and 1457 ->
+1580 GB/s. (Partial mode is also 2% faster than the locked mode on the wide
+shapes; their consumers would need to sum slots — an item.)
+
+**In the model.**
+
+| | Triton kernels (step 27) | Marlin |
+|---|---|---|
+| raw step | 9.88 ms, 101.2 tok/s (81.3%) | 10.25 ms, 97.6 tok/s (78.3%) |
+| raw step, kernel totals | wide 6.12 + narrow 2.74 + norm 0.34 ms | 6.29 + 2.86 + 0.41 ms |
+| verify K=3 | 1.20x | **1.04x** |
+| verify K=7 | 1.35x (13.2 ms) | **1.13x** (11.6 ms) |
+| DFlash step | 14.7 ms | **13.7 ms** |
+| MTP step (3:4) | ~13.5 ms | **12.4 ms** |
+
+Six families, 300 greedy tokens, 128k draft vocabulary (`bench/families.py`):
+
+| tok/s (accepted/step) | essay | code | math | zh-essay | zh-math | mixed |
+|---|---|---|---|---|---|---|
+| DFlash2, step 27 | 217 | 355 | 350 | 121 | 289 | 212 |
+| **DFlash2, Marlin** | **224** (3.08) | **373** (5.12) | **373** (5.12) | 129 (1.78) | 301 (4.14) | 216 (2.96) |
+| MTP chain, step 27 | 186 | 261 | 263 | 162 | 279 | 216 |
+| **MTP chain, Marlin** | 213 (2.65) | 306 (3.86) | 286 (3.60) | **179** (2.21) | **310** (3.92) | **251** (3.14) |
+
+The MTP chain gains more (+15%) than DFlash (+4–5%): its step is M-row
+GEMM for the verify *and* for the chain's draft passes, DFlash's step has
+the 1.9B draft forward and the eight-row attention in it. Consequence: the
+MTP chain now wins every family with Chinese in it, DFlash the three
+English ones; `--draft mtp` is the setting for a Chinese-heavy daily driver,
+and a per-content switch with both graphs resident is the obvious next
+refinement.
+
+Long context, real text, fp8 KV, 200 tokens (`bench/spec_context.py --draft`):
+
+| | prose @64 | prose @200k | code @64 | code @200k |
+|---|---|---|---|---|
+| MTP chain, step 27 | 228 | 195 | 250 | ~200 |
+| **MTP chain, Marlin** | 254 | **211** (3.74/step, 17.7 ms) | 288 | 240 (4.26, 17.8 ms) |
+| DFlash2, step 27 | 249 | 179 | 299 | 229 |
+| **DFlash2, Marlin** | **281** | 187 (4.30, 23.0 ms) | 285 | **238** (5.49, 23.0 ms) |
+
+**Cost.** Raw decode on the Marlin layout is 4% slower than on the Triton
+GEMV (97.6 vs 101–102 tok/s): the same kernel serves M = 1, and its per-block
+ramp shows there. Both layouts cannot be resident (13.5 GB each), so the
+default is the layout that makes the default decode — speculative — fastest;
+`--backend triton` keeps the old kernels for a raw-decode measurement.
+Prefill is unchanged (dequant + cuBLAS, now via `unpack`: 1500 tok/s).
+
+**Correctness.** 32 new tests (`tests/test_marlin.py`): pack/unpack
+round-trip exact; the product against the dequantized reference at every
+layer shape for M = 1, 3, 8, 16, with error no worse than the Triton
+kernel's; row results bit-identical whatever M is (M = 1 and M = 8 share
+tiles, partition and reduction order, so raw and speculative steps agree
+without the `consistent` flag); partial slots sum to the product with every
+slot written; graph replay equals eager. The engine suite (random-weight
+DFlash and MTP spec graphs vs raw greedy) runs on the new backend: 76
+tests.
+
+**State of the plan.** 3c closes the Phase 3 kernel work: the verify step
+is 1.13x a raw step at 8 positions (SGLang's is 1.45x). Left in Phase 3:
+rejection-sampling acceptance for sampled decoding, the per-content draft
+switch, and the two long-context items (the 64-row attention tile, wide-shape
+partial mode).
+
 ## Next
 
-- **Phase 3**, steps 1–4 done and spec is the default decode: 183 / 254 /
-  258 tok/s effective greedy, 167 / 237 / 239 sampled at T=0.7, 180 / 199
-  at 200k (195 prose after step 22); 186 / 261 / 263 with the 128k draft
-  vocabulary. **Phase 3b done** (steps 25–27): DFlash2 in the graph,
-  217 / 355 / 350 short-context, 229 code at 200k. Remaining: **3c**, a
-  Marlin-class M-row GEMM (the body's M=8 rows GEMM is 10.3 of the step's
-  14.7 ms); the 64-row attention tile at long context; a per-content draft
-  switch (Chinese prose prefers the MTP chain); rejection-sampling
-  acceptance for sampled decoding; then Phase 3 closes.
+- **Phase 3**, 3a/3b/3c done (steps 12–28). Speculative greedy: 224 / 373
+  / 373 with DFlash2 (essay / code / math), 213 / 306 / 286 with the MTP
+  chain, which wins the Chinese families (179 / 310 / 251); 211 / 238 at 200k.
+  Verify K=7 at 1.13x a raw step. Remaining: rejection-sampling acceptance
+  for sampled decoding (the sampled row is still step 16's); a per-content
+  draft switch (both graphs resident); the 64-row attention tile at long
+  context; partial-mode Marlin on the wide shapes (+2%). Then Phase 3 closes
+  and Phase 1b's quality table (two-GPU box) and Phase 4 remain.
 - **Decision 2026-09-08: Phase 2 first.** The quality table and the
   quantization choice (Phase 1b, second half) are deferred to a two-GPU box;
   the full plan, what exists to build on, and what else is owed from 1b are

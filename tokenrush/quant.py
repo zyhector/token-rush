@@ -263,8 +263,16 @@ def int4_gemm_rows(x, packed, scale, mn, split_k: int = 1):
 
 # --------------------------------------------------------------- QLinear
 
-BACKENDS = ("triton", "tinygemm", "dequant")
-DEFAULT_BACKEND = "triton"
+BACKENDS = ("marlin", "triton", "tinygemm", "dequant")
+
+
+def _default_backend():
+    from . import marlin as _marlin
+    return "marlin" if _marlin.available() else "triton"
+
+
+DEFAULT_BACKEND = _default_backend()
+MARLIN_ROWS = 16          # the Marlin kernel's row limit (one 16-row tile)
 
 
 ROWS_FOR_ONE = False      # use the M-row (tensor-core) kernel for T == 1 as well, so single-token
@@ -282,15 +290,29 @@ class QLinear:
               shootout but its packed layout is opaque, so it holds the weight
               in that layout only and serves prefill from it too, 6x slower
               than dequant+GEMM at T >= 512. Kept as a reference backend.
-    dequant:  dequantize-then-matmul at every T; the reference."""
+    dequant:  dequantize-then-matmul at every T; the reference.
+    marlin:   the Phase 3c port of Marlin (marlin.py): tensor-core int4 GEMM in
+              Marlin's weight layout, one kernel for T <= 16 at the same bandwidth
+              for every T (the Triton M-row kernel loses 15-20% by T = 8), and
+              bit-identical rows whatever T is. The default when it builds. With
+              split_k > 1 the kernel writes lock-free fp32 partial slots instead of
+              chaining block reductions. Shapes must be multiples of 128 in both
+              dimensions (all of the model's are); others fall back to triton."""
 
     def __init__(self, qweight, scale, mn, backend=DEFAULT_BACKEND, split_k: int = 1):
         assert backend in BACKENDS, backend
-        self.backend = backend
-        self.split_k = split_k        # > 1: partials(x) uses the split-K kernel (triton backend only)
         self.shape_ = (qweight.shape[0], qweight.shape[1] * 2)
         self.group = self.shape_[1] // scale.shape[1]
-        if backend == "tinygemm":
+        if backend == "marlin" and not (self.shape_[0] % 128 == 0 and self.shape_[1] % 128 == 0 and self.group == 128):
+            backend = "triton"
+        self.backend = backend
+        self.split_k = split_k        # > 1: partials(x) uses the split-K kernel (triton / marlin backends)
+        if backend == "marlin":
+            from . import marlin as _marlin
+            self.B, self.ms, self.mm = _marlin.pack(qweight, scale, mn)
+            _marlin.workspaces(self.shape_[0], qweight.device)     # sized before any graph capture
+            self.qweight = self.scale = self.mn = None
+        elif backend == "tinygemm":
             # tinygemm reads the high nibble as the even element (probed, not
             # documented) and dequantizes as (q - 8) * scale + zero.
             swapped = ((qweight & 0xF) << 4) | (qweight >> 4)
@@ -314,17 +336,40 @@ class QLinear:
 
     @property
     def nbytes(self):
-        ts = (self.tg_w, self.tg_sz) if self.backend == "tinygemm" else (self.qweight, self.scale, self.mn)
+        if self.backend == "tinygemm":
+            ts = (self.tg_w, self.tg_sz)
+        elif self.backend == "marlin":
+            ts = (self.B, self.ms, self.mm)
+        else:
+            ts = (self.qweight, self.scale, self.mn)
         return sum(t.numel() * t.element_size() for t in ts)
 
-    def dequantize(self) -> torch.Tensor:
+    def nibbles(self):
+        """(qweight, scale, mn) in the engine's packing (unpacked from Marlin's if needed)."""
+        if self.backend == "marlin":
+            from . import marlin as _marlin
+            return _marlin.unpack(self.B, self.ms, self.mm)
         assert self.qweight is not None, "tinygemm backend does not keep the nibbles"
-        return dequantize_int4(self.qweight, self.scale, self.mn)
+        return self.qweight, self.scale, self.mn
+
+    def rows(self, ids: torch.Tensor):
+        """A QLinear over the output rows `ids` (the truncated draft vocabulary)."""
+        return QLinear(*(t.index_select(0, ids) for t in self.nibbles()), backend=self.backend, split_k=self.split_k)
+
+    def dequantize(self) -> torch.Tensor:
+        return dequantize_int4(*self.nibbles())
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         if self.backend == "tinygemm":
             return torch.ops.aten._weight_int4pack_mm(x, self.tg_w, self.group, self.tg_sz)
         T = x.shape[0]
+        if self.backend == "marlin":
+            if T > MARLIN_ROWS:
+                return F.linear(x, self.dequantize())
+            from . import marlin as _marlin
+            if self.split_k > 1:
+                return _marlin.mul_partial(x, self.B, self.ms, self.mm).sum(0).to(x.dtype)
+            return _marlin.mul(x, self.B, self.ms, self.mm)
         if self.backend == "dequant" or T > MAX_ROWS:
             return F.linear(x, self.dequantize())
         if self.split_k > 1:
@@ -336,6 +381,9 @@ class QLinear:
     def partials(self, x: torch.Tensor) -> torch.Tensor:
         """x [T, K] -> [S, T, N] fp32 whose sum over S is the product (S == 1 unless split-K)."""
         T = x.shape[0]
+        if self.backend == "marlin" and self.split_k > 1 and T <= MARLIN_ROWS:
+            from . import marlin as _marlin
+            return _marlin.mul_partial(x, self.B, self.ms, self.mm)
         if self.backend == "triton" and self.split_k > 1 and T <= MAX_ROWS:
             if T == 1 and not ROWS_FOR_ONE:
                 return int4_gemv_splitk(x, self.qweight, self.scale, self.mn, self.split_k)[:, None, :]

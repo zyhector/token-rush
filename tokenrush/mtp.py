@@ -36,14 +36,14 @@ class MTPWeights:
 def build_mtp(cfg: ModelConfig, mtp: dict, device, int4: bool = False) -> MTPWeights:
     """mtp: 'mtp.*' name -> CPU bf16 tensor (from load_packed(..., with_mtp=True)).
     int4: quantize the projections on the fly (same packing as the body; 0.85 -> 0.21 GB)."""
-    from .quant import QLinear, quantize_int4
+    from .quant import DEFAULT_BACKEND, QLinear, quantize_int4
     dev = lambda n: mtp[n].to(device)
 
     def lin(names, split_k=1):
         w = torch.cat([dev(n) for n in names])
         if not int4:
             return Linear(w)
-        return QLinear(*quantize_int4(w), backend="triton", split_k=split_k)
+        return QLinear(*quantize_int4(w), backend=DEFAULT_BACKEND, split_k=split_k)
 
     p = "mtp.layers.0."
     m = p + "self_attn."

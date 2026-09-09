@@ -24,7 +24,7 @@ import torch.nn.functional as F
 from safetensors import safe_open
 
 from .config import ModelConfig
-from .quant import Linear, QLinear, quantize_int4
+from .quant import DEFAULT_BACKEND, Linear, QLinear, quantize_int4
 from .state import State
 
 
@@ -86,7 +86,7 @@ def load_dflash(path: str, device="cuda", int4: bool = False) -> DFlashWeights:
 
     def lin(names, split_k=1):
         w = torch.cat([dev(n) for n in names])
-        return QLinear(*quantize_int4(w), backend="triton", split_k=split_k) if int4 else Linear(w)
+        return QLinear(*quantize_int4(w), backend=DEFAULT_BACKEND, split_k=split_k) if int4 else Linear(w)
 
     layers = []
     for i in range(cfg["num_hidden_layers"]):

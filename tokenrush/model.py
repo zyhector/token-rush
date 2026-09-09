@@ -335,8 +335,7 @@ class Engine:
         else:
             ids = draft_vocab.to(self.device)
             h = self.w.lm_head
-            self.draft_head = QLinear(h.qweight.index_select(0, ids), h.scale.index_select(0, ids),
-                                      h.mn.index_select(0, ids), backend=h.backend)
+            self.draft_head = h.rows(ids)
             self.draft_map = ids
         if self.spec_logits is None:
             self.spec_logits = torch.empty(self.max_spec + 1, self.cfg.vocab, device=self.device, dtype=torch.bfloat16)
@@ -405,9 +404,8 @@ class Engine:
         else:
             ids = draft_vocab.to(self.device)
             h = self.w.lm_head
-            assert isinstance(h, QLinear) and h.qweight is not None, "draft vocab needs the int4 lm_head"
-            self.draft_head = QLinear(h.qweight.index_select(0, ids), h.scale.index_select(0, ids),
-                                      h.mn.index_select(0, ids), backend=h.backend)
+            assert isinstance(h, QLinear), "draft vocab needs the int4 lm_head"
+            self.draft_head = h.rows(ids)
             self.draft_map = ids
 
     def _draft_argmax(self, h: torch.Tensor) -> torch.Tensor:

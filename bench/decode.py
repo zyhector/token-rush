@@ -23,7 +23,7 @@ from tokenrush.weights import load_packed
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
-    ap.add_argument("--backend", default="triton")
+    ap.add_argument("--backend", default=None, help="int4 kernel (default: the engine default)")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--warmup", type=int, default=5)
     ap.add_argument("--max-len", type=int, default=8192)

@@ -158,6 +158,16 @@ by us. The differential test in `check_stack.py` is the guard; **a kernel that
 "runs" is not a kernel that works**, and this one was recorded as working
 before it was tested against a reference.
 
+### PTX that does not execute here
+
+`createpolicy.fractional.L2::evict_first` followed by `cp.async.cg.shared.global.L2::cache_hint`
+(stock Marlin's weight-streaming copy) raises `cudaErrorIllegalInstruction`
+(715) on this card, driver 610 / CUDA 13.3, even when compiled for
+`sm_120` natively. A plain `cp.async.cg.shared.global` in its place runs and
+costs nothing measurable (`docs/progress.md` step 28). Anything vendored
+from datacenter-tuned kernels that carries L2 eviction hints needs the same
+edit.
+
 ## Profiling — one real gap
 
 | Tool | State |

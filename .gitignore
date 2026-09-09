@@ -3,3 +3,4 @@ __pycache__/
 __pycache__/
 *.pyc
 .pytest_cache/
+tokenrush/csrc/build/

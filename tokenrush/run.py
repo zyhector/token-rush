@@ -9,6 +9,7 @@ from transformers import AutoTokenizer
 from .generate import generate
 from .model import Engine
 from .mtp import MTPHead, build_mtp
+from .quant import DEFAULT_BACKEND
 from .spec import generate_spec_graph
 from .weights import is_packed, load_packed
 
@@ -22,7 +23,8 @@ def main():
     ap.add_argument("--max-new", type=int, default=200)
     ap.add_argument("--max-len", type=int, default=32768, help="preallocated context")
     ap.add_argument("--chunk", type=int, default=4096, help="prefill chunk")
-    ap.add_argument("--backend", default="triton", choices=("triton", "tinygemm", "dequant"), help="int4 GEMV")
+    ap.add_argument("--backend", default=None, choices=("marlin", "triton", "tinygemm", "dequant"),
+                    help="int4 GEMM kernel (default: marlin when it builds, else triton)")
     ap.add_argument("--eager", action="store_true", help="decode eagerly instead of replaying CUDA graphs")
     ap.add_argument("--no-spec", action="store_true", help="raw decode instead of speculative (MTP chain)")
     ap.add_argument("--spec-depth", default="3:4", help="Kmin:Kmax adaptive draft depth (mtp draft)")
@@ -49,7 +51,7 @@ def main():
     if spec and a.draft == "dflash" and not use_dflash:
         print(f"[warn] DFlash2 checkpoint not found at {a.dflash_path}; using the MTP draft")
     kmin, kmax = (int(v) for v in a.spec_depth.split(":"))
-    cfg, w, mtp_t = load_packed(a.model, backend=a.backend, with_mtp=spec and not use_dflash)
+    cfg, w, mtp_t = load_packed(a.model, backend=a.backend or DEFAULT_BACKEND, with_mtp=spec and not use_dflash)
     tok = AutoTokenizer.from_pretrained(a.model)
     engine = Engine(cfg, w, max_len=a.max_len, kv_dtype=torch.float8_e4m3fn if a.kv == "fp8" else torch.bfloat16,
                     max_spec=(7 if use_dflash else kmax) if spec else 0)
