@@ -29,11 +29,8 @@ input dimension — so `transformers`, vLLM, SGLang and llama.cpp cannot read it
 
 Text path only; the vision tower is not included.
 
-How it was built, what it was measured against, and why this method was chosen
-over the alternatives:
-[`docs/quantization.md`](https://github.com/zyhector/token-rush/blob/main/docs/quantization.md).
-To rebuild it from the base weights on one card:
-`bash scripts/quantize/build.sh`.
+Details, the measurements behind those numbers, and the build recipe are in the
+[repository](https://github.com/zyhector/token-rush).
 
 Base model: [Qwen/Qwen3.8-27B](https://huggingface.co/Qwen/Qwen3.8-27B),
 Apache 2.0.
