@@ -182,12 +182,20 @@ works" risk.
 | 3c (done) | **Marlin-class M-row int4 GEMM**: Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction and a lock-free partial mode, as a torch extension for `sm_120` (`tokenrush/csrc/`); one kernel and one layout for M <= 16, the default backend. **Done 2026-09-09** (step 28): verify K=7 1.35x -> **1.13x**; 224 / 373 / 373 (DFlash2) and 213 / 306 / 286 (MTP chain) on prose / code / math, 211 / 238 at 200k; raw decode on the shared layout 97.6 (102 with `--backend triton`) | The verify step near free: +5% DFlash, +15% MTP chain |
 | 3 (closed) | **Closed 2026-09-09** (step 29): `--draft auto` keeps both drafts resident and picks the MTP chain for CJK prompts; the sampled path is exact rejection sampling for deterministic drafts (measured 211 / 391 / 358 at T=0.7). Optional items in `docs/progress.md` step 29 | 224 / 373 / 373 greedy on prose / code / math; 179 / 310 / 251 Chinese; 211 / 238 at 200k |
 | 4 (done) | **Final measurement, on one machine, in one sitting. Done 2026-09-09/10** (`docs/progress.md` step 32) on vast 36542: the wall re-anchored (1702 GB/s; 1701 kept), every rival re-run from the recipes in `docs/baselines.md` and the engine measured the same day; bytes from the headers. The matrix is at the top of `docs/baselines.md`; the Targets table above carries the results | 228 / 357 / 378 vs the best rival per family 136 / 144 / 207; raw 100.9 = 81% of the wall, 85.5% at 200k; 256k needle retrieved |
+| 5 (done) | **Serve it.** `python -m tokenrush.serve`: OpenAI Chat / Completions and the Anthropic Messages API over the resident engine, tool calling through the model's own format, the context kept between requests by state snapshots (a tool-result turn costs 0.07 s). **Done 2026-09-10** (`docs/progress.md` step 33, `docs/serving.md`); Claude Code verified on it end to end | The local model, opened every day — Claude Code included |
 
 Step-by-step progress and the numbers each step produced: `docs/progress.md`.
 
 ## Scope
 
 One model, one quantization, one card, bs=1, greedy/top-p, text path. Nothing else.
+
+**Serving it is in scope since Phase 5** (`docs/serving.md`,
+`python -m tokenrush.serve`): OpenAI Chat / Completions and the Anthropic
+Messages API over the resident engine, one request at a time, with the
+context kept between requests so a chat turn costs its own tokens — it is
+how the author opens the model every day, Claude Code included. Not
+serving *traffic*: no batching, no concurrency, no constrained decoding.
 
 **Artifacts.** The engine's weights are published at
 [`zyhector/Qwen3.8-27B-TokenRush-int4g128`](https://huggingface.co/zyhector/Qwen3.8-27B-TokenRush-int4g128)

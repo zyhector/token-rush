@@ -183,8 +183,8 @@ def prime_dflash(engine, draft, prompt_ids, chunk=4096):
     last = None
     for s in range(0, T, chunk):
         e = min(T, s + chunk)
-        h = engine.forward_hidden(ids[s:e])                  # eager: writes engine.feat_last [e-s, 5H]
-        draft.prime(engine.feat_last)
+        h = engine.forward_hidden(ids[s:e])                  # writes engine.feat_last [e-s, 5H] (feat_buf if e-s <= 8)
+        draft.prime(engine.features_of_last_chunk(e - s))
         last = h[-1:]
     from .sample import sample
     nxt = sample(engine.w.lm_head(last), engine.sampling)[0]

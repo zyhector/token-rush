@@ -575,12 +575,22 @@ class Engine:
     def forward_hidden(self, tokens: torch.Tensor) -> torch.Tensor:
         """Eager prefill of one chunk returning the post-final-norm hidden of every
         position [T, hidden] (the MTP head's prompt input), no lm_head. Advances the state."""
-        assert self.state.pos + tokens.shape[0] <= self.state.max_len, "context exceeds the preallocated cache"
+        T = tokens.shape[0]
+        assert self.state.pos + T <= self.state.max_len, "context exceeds the preallocated cache"
         h = self._body(tokens, all_logits=True, no_head=True)
-        self.state.slot.zero_(); self.state.slot_h = 0
-        self.state.advance(tokens.shape[0])
+        if self.fused and T <= self.state.n_slots:
+            # the fused GDN kernel wrote slots 0..T-1; the state after the last token is slot T-1
+            self.state.slot.fill_(T - 1); self.state.slot_h = T - 1
+        else:
+            self.state.slot.zero_(); self.state.slot_h = 0
+        self.state.advance(T)
         self.last_hidden = h[-1:]
         return h
+
+    def features_of_last_chunk(self, T: int) -> torch.Tensor:
+        """The DFlash feature rows of the chunk forward_hidden just ran: the fused
+        (T <= 8) path writes feat_buf, the eager one feat_last."""
+        return self.feat_buf[:T] if (self.fused and T <= self.state.n_slots) else self.feat_last
 
     def decode(self, token: torch.Tensor) -> torch.Tensor:
         return self.forward(token.view(1))

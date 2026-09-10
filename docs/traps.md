@@ -40,8 +40,13 @@ Each of these cost real time. Do not rediscover them.
   `pkill -x <name>`, kill by PID, or kill in a separate step. The `[x]`
   bracket trick does not help when the same word also appears elsewhere in
   the command line (a shell function named after the thing being killed).
-  Paid for five times: the fifth was a Phase 4 wrapper script *named*
-  `sglang_ctx.sh`, killed by the previous stage's `pkill -9 -f sglang`.
+  Paid for six times: the fifth was a Phase 4 wrapper script *named*
+  `sglang_ctx.sh`, killed by the previous stage's `pkill -9 -f sglang`; the
+  sixth, `pkill -f tokenrush.serve` typed into a shell whose own command line
+  contained it. Kill servers by PID from a `ps | grep "[t]okenrush"` listing
+  that excludes `bash`, and wait for `nvidia-smi` to show the memory gone
+  before starting the next GPU process — a killed 30 GB process takes
+  seconds to release the card, and the next process OOMs meanwhile.
 - **ollama keeps its model resident for `keep_alive` (10 min by default)**
   after the last request, holding ~20 GB of VRAM; the next engine's startup
   fails with "free memory less than desired utilization". `ollama stop
@@ -75,6 +80,26 @@ Each of these cost real time. Do not rediscover them.
   one line catches sign, ordering and grid bugs.
 
 ## Building the engine
+
+- **The eager prefill path costs ~1.8 s per call whatever its length.** A
+  chunk longer than the fused row count (8) goes through the
+  dequantize-then-GEMM backend, which unpacks all 16 GB of int4 to bf16
+  every call. Fine amortized over 4096 tokens (that *is* the 1500 tok/s
+  prefill number); fatal for a 20-token chat turn. The fused M-row path
+  costs 1.4 ms/token at 8 rows; `Session` uses it for deltas up to 1024
+  tokens. The first call of each row count M autotunes for 1–4 s — the
+  server warms all of them at startup.
+- **`forward_hidden` on a chunk of <= 8 tokens left the recurrent state in
+  the wrong slot** (slot 0 instead of T-1, which `forward()` got right):
+  a prompt whose last prefill chunk was 1–8 tokens (4097–4104 tokens, say)
+  continued from the state after the chunk's *first* token. Never hit by a
+  benchmark; found by the prefix-reuse tests, where short deltas are the
+  common case. Fixed in `model.py`; `tests/test_session.py` guards it.
+- **The graphed steps advance the drafts' cursors on the device only.**
+  `DFlashDraft.ctx` (host) is stale after `spec_step_dflash` replays; the
+  cache actually ends at `pos - n - 1`. Anything eager that touches the
+  draft cache after graphed steps must set the host mirror first
+  (`session._finish_spec`).
 
 - **Coherent text is not a correctness signal.** Dropping three quarters of
   the last MLP layer's output (a `[-1:]` slice on split-K partials) left the

@@ -10,7 +10,7 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 32, 2026-09-10 — Phase 4 done, the project's final numbers)
+## Where things stand (after step 33, 2026-09-10 — Phase 4 done, the engine served)
 
 **Phase 4 numbers — vast 36542, 2026-09-09/10, one sitting, every rival the
 same day** (step 32; `docs/baselines.md` has the matrix and every rival table,
@@ -27,7 +27,8 @@ reported.
 | correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | GSM8K through the engine 194/200 = **97.0%** (step 30: 96.5%; bf16 96.0%) |
 | quantization | **int4 g128 GPTQ + MSE range search** (step 30, `docs/quantization.md`): KL to bf16 **0.0232** over 82k positions, WikiText-2 PPL 6.365 vs 6.255, top-1 0.942; RTN was 0.0546. **The KL half of the row is not met**: ExLlamaV3 4.00bpw is 0.0128 and what is left is the uniform int4 codebook, not the calibration | rivals: GGUF UD-Q4_K_M 0.0093 at 4.80 bpw, EXL3 0.0128 at 4.10, NVFP4 0.0231 at 5.07, RedHatAI INT4 0.0458 at 4.71 |
 | targets (`CLAUDE.md`) | **met**: speculative bands, 2x SGLang+DSpark on prose (2.15x), vLLM 2.9x, llama.cpp+MTP 1.75x, 256k usable, matched-bytes engine margin (+6 points), GSM8K. **Not met**: raw 90–95% of the wall (81%), +30% over llama.cpp raw (+22%), ≥92% at 200k (85.5%, ahead of every rival), KL parity with EXL3 | |
-| phases | **all done**: 0 (frozen), 1a, 1b (quality bar itself not met), 2, 3, **4 (step 32)** | |
+| serving (step 33) | `python -m tokenrush.serve`: OpenAI Chat / Completions + Anthropic Messages over the resident engine, tools through the model's own format, context kept between requests. **Claude Code runs on it** (read / edit / bash loop verified); a tool-result turn costs 0.07 s, 3 tokens after a 120k prefix 0.44 s | `docs/serving.md`; 96 tests |
+| phases | **all done**: 0 (frozen), 1a, 1b (quality bar itself not met), 2, 3, **4 (step 32)**, 5 serving (step 33) | |
 
 Every number in the table above is from the one Phase 4 sitting. The
 per-step table below is the development record; steps 1–31 are development
@@ -67,6 +68,7 @@ numbers from disposable instances.
 | 30. Phase 1b, second half: the quality table and GPTQ + MSE | 2026-09-09 | + the yardstick (KL to bf16 over 82k positions, PPL, top-1, a measured 5e-4 noise floor) for ours and four rivals; our own GPTQ with an MSE range search into the unchanged packing: **KL 0.0546 -> 0.0232** (EXL3, the bar, 0.0128; GGUF 0.0093; NVFP4 0.0231; RedHatAI 0.0458); GSM8K 96.5% vs bf16's 96.0%; speed bit-identical; the recipe and the corpora in git | 1500 | **97.4** (10.26 ms/step) |
 | 31. Rival byte counts corrected | 2026-09-09 | + the embedding table removed from every rival's bytes/step (a decode step reads one row of it): vLLM 88% -> **76%** of the wall, SGLang 70% -> 60%, llama.cpp 78% -> 75%; ours unchanged at 78.2%. No rival re-measured, only the arithmetic. Phase 1b closed | — | — |
 | 32. **Phase 4: the final measurement** | 2026-09-09/10 | one card (vast 36542), one sitting: the wall re-anchored (1702 GB/s), five rivals re-run from their recipes, the engine on the published checkpoint the same day; the Hub made the default route to the weights (`--model` defaults to the repo id) | — | **100.9 raw (81.0%)**, 71.6 at 200k (85.5%); **228 / 357 / 378** DFlash2 greedy, 222 / 300 / 403 sampled; needle at 262k; GSM8K 97.0% |
+| 33. Phase 5: the engine served — OpenAI + Anthropic APIs, Claude Code on it | 2026-09-10 | + `tokenrush/session.py` (resident engine, prefix reuse by state snapshot), `chat.py` (template rendering, tool-call parsing), `serve.py` (FastAPI, SSE); `forward_hidden`'s short-chunk slot bug fixed; short deltas prefilled through the fused M-row path (1.4 ms/token, not the 1.8 s dequant floor) | — | unchanged; a chat turn costs its new tokens: 20 after 427 in 0.07 s, 3 after 120k in 0.44 s |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1763,9 +1765,89 @@ checkpoint, bf16 96.0%; the band is ±3.5 points).
 **Phase 4 closes here, and with it the plan.** The handoff file
 (`docs/handoff.md`) is deleted, as it said to be; what it queued is done.
 
+## Step 33 — Phase 5: the engine served, and Claude Code on it (2026-09-10)
+
+The deliverable was always "the local model he opens every day", and until
+today the only door was `run.py --prompt`. Now `python -m tokenrush.serve`
+keeps the engine resident and speaks OpenAI Chat Completions, OpenAI
+Completions and the Anthropic Messages API (`docs/serving.md`). Three
+modules, ~900 lines, 20 new tests (96 total).
+
+**`tokenrush/session.py` — the resident engine with prefix reuse.** Chat
+clients resend the whole conversation every turn, so the cost that matters
+is not decode but re-prefilling 20–200k tokens. The engine's state is
+explicit and position-addressed, which makes a snapshot at position P small:
+the committed recurrent state (151 MB), the conv ring (16 MB), the
+post-final-norm hidden at P-1, the drafts' cursors; the KV rows, the MTP
+head's rows and the DFlash ring stay where they are. Two snapshots per
+request (end of prompt, end of generation), and the next request resumes
+from the longest one that is a prefix of it. The end-of-generation snapshot
+has to be taken with care: the last verify step processed K+1 tokens of
+which n+1 were committed and the stop token may sit inside them, so the
+snapshot is rec slot j (the fused kernel leaves the state after each prefix
+in its own slot — the same mechanism the verify commit uses), the hidden is
+`spec_hidden[j]`, and the drafts' caches are completed to P from the
+step's own buffers (the MTP rows pos0+1..P-1 from `drafts[:j]` and
+`spec_hidden[:j]`; the DFlash ring from `feat_buf[:j+1]`, after setting its
+host cursor, which the graph never updates). Tested against a cold prefill
+on random weights within the chunking noise floor, measured, not assumed:
+with a 1024-token random model every argmax is a near-tie, so token
+equality after a resume is not a meaningful criterion and the tests say so.
+
+Two engine findings on the way, both in `docs/traps.md`:
+
+- `forward_hidden` on a chunk of ≤ 8 tokens declared recurrent slot 0
+  where the fused kernel leaves the state in slot T-1 (`forward()` had it
+  right). Any prompt whose last prefill chunk was 1–8 tokens continued from
+  the wrong state. No benchmark prompt length ever hit it; the reuse tests
+  did on the first run.
+- **The eager prefill path costs 1.8 s per call, whatever the length**:
+  the dequantize-then-GEMM backend unpacks every int4 weight on each call.
+  That is what the 1500 tok/s prefill figure is made of (2.8 s per
+  4096-token chunk, 1.8 of them fixed), and it would have made every
+  20-token tool result cost 2 s. The fused M-row path costs 11 ms per
+  8 rows, so the Session prefills deltas up to 1024 tokens that way.
+  The first call of each row count autotunes for 1–4 s; the server warms
+  all eight at startup.
+
+**`tokenrush/chat.py`.** Rendering goes through the checkpoint's own
+template (Qwen's), tools included — its format is a `# Tools` system block
+and `<tool_call><function=…><parameter=…>` blocks, so no format is
+invented; the module adapts OpenAI's `tool_calls` / `tool` role and
+Anthropic's `tool_use` / `tool_result` blocks to the template's shape,
+moves a system message the template refuses (Claude Code appends one at
+the end) into a user turn, and parses the output back incrementally —
+thinking, text, tool calls with values typed by the tool's JSON schema —
+holding back only a tail that could still become a tag.
+
+**`tokenrush/serve.py`.** One worker thread owns the GPU; requests queue;
+a disconnect cancels at the next step. Both protocols stream (SSE), report
+real usage, and map stop reasons (`end_turn` / `tool_use` / `max_tokens` /
+`stop_sequence`); `count_tokens` and `/v1/models` exist because Claude
+Code asks. Thinking is off unless the request asks for it.
+
+**Measured on the live server** (the real checkpoint, both drafts, 256k
+window, 29 GB allocated): a 19-token chat 0.19 s cold and 0.13 s warm; a
+394-token tool-using prompt 0.97 s to a parsed `tool_use`; the tool-result
+turn after it **0.07 s** (20 of 447 tokens prefilled); a 120k-token
+prompt 113 s cold (the engine's ~1000 tok/s at that length) and 0.44 s
+for the follow-up with 3 new tokens; the Chinese prompt routed to the MTP
+chain; a thinking request returning a `thinking` block. **Claude Code
+itself, `ANTHROPIC_BASE_URL` pointed at the server, fixed a bug in a
+file: read it, edited it with the Edit tool, ran the check with Bash and
+reported the output** — 4 turns, 15 s, 73k prompt tokens of which 55k
+were served from the reused prefix (its own accounting: `cache_read_input_tokens`,
+which the server fills from the reuse count); the final turn prefilled 18
+of 18,492 tokens in 0.04 s and decoded at 287 tok/s.
+
+Not done, deliberately: constrained decoding (`response_format`, schema
+validation of tool arguments), the Responses API, concurrency. The
+prompt-end snapshot is dropped when an answer runs past ~2000 tokens (the
+DFlash ring); a follow-up then reuses the generation-end one.
+
 ## Next
 
-- **All phases done** (step 32). Nothing is owed. What remains is optional
+- **All phases done** (steps 32–33), the engine is served and Claude Code runs on it. Nothing is owed. What remains is optional
   and was declined or deferred with reasons: the int4 GEMV redesign for the
   last ~10 points of raw decode (Phase 2 close; a Marlin-layout M=1 kernel
   would also recover the 4% the default layout gives up), the codebook change
