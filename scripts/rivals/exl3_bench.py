@@ -80,7 +80,16 @@ def main():
                                         args.draft_tokens if args.mode == "mtp" else 0)
     print(f"loaded {args.model_dir}, cache {max_tokens} tokens, "
           f"{torch.cuda.memory_allocated() / 1e9:.1f} GB allocated")
-    if args.mode in ("raw", "mtp"):
+    if args.mode == "mtp" and args.depths:
+        # chained MTP vs. tokens already in the cache (random ids, as the raw sweep)
+        random.seed(0)
+        for depth in args.depths:
+            ids = torch.tensor([[random.randint(1000, 150000) for _ in range(max(depth, 1))]])
+            rate = run(gen, ids, args.n, args.reps)
+            r = run.last
+            acc = r.get("accepted_draft_tokens", 0)
+            print(f"context {depth:>7d}: {rate:7.1f} tok/s   {1 + acc / max(r['new_tokens'] - acc, 1):.2f} per step")
+    elif args.mode in ("raw", "mtp"):
         for name, text in PROMPTS.items():
             ids = tokenizer.encode(text, add_bos=False)
             rate = run(gen, ids, args.n, args.reps)

@@ -69,6 +69,7 @@ numbers from disposable instances.
 | 31. Rival byte counts corrected | 2026-09-09 | + the embedding table removed from every rival's bytes/step (a decode step reads one row of it): vLLM 88% -> **76%** of the wall, SGLang 70% -> 60%, llama.cpp 78% -> 75%; ours unchanged at 78.2%. No rival re-measured, only the arithmetic. Phase 1b closed | — | — |
 | 32. **Phase 4: the final measurement** | 2026-09-09/10 | one card (vast 36542), one sitting: the wall re-anchored (1702 GB/s), five rivals re-run from their recipes, the engine on the published checkpoint the same day; the Hub made the default route to the weights (`--model` defaults to the repo id) | — | **100.9 raw (81.0%)**, 71.6 at 200k (85.5%); **228 / 357 / 378** DFlash2 greedy, 222 / 300 / 403 sampled; needle at 262k; GSM8K 97.0% |
 | 33. Phase 5: the engine served — OpenAI + Anthropic APIs, Claude Code on it | 2026-09-10 | + `tokenrush/session.py` (resident engine, prefix reuse by state snapshot), `chat.py` (template rendering, tool-call parsing), `serve.py` (FastAPI, SSE); `forward_hidden`'s short-chunk slot bug fixed; short deltas prefilled through the fused M-row path (1.4 ms/token, not the 1.8 s dequant floor) | — | unchanged; a chat turn costs its new tokens: 20 after 427 in 0.07 s, 3 after 120k in 0.44 s |
+| 34. Ten-point decode-vs-context sweep, every engine | 2026-09-10 | + `results/.../sweep10/` (116 rows, `scripts/sweep_table.py`): ours raw both backends, ours spec on prose/code with both drafts, llama.cpp raw and MTP, vLLM, SGLang, ExLlamaV3 raw (to 200k) and MTP (to 128k); the data for the README's plots | — | raw 101 → 68 tok/s from 0 to 240k (81 → 86% of the wall); vLLM 78 → 57, llama.cpp 81 → 41 |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1844,6 +1845,24 @@ Not done, deliberately: constrained decoding (`response_format`, schema
 validation of tool arguments), the Responses API, concurrency. The
 prompt-end snapshot is dropped when an answer runs past ~2000 tokens (the
 DFlash ring); a follow-up then reuses the generation-end one.
+
+## Step 34 — the ten-point sweep (2026-09-10)
+
+For the README's plots: the same engines as Phase 4 at ten contexts (0 /
+8k / 16k / 32k / 64k / 96k / 128k / 160k / 200k / 240k), one night, one
+driver script, results in `results/2026-09-09-machine-36542/sweep10/` and
+the table in `docs/baselines.md` ("Decode vs. context, ten points").
+Coverage: ours raw × 2 backends × 10, ours speculative × 4 (prose / code ×
+MTP / DFlash2) × 10, llama.cpp raw × 10 and MTP × 10 (prose prompt files),
+vLLM × 10 (a 245k window fits at 0.95 utilization), SGLang × 10 (245k
+pool), ExLlamaV3 raw × 9 (240k does not fit) and MTP × 7 (160k does not fit
+with the draft). What the dense rows add is in `baselines.md`: the raw
+curves are smooth and separate by fraction of the wall (ours 81 → 86%,
+vLLM 74 → 81%, llama.cpp 74 → 57%); the speculative tok/s curves zig-zag
+because acceptance is the text's property at each position, while the
+step cost underneath is smooth (MTP 12.6 → 18.5 ms, DFlash2 13.8 → 24.9
+ms). One more `pkill -f` self-kill on the way (the seventh — the driver
+survived, its wrapper shell did not).
 
 ## Next
 

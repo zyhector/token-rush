@@ -40,7 +40,7 @@ Each of these cost real time. Do not rediscover them.
   `pkill -x <name>`, kill by PID, or kill in a separate step. The `[x]`
   bracket trick does not help when the same word also appears elsewhere in
   the command line (a shell function named after the thing being killed).
-  Paid for six times: the fifth was a Phase 4 wrapper script *named*
+  Paid for seven times: the fifth was a Phase 4 wrapper script *named*
   `sglang_ctx.sh`, killed by the previous stage's `pkill -9 -f sglang`; the
   sixth, `pkill -f tokenrush.serve` typed into a shell whose own command line
   contained it. Kill servers by PID from a `ps | grep "[t]okenrush"` listing

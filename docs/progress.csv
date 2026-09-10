@@ -32,3 +32,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 31,2026-09-09,Rival byte counts corrected (embedding not streamed): vLLM 88% -> 76% of the wall; ours unchanged; Phase 1b closed,97.4,78,10.26,1500
 32,2026-09-10,Phase 4 final measurement on vast 36542: raw 100.9 (triton) / 97.5 (marlin); spec 228/357/378 DFlash greedy; 71.6 at 200k (85.5%); needle 262k; GSM8K 97.0%,100.9,81,9.91,1500
 33,2026-09-10,Phase 5: served (OpenAI + Anthropic APIs; Claude Code end to end); tool-result turn 0.07s,100.9,81,9.91,1500
+34,2026-09-10,Ten-point decode-vs-context sweep for the README plots (results/.../sweep10),100.9,81,9.91,1500

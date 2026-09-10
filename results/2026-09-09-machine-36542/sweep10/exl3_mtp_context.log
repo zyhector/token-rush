@@ -1,0 +1,8 @@
+context       0:   170.7 tok/s   2.88 per step
+context    8000:   166.3 tok/s   2.91 per step
+context   16000:   108.5 tok/s   1.96 per step
+context   32000:   121.8 tok/s   2.32 per step
+context   64000:    95.7 tok/s   2.01 per step
+context   96000:   126.7 tok/s   2.94 per step
+context  128000:    91.2 tok/s   2.30 per step
+RuntimeError: Insufficient VRAM in split for model and cache

@@ -1,0 +1,11 @@
+context       0:    77.4 tok/s
+context    8000:    75.3 tok/s
+context   16000:    73.3 tok/s
+context   32000:    69.7 tok/s
+context   64000:    64.1 tok/s
+context   96000:    59.3 tok/s
+context  128000:    55.3 tok/s
+context  160000:    51.7 tok/s
+context  200000:    47.9 tok/s
+    raise RuntimeError("Insufficient VRAM in split for model and cache")
+RuntimeError: Insufficient VRAM in split for model and cache
