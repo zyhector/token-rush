@@ -1,0 +1,8 @@
+loaded 16.19 GB of weights in 3.0s
+cuda 28.2 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+context      64: raw    nan tok/s | spec  479.8 tok/s, 6.61 tokens/step, 13.8 ms/step | KV read 0.0 GB/step | prefill nans | 3s  | ' ones.\n\n    Args:\n        value: Whether to'
+context   22000: raw    nan tok/s | spec  386.7 tok/s, 5.74 tokens/step, 14.8 ms/step | KV read 0.7 GB/step | prefill nans | 18s  | '.\n\n    Error type: ``RuntimeError``\n\n   '
+context   90000: raw    nan tok/s | spec  347.9 tok/s, 6.28 tokens/step, 18.1 ms/step | KV read 3.0 GB/step | prefill nans | 79s  | 'el()\n    torch._check(\n        tensor.size'
+context  200000: raw    nan tok/s | spec  107.3 tok/s, 2.48 tokens/step, 23.1 ms/step | KV read 6.7 GB/step | prefill nans | 221s  | '._functorch._aot_autograd.autograd_function'

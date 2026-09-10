@@ -1,0 +1,63 @@
+===== llama-bench tg128 =====
+| model                          |       size |     params | backend    | ngl |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           pp512 |     3927.95 ± 247.38 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           tg128 |         82.79 ± 0.17 |
+===== llama-cli raw =====
+essay raw r1: [ Prompt: 515.1 t/s | Generation: 81.7 t/s ]
+essay raw r2: [ Prompt: 529.8 t/s | Generation: 81.6 t/s ]
+essay raw r3: [ Prompt: 509.0 t/s | Generation: 81.6 t/s ]
+code raw r1: [ Prompt: 468.0 t/s | Generation: 81.6 t/s ]
+code raw r2: [ Prompt: 463.5 t/s | Generation: 81.6 t/s ]
+code raw r3: [ Prompt: 469.7 t/s | Generation: 81.6 t/s ]
+math raw r1: [ Prompt: 641.1 t/s | Generation: 81.7 t/s ]
+math raw r2: [ Prompt: 651.5 t/s | Generation: 81.6 t/s ]
+math raw r3: [ Prompt: 644.4 t/s | Generation: 81.6 t/s ]
+===== llama-cli draft-mtp =====
+essay mtp r1: [ Prompt: 427.9 t/s | Generation: 130.2 t/s ]
+essay mtp r2: [ Prompt: 430.7 t/s | Generation: 130.4 t/s ]
+essay mtp r3: [ Prompt: 430.9 t/s | Generation: 130.3 t/s ]
+code mtp r1: [ Prompt: 404.9 t/s | Generation: 120.9 t/s ]
+code mtp r2: [ Prompt: 388.7 t/s | Generation: 120.9 t/s ]
+code mtp r3: [ Prompt: 390.3 t/s | Generation: 114.9 t/s ]
+math mtp r1: [ Prompt: 537.3 t/s | Generation: 168.4 t/s ]
+math mtp r2: [ Prompt: 541.8 t/s | Generation: 168.7 t/s ]
+math mtp r3: [ Prompt: 552.4 t/s | Generation: 168.4 t/s ]
+===== llama-cli draft-mtp n-max 4 =====
+essay mtp4 r1: [ Prompt: 432.2 t/s | Generation: 122.3 t/s ]
+essay mtp4 r2: [ Prompt: 426.7 t/s | Generation: 122.4 t/s ]
+essay mtp4 r3: [ Prompt: 432.9 t/s | Generation: 122.5 t/s ]
+code mtp4 r1: [ Prompt: 390.2 t/s | Generation: 129.1 t/s ]
+code mtp4 r2: [ Prompt: 392.3 t/s | Generation: 129.1 t/s ]
+code mtp4 r3: [ Prompt: 391.2 t/s | Generation: 129.2 t/s ]
+math mtp4 r1: [ Prompt: 542.5 t/s | Generation: 170.0 t/s ]
+math mtp4 r2: [ Prompt: 546.2 t/s | Generation: 169.1 t/s ]
+math mtp4 r3: [ Prompt: 547.8 t/s | Generation: 169.7 t/s ]
+===== llama-cli draft-dspark =====
+essay dspark r1: [ Prompt: 280.5 t/s | Generation: 100.4 t/s ]
+essay dspark r2: [ Prompt: 289.6 t/s | Generation: 100.4 t/s ]
+essay dspark r3: [ Prompt: 287.8 t/s | Generation: 100.4 t/s ]
+code dspark r1: [ Prompt: 265.9 t/s | Generation: 104.0 t/s ]
+code dspark r2: [ Prompt: 261.5 t/s | Generation: 104.1 t/s ]
+code dspark r3: [ Prompt: 265.3 t/s | Generation: 104.4 t/s ]
+math dspark r1: [ Prompt: 371.7 t/s | Generation: 146.0 t/s ]
+math dspark r2: [ Prompt: 371.3 t/s | Generation: 145.9 t/s ]
+math dspark r3: [ Prompt: 376.6 t/s | Generation: 144.9 t/s ]
+===== llama-cli draft-dflash =====
+essay dflash r1: [ Prompt: 284.0 t/s | Generation: 130.9 t/s ]
+essay dflash r2: [ Prompt: 290.2 t/s | Generation: 131.2 t/s ]
+essay dflash r3: [ Prompt: 293.2 t/s | Generation: 131.5 t/s ]
+code dflash r1: [ Prompt: 266.9 t/s | Generation: 114.3 t/s ]
+code dflash r2: [ Prompt: 265.9 t/s | Generation: 114.3 t/s ]
+code dflash r3: [ Prompt: 261.5 t/s | Generation: 114.2 t/s ]
+math dflash r1: [ Prompt: 369.0 t/s | Generation: 164.0 t/s ]
+math dflash r2: [ Prompt: 374.5 t/s | Generation: 164.2 t/s ]
+math dflash r3: [ Prompt: 371.8 t/s | Generation: 163.4 t/s ]
+===== llama-bench depth sweep (q8_0 KV, fa) =====
+| model                          |       size |     params | backend    | ngl | type_k | type_v |  fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -----: | -----: | --: | --------------: | -------------------: |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |           tg128 |         81.50 ± 0.28 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d22000 |         75.00 ± 0.11 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d90000 |         60.35 ± 0.05 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d200000 |         44.59 ± 0.08 |
+STAGE DONE

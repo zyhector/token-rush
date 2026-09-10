@@ -1,0 +1,104 @@
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== decode_marlin =====
+weights 16.19 GB, cuda allocated 16.97 GB
+prefill 5 tokens: 2377 ms
+decode at context 65: 10.25 ms/step = 97.5 tok/s   (13.65 GB read per step -> 1332 GB/s, 78.3% of the wall; ceiling 124.6 tok/s)
+peak cuda 19.00 GB
+===== decode_triton =====
+weights 16.19 GB, cuda allocated 17.02 GB
+prefill 5 tokens: 5221 ms
+decode at context 65: 9.91 ms/step = 100.9 tok/s   (13.65 GB read per step -> 1378 GB/s, 81.0% of the wall; ceiling 124.6 tok/s)
+peak cuda 17.32 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None
+===== decode_200k_marlin =====
+weights 16.19 GB, cuda allocated 25.23 GB
+prefill 200005 tokens: 220785 ms
+decode at context 200065: 14.32 ms/step = 69.8 tok/s   (20.31 GB read per step -> 1418 GB/s, 83.4% of the wall; ceiling 83.8 tok/s)
+peak cuda 26.39 GB
+===== decode_200k_triton =====
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 200005 tokens: 150548 ms
+decode at context 200065: 13.97 ms/step = 71.6 tok/s   (20.31 GB read per step -> 1453 GB/s, 85.4% of the wall; ceiling 83.8 tok/s)
+peak cuda 26.13 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None
+===== families_greedy =====
+backend marlin, 300 new tokens, 128k draft vocab, T=0.0 top-p=1.0
+draft   |          essay |           code |           math |       zh-essay |        zh-math |          mixed   (tok/s, accepted/step, ms/step)
+dflash  |  228 3.15 13.8 |  357 4.92 13.8 |  378 5.21 13.8 |  125 1.71 13.8 |  296 4.08 13.8 |  220 3.03 13.8
+mtp     |  206 2.56 12.4 |  258 3.24 12.5 |  285 3.58 12.6 |  162 1.99 12.3 |  281 3.53 12.6 |  227 2.83 12.4
+===== families_sampled =====
+backend marlin, 300 new tokens, 128k draft vocab, T=0.7 top-p=0.9
+draft   |          essay |           code |           math |       zh-essay |        zh-math |          mixed   (tok/s, accepted/step, ms/step)
+dflash  |  222 3.05 13.8 |  300 4.12 13.8 |  403 5.55 13.8 |  120 1.65 13.8 |  310 4.26 13.8 |  242 3.33 13.8
+mtp     |  215 2.67 12.4 |  271 3.41 12.6 |  288 3.62 12.6 |  169 2.08 12.3 |  284 3.57 12.6 |  212 2.63 12.4
+===== spec_context_prose_mtp =====
+cuda 27.0 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1382892 > 262144). Running this sequence through the model will result in indexing errors
+1382892 tokens available
+context      64: raw   96.9 tok/s | spec  265.7 tok/s, 3.33 tokens/step, 12.5 ms/step | KV read 0.0 GB/step | prefill 3s | 8s  | '@ playing video game developed by Sega and published by Sega for'
+context   22000: raw   92.6 tok/s | spec  225.4 tok/s, 2.94 tokens/step, 13.1 ms/step | KV read 0.7 GB/step | prefill 17s | 38s  | ' the Gallery of Maps , was equipped with a 13'
+context   90000: raw   82.1 tok/s | spec  208.5 tok/s, 3.08 tokens/step, 14.8 ms/step | KV read 3.0 GB/step | prefill 77s | 160s  | ' Million Smiles " . \n In 2008'
+context  200000: raw   69.4 tok/s | spec  198.6 tok/s, 3.51 tokens/step, 17.7 ms/step | KV read 6.7 GB/step | prefill 218s | 447s  | ' England . The club competed in League One , the third tier'
+===== spec_context_prose_dflash =====
+cuda 28.2 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1382892 > 262144). Running this sequence through the model will result in indexing errors
+1382892 tokens available
+context      64: raw    nan tok/s | spec  279.5 tok/s, 3.85 tokens/step, 13.8 ms/step | KV read 0.0 GB/step | prefill nans | 4s  | '@ playing video game developed by Sega and published by Sega for'
+context   22000: raw    nan tok/s | spec  187.1 tok/s, 2.78 tokens/step, 14.8 ms/step | KV read 0.7 GB/step | prefill nans | 18s  | ' the Gallery of Maps , was equipped with a 13'
+context   90000: raw    nan tok/s | spec  167.9 tok/s, 3.03 tokens/step, 18.0 ms/step | KV read 3.0 GB/step | prefill nans | 79s  | ' Million Smiles " . \n In 2008'
+context  200000: raw    nan tok/s | spec  189.0 tok/s, 4.36 tokens/step, 23.1 ms/step | KV read 6.7 GB/step | prefill nans | 220s  | ' England . The club competed in League One , the third tier'
+===== spec_context_code_mtp =====
+cuda 27.0 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+context      64: raw   96.8 tok/s | spec  357.4 tok/s, 4.53 tokens/step, 12.7 ms/step | KV read 0.0 GB/step | prefill 3s | 7s  | ' ones.\n\n    Args:\n        value: Whether to'
+context   22000: raw   92.6 tok/s | spec  303.7 tok/s, 4.02 tokens/step, 13.2 ms/step | KV read 0.7 GB/step | prefill 17s | 37s  | '.\n\n    Error type: ``RuntimeError``\n\n   '
+context   90000: raw   82.1 tok/s | spec  278.7 tok/s, 4.19 tokens/step, 15.0 ms/step | KV read 3.0 GB/step | prefill 78s | 160s  | 'el()\n    torch._check(\n        tensor.size'
+context  200000: raw   69.4 tok/s | spec  165.4 tok/s, 2.90 tokens/step, 17.5 ms/step | KV read 6.7 GB/step | prefill 218s | 447s  | '._functorch._aot_autograd.autograd_function'
+===== spec_context_code_dflash =====
+cuda 28.2 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+context      64: raw    nan tok/s | spec  479.8 tok/s, 6.61 tokens/step, 13.8 ms/step | KV read 0.0 GB/step | prefill nans | 3s  | ' ones.\n\n    Args:\n        value: Whether to'
+context   22000: raw    nan tok/s | spec  386.7 tok/s, 5.74 tokens/step, 14.8 ms/step | KV read 0.7 GB/step | prefill nans | 18s  | '.\n\n    Error type: ``RuntimeError``\n\n   '
+context   90000: raw    nan tok/s | spec  347.9 tok/s, 6.28 tokens/step, 18.1 ms/step | KV read 3.0 GB/step | prefill nans | 79s  | 'el()\n    torch._check(\n        tensor.size'
+context  200000: raw    nan tok/s | spec  107.3 tok/s, 2.48 tokens/step, 23.1 ms/step | KV read 6.7 GB/step | prefill nans | 221s  | '._functorch._aot_autograd.autograd_function'
+===== needle =====
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1382892 > 262144). Running this sequence through the model will result in indexing errors
+1382892 tokens of haystack available; needle 19 tokens at depth 50%
+context  131072: RETRIEVED  'amber-falcon-7731'  | prefill 125s (1050 tok/s), decode 76.4 tok/s, peak 26.4 GB, 125s
+context  262119: RETRIEVED  'amber-falcon-7731'  | prefill 320s (819 tok/s), decode 64.3 tok/s, peak 26.4 GB, 320s
+===== gsm8k =====
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 462410.51 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 607810.04 examples/s]
+  10/200: acc 1.000  68 tok/s
+  20/200: acc 1.000  71 tok/s
+  30/200: acc 1.000  70 tok/s
+  40/200: acc 1.000  70 tok/s
+  50/200: acc 1.000  70 tok/s
+  60/200: acc 1.000  70 tok/s
+  70/200: acc 1.000  69 tok/s
+  80/200: acc 1.000  69 tok/s
+  90/200: acc 0.989  69 tok/s
+  100/200: acc 0.980  69 tok/s
+  110/200: acc 0.982  69 tok/s
+  120/200: acc 0.975  69 tok/s
+  130/200: acc 0.977  69 tok/s
+  140/200: acc 0.971  69 tok/s
+  150/200: acc 0.973  69 tok/s
+  160/200: acc 0.969  69 tok/s
+  170/200: acc 0.971  69 tok/s
+  180/200: acc 0.972  69 tok/s
+  190/200: acc 0.968  69 tok/s
+  200/200: acc 0.970  69 tok/s
+GSM8K 200 problems: 194 correct = 0.970; 0 unparsed; 1235s
+saved /workspace/token-rush/results/2026-09-09-machine-36542/engine/gsm8k_engine.json
+STAGE DONE

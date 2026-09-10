@@ -10,21 +10,28 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 31, 2026-09-09)
+## Where things stand (after step 32, 2026-09-10 — Phase 4 done, the project's final numbers)
+
+**Phase 4 numbers — vast 36542, 2026-09-09/10, one sitting, every rival the
+same day** (step 32; `docs/baselines.md` has the matrix and every rival table,
+`results/2026-09-09-machine-36542/` the logs). These are the numbers that get
+reported.
 
 | | | |
 |---|---|---|
-| raw greedy decode, short context | **102 tok/s** on the Triton GEMV (`--backend triton`), 9.9 ms/step, 81% of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6); 97.6 on the default Marlin kernel, whose one layout serves the speculative step | rivals, on corrected byte counts (2026-09-09, embedding excluded): llama.cpp 83 (75%), vLLM 80 (**76%**), ExLlamaV3 77 (59%), SGLang 63 (60%) |
-| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **224 / 373 / 373 tok/s** (MTP chain: 213 / 306 / 286); Chinese essay 179 / math 310 / mixed 251 with the MTP chain, which `--draft auto` (the default) picks for CJK prompts | best rival per family: llama.cpp+MTP 130, SGLang+DSpark 137 / 205 |
-| speculative sampled, T=0.7 top-p 0.9 | **211 / 391 / 358** (DFlash2), 210 / 292 / 294 (MTP chain) | output distribution identical to raw sampling (exact rejection sampling for deterministic drafts) |
-| speculative at 200k context, fp8 KV, prose / code | **211 (MTP) / 238 (DFlash) tok/s** (raw 71.7 = 85.6% of the wall on the Triton GEMV, 69.8 on Marlin) | at 200k: vLLM 61 (81% of the wall), SGLang 50 (66%), llama.cpp 44 (58%) |
-| context | 256k usable (needle at 128k and 256k), 26 GB peak | |
-| correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | |
-| quantization | **int4 g128 GPTQ + MSE range search** (step 30, `docs/quantization.md`, unchanged packing): KL to bf16 **0.0232** over 82k positions, WikiText-2 PPL 6.365 vs 6.255, top-1 0.942, GSM8K 96.5% vs bf16's 96.0% (met); RTN was 0.0546. **The KL half of the row is not met**: ExLlamaV3 4.00bpw is 0.0128 and what is left is the uniform int4 codebook, not the calibration | rivals: GGUF UD-Q4_K_M 0.0093 at 4.80 bpw, EXL3 0.0128 at 4.10, NVFP4 0.0231 at 5.07, RedHatAI INT4 0.0458 at 4.71 |
-| phases | 0 done (frozen), 1a done, **1b done as measurement** (gate, quality table, GPTQ; the bar itself is not met), 2 done, 3 done, 4 not started | |
+| raw greedy decode, short context | **100.9 tok/s** on the Triton GEMV (`--backend triton`), 9.91 ms/step, **81.0%** of the 1701 GB/s wall (13.65 GB read/step, ceiling 124.6); 97.5 = 78.2% on the default Marlin layout, which serves the speculative step | rivals the same day: llama.cpp 82.8 (74.9%), vLLM 78.1 (74.6%), ExLlamaV3 77.6 (60.1%), SGLang 62.7 (59.9%) |
+| speculative greedy, DFlash2 draft in-graph (K=7, 128k draft vocab), essay / code / math | **228 / 357 / 378 tok/s** at 13.8 ms/step (MTP chain: 206 / 258 / 285 at 12.4); Chinese essay **162** / math 281 / mixed 227 with the MTP chain, which `--draft auto` picks for CJK prompts (DFlash2: 125 / 296 / 220) | best rival per family: SGLang+DSpark **106 / 138 / 207**; ollama's default MTP chain 136 / 144 / 175 (llama.cpp+MTP 130 / 121 / 169); ExLlamaV3 MTP 132 / 141 / 166; vLLM 78 raw, all its speculative paths slower |
+| speculative sampled, T=0.7 top-p 0.9 | **222 / 300 / 403** (DFlash2), 215 / 271 / 288 (MTP chain; Chinese essay 169) | output distribution identical to raw sampling (exact rejection sampling for deterministic drafts) |
+| decode at 200k context, fp8 KV | raw **71.6 tok/s = 85.5% of the wall** (Triton; 69.8 = 83.3% Marlin); speculative on real text prose **199–223** (MTP) / 189–196 (DFlash2), code 165–237 (MTP) / **107–260** (DFlash2): the range is acceptance at the two 200k positions measured, the step cost is 17.7 / 23.1 ms at both | at 200k: vLLM 59.9 (80.3%), ExLlamaV3 48.0 (74.2%), SGLang 49.7 (66.6%), llama.cpp 44.6 (58.6%) |
+| context | **256k usable**: needle retrieved at 131k and 262k tokens, 26.4 GB peak, 64.3 tok/s raw at 262k | |
+| correctness | bf16 path = HF on 48/48 greedy tokens; spec = raw greedy 200/200 with shared kernels; every fused kernel differential-tested; 76 tests | GSM8K through the engine 194/200 = **97.0%** (step 30: 96.5%; bf16 96.0%) |
+| quantization | **int4 g128 GPTQ + MSE range search** (step 30, `docs/quantization.md`): KL to bf16 **0.0232** over 82k positions, WikiText-2 PPL 6.365 vs 6.255, top-1 0.942; RTN was 0.0546. **The KL half of the row is not met**: ExLlamaV3 4.00bpw is 0.0128 and what is left is the uniform int4 codebook, not the calibration | rivals: GGUF UD-Q4_K_M 0.0093 at 4.80 bpw, EXL3 0.0128 at 4.10, NVFP4 0.0231 at 5.07, RedHatAI INT4 0.0458 at 4.71 |
+| targets (`CLAUDE.md`) | **met**: speculative bands, 2x SGLang+DSpark on prose (2.15x), vLLM 2.9x, llama.cpp+MTP 1.75x, 256k usable, matched-bytes engine margin (+6 points), GSM8K. **Not met**: raw 90–95% of the wall (81%), +30% over llama.cpp raw (+22%), ≥92% at 200k (85.5%, ahead of every rival), KL parity with EXL3 | |
+| phases | **all done**: 0 (frozen), 1a, 1b (quality bar itself not met), 2, 3, **4 (step 32)** | |
 
-Every number above is a development number on this instance; Phase 4
-re-measures everything on one machine.
+Every number in the table above is from the one Phase 4 sitting. The
+per-step table below is the development record; steps 1–31 are development
+numbers from disposable instances.
 
 | Step | Date | State of the engine | prefill tok/s | decode tok/s |
 |---|---|---|---|---|
@@ -59,6 +66,7 @@ re-measures everything on one machine.
 | 29. Phase 3 closed: sampled decoding measured, per-content draft choice | 2026-09-09 | + the verify step's accept-if-equal-to-the-draw rule shown to *be* rejection sampling for deterministic drafts (no change needed); `--draft auto` (default) keeps both drafts resident and picks the MTP chain for prompts >= 20% CJK, DFlash2 otherwise; two shared-buffer bugs fixed on the way (a graph holds tensors by address) | — | sampled T=0.7 top-p 0.9: **211 / 391 / 358** DFlash2, 210 / 292 / 294 MTP (essay / code / math); zh-essay 171 (MTP); auto: English essay 232, Chinese essay 182 |
 | 30. Phase 1b, second half: the quality table and GPTQ + MSE | 2026-09-09 | + the yardstick (KL to bf16 over 82k positions, PPL, top-1, a measured 5e-4 noise floor) for ours and four rivals; our own GPTQ with an MSE range search into the unchanged packing: **KL 0.0546 -> 0.0232** (EXL3, the bar, 0.0128; GGUF 0.0093; NVFP4 0.0231; RedHatAI 0.0458); GSM8K 96.5% vs bf16's 96.0%; speed bit-identical; the recipe and the corpora in git | 1500 | **97.4** (10.26 ms/step) |
 | 31. Rival byte counts corrected | 2026-09-09 | + the embedding table removed from every rival's bytes/step (a decode step reads one row of it): vLLM 88% -> **76%** of the wall, SGLang 70% -> 60%, llama.cpp 78% -> 75%; ours unchanged at 78.2%. No rival re-measured, only the arithmetic. Phase 1b closed | — | — |
+| 32. **Phase 4: the final measurement** | 2026-09-09/10 | one card (vast 36542), one sitting: the wall re-anchored (1702 GB/s), five rivals re-run from their recipes, the engine on the published checkpoint the same day; the Hub made the default route to the weights (`--model` defaults to the repo id) | — | **100.9 raw (81.0%)**, 71.6 at 200k (85.5%); **228 / 357 / 378** DFlash2 greedy, 222 / 300 / 403 sampled; needle at 262k; GSM8K 97.0% |
 
 ## Step 1 — environment and weights (2026-09-08)
 
@@ -1604,16 +1612,173 @@ agree with the printed figures in all of them.
 
 **Phase 1b and the quantization thread close here.** Next is Phase 4.
 
+## Step 32 — Phase 4: the final measurement (2026-09-09/10)
+
+One RTX 5090 (vast machine 36542, Ryzen 9 9950X host, `docs/environment.md`),
+one sitting, in this order: `scripts/env_check/`, then llama.cpp, ExLlamaV3,
+vLLM, SGLang, ollama, then the engine — every rival from the recipes in
+`docs/baselines.md`, on the exact versions current that day, the engine on the
+published checkpoint, bytes counted from the headers. Every log is in
+`results/2026-09-09-machine-36542/` (its README is the index) and the stage
+scripts that drove each rival are copied there verbatim. `docs/baselines.md`
+was rewritten from these numbers and `CLAUDE.md`'s Targets table now carries
+target and result side by side.
+
+**Before measuring, the queued half-hour item from the handoff**: the Hub is
+now the default route to the weights. `tokenrush/weights.py::resolve_model`
+turns a repo id or a local directory into a local directory — the Hub cache
+if the repo is there, otherwise a download after a one-line notice of the
+size (`--no-download` refuses). `run.py`'s `--model` defaults to
+`zyhector/Qwen3.8-27B-TokenRush-int4g128` and `--dflash-path` to
+`z-lab/Qwen3.8-27B-DFlash2`; `bench/decode.py`, `bench/families.py`,
+`bench/quality_gsm8k_engine.py`, `bench/draft_vocab.py` and the new
+`bench/needle.py` resolve the same way. A local directory that is not a
+packed checkpoint is an error naming the download, not the quantizer: the
+RTN packer is not on the route to running the engine any more (a local
+build is documented for people changing the method; that is
+`scripts/quantize/build.sh`). Verified from a cold cache: `python -m
+tokenrush.run --chat --prompt ...` with no `--model` downloaded both repos
+and produced the same haiku as the local-directory run.
+
+### The machine, against the Phase 0 one
+
+Same card: 1702 GB/s read against 1701, cuBLAS GEMVs at 96.4% of the wall
+against 96.6%, graphed GDN chain 1.48 vs 1.45 ms; `fla`'s fused GDN step is
+still miscompiled on `sm_120` (fla `cfaac24`, triton 3.8.0); `ncu` blocked
+again. **Different host CPU**: the eager GDN chain costs 4.43 ms/token on
+this Zen 5 desktop core against 10.50 on the Phase 0 EPYC. That single
+difference explains every rival row that moved between the two machines.
+
+### Rivals, same day
+
+| | raw, short (% wall) | raw at 200k (% wall) | speculative, essay / code / math | Phase 0 |
+|---|---|---|---|---|
+| llama.cpp `434ddbbc0`, UD-Q4_K_M | 82.8 (74.9%) | 44.6 (58.6%) | MTP **130 / 121 / 169**; n-max 4 122 / 129 / 170; DSpark 100 / 104 / 146; DFlash2 131 / 114 / 164 | 82.8; 44.3; MTP 130 / 128 / 162; DSpark 94 / 92 / 132; DFlash2 111 / 111 / 147 |
+| ollama 0.33.3 (MTP n-max 4 by default) | — | — | **136 / 144 / 175** | 67 / 68 / 82 |
+| vLLM 0.29.0, NVFP4 | 78.1 (74.6%) | 59.9 (80.3%) | MTP 65.6 (0.84x raw, 1.85/step); DSpark 53 (0.68x, 2.95/step); DFlash2 52 (0.66x, 4.03/step) | 79.4; 61.0; 63 / 52 / 52 |
+| SGLang 0.5.19, NVFP4 | 62.7 (59.9%) | 49.7 (66.6%) | DSpark **106 / 138 / 207**, 2.39 / 3.11 / 4.68 per step | 63.2; 49.9; 104 / 137 / 205 |
+| ExLlamaV3 1.4.6, EXL3 4.00bpw | 77.6 (60.1%) | 48.0 (74.2%) | MTP x2 **132 / 141 / 166** (2.24 / 2.39 / 2.81 per step); x1 120 / 121 / 131 | 76.5; 47.7; 127 / 142 / 160 |
+
+Every GPU-bound row reproduced within 1–2%: `llama-bench` to 0.05 tok/s,
+SGLang+DSpark within 1.5%, vLLM's raw 1–2% lower on a version newer by one
+minor. The rows that moved are the host-bound ones. **ollama doubled**, and
+the evidence is unambiguous: byte-identical runner command line, identical
+draft acceptance (188 of 266, mean length 3.81 — the same greedy tokens),
+eval time 5.7 ms/token here against 12.6 on the EPYC. Phase 0's reading that
+"ollama's serving path is slow" was a property of that host; on this one
+ollama's default is the fastest llama.cpp-family number and is used as such
+in the comparison rows. llama.cpp's external drafts (DSpark, DFlash2) moved
+the same way for the same reason, its built-in MTP much less. Our own step
+times (13.8 ms DFlash2, 12.4 ms MTP chain) are identical to the development
+machine's to the tenth of a millisecond — the one-graph-per-step design is
+what makes the number portable.
+
+Two rival-stack notes for the record: SGLang's 16k prefill chunk OOMs on
+the first 22k prompt next to a 256k KV pool (`server_raw.log`), exactly as
+`docs/traps.md` says — the context sweep ran on the 4096-chunk server with
+`--max-total-tokens 215000`, which is what Phase 0's server had used all
+along and what the recipe now says; and vLLM 0.29 still needs the patched
+DSpark draft config (`Qwen3DSparkModel` + a no-op compressed-tensors quant
+config), kept in `results/.../vllm/dspark_ct_config.json`.
+
+### The engine
+
+| | Marlin layout (default) | `--backend triton` |
+|---|---|---|
+| raw decode, short | 97.5 tok/s, 10.25 ms, **78.2%** of the wall (19.0 GB peak) | **100.9 tok/s, 9.91 ms, 81.0%** |
+| raw decode at 200k, fp8 KV | 69.8 tok/s, 14.32 ms, 83.3% (26.4 GB peak) | **71.6 tok/s, 13.97 ms, 85.5%** |
+
+Six families, 300 greedy tokens, 128k draft vocabulary, Marlin layout:
+
+| tok/s (accepted/step) | essay | code | math | zh-essay | zh-math | mixed |
+|---|---|---|---|---|---|---|
+| **DFlash2, K=7**, 13.8 ms/step | **228** (3.15) | **357** (4.92) | **378** (5.21) | 125 (1.71) | **296** (4.08) | 220 (3.03) |
+| MTP chain, dynamic 3:4, 12.4 ms/step | 206 (2.56) | 258 (3.24) | 285 (3.58) | **162** (1.99) | 281 (3.53) | **227** (2.83) |
+| DFlash2, sampled T=0.7 top-p 0.9 | 222 (3.05) | 300 (4.12) | 403 (5.55) | 120 (1.65) | 310 (4.26) | 242 (3.33) |
+| MTP chain, sampled | 215 (2.67) | 271 (3.41) | 288 (3.62) | 169 (2.08) | 284 (3.57) | 212 (2.63) |
+
+Against the development table (step 29: 224 / 373 / 373, 179 / 310 / 251)
+the English families are within noise and the Chinese ones 5–10% lower —
+different GPU floating point on the same greedy prompts drifts the text
+after a few hundred tokens, and acceptance follows the text. `--draft auto`
+still picks the MTP chain for CJK prompts and DFlash2 otherwise, and both
+choices are still right on this table.
+
+Speculation vs. context on real text, fp8 KV, 200 tokens
+(`bench/spec_context.py`; the corpora are rebuilt by `bench/long_text.py`):
+
+| tok/s | @64 | @22k | @90k | @200k | @200k, corpus shifted 1.5 MB |
+|---|---|---|---|---|---|
+| prose, MTP chain (raw) | 266 (96.9) | 225 (92.6) | 209 (82.1) | **199** (69.4) | 223 |
+| prose, DFlash2 | 280 | 187 | 168 | 189 | 196 |
+| code, MTP chain | 357 | 304 | 279 | 165 | 237 |
+| code, DFlash2 | **480** | 387 | 348 | 107 (2.48/step) | **260** (6.00/step) |
+
+The 200k column is the one that needs reading with care. Step cost at 200k
+is 17.7 ms (MTP) and 23.1 ms (DFlash2) on *both* corpora, prose and code, and
+matches the development machine's 17.7 / 23.9. What varies is acceptance
+over the 200 tokens generated at that one position: the protocol corpus
+happens to put a long dotted module path (`._functorch._aot_autograd…`)
+at token 200,000 of the code file, and DFlash2 accepts 2.48 per step there;
+1.5 MB further into the same file it accepts 6.00. So the honest 200k
+speculative number is a range — prose 199–223, code 165–260 — not a point,
+and the engine's contribution to it (the step cost) is fixed. The
+development numbers (211 / 238, step 28) sit inside those ranges.
+
+Long context, functionally: the needle is **retrieved at 131,072 and at
+262,119 tokens** (`bench/needle.py`, passphrase buried half-way through
+WikiText prose, chat template, raw greedy answer), 26.4 GB peak, prefill
+1050 / 819 tok/s, decode 76.4 / 64.3 tok/s at those lengths (64.3 at 262k
+is 84% of the wall for that byte count).
+
+GSM8K through the engine, 200 problems, greedy, 1024-token cap: **194
+correct = 97.0%**, 0 unparsed (step 30 measured 96.5% on the same
+checkpoint, bf16 96.0%; the band is ±3.5 points).
+
+### What the writeup says
+
+- **The headline holds and is durable in form**: 228 / 357 / 378 effective
+  greedy against the best rival per family measured the same day — SGLang +
+  DSpark 106 / 138 / 207 (2.15x / 2.6x / 1.8x), ollama's default 136 / 144 /
+  175 (1.67x / 2.5x / 2.2x), vLLM's best (raw) 78 (2.9x / 4.6x / 4.8x).
+  Every rival's speculative path is where it loses: vLLM's three are all
+  slower than its raw decode, SGLang's verify step costs 1.41x a raw step
+  against our 1.13x, llama.cpp's is host-bound.
+- **Raw decode is table stakes, conceded up front**: 81% of the wall against
+  vLLM's 74.6% is +6 points of engine, and the rest of the +22% over
+  llama.cpp is 11% fewer bytes. The 90–95% target was not met; the ~10
+  points left are the int4 GEMV the project chose not to hand-write.
+- **Long context is a margin, not a caveat**: 85.5% of the wall at 200k,
+  ahead of vLLM (80.3), ExLlamaV3 (74.2), SGLang (66.6) and llama.cpp
+  (58.6), rising from short context like the good rivals do, and 256k-usable.
+  The ≥92% target was not met.
+- **The quality row is half met**, as before: GSM8K 97.0% vs bf16's 96.0%;
+  KL 0.0232 against ExLlamaV3's 0.0128, the gap being the uniform int4
+  codebook (`docs/quantization.md`).
+- **Numbers are machine-named because they have to be**: on this host the
+  rivals whose loops touch the CPU moved by 10–100% against Phase 0 on
+  identical binaries and weights; the GPU-bound rows and our own step times
+  did not move at all.
+
+**Phase 4 closes here, and with it the plan.** The handoff file
+(`docs/handoff.md`) is deleted, as it said to be; what it queued is done.
+
 ## Next
 
+- **All phases done** (step 32). Nothing is owed. What remains is optional
+  and was declined or deferred with reasons: the int4 GEMV redesign for the
+  last ~10 points of raw decode (Phase 2 close; a Marlin-layout M=1 kernel
+  would also recover the 4% the default layout gives up), the codebook change
+  for KL parity with EXL3 (`docs/quantization.md`), the 64-row attention tile
+  at long context and partial-mode Marlin on the wide shapes (step 29),
+  stochastic drafts with residual sampling (step 29). A user-facing document
+  on running a locally built checkpoint is owed only if anyone asks for one.
 - **Phase 1b closed** (steps 30–31). The checkpoint is int4 g128 GPTQ with an
   MSE range search (KL 0.0232, GSM8K 96.5% vs bf16's 96.0%, speed unchanged);
   the codebook change that would reach ExLlamaV3's 0.0128 was measured,
   costed at about a week of kernel work, and **declined** — the quality row is
   reported with the measured number instead (`docs/quantization.md`). The
-  rival byte counts are corrected. **Next is Phase 4 on one card**: the
-  handoff for it is `docs/handoff.md`. Optional Phase 3 items are listed at
-  the end of step 29.
+  rival byte counts are corrected.
 - **Phase 3 done** (steps 12–29): 224 / 373 / 373 greedy, 211 / 391 / 358
   sampled (DFlash2, essay / code / math), 179 / 310 / 251 on the Chinese
   families (MTP chain, chosen automatically), 211 / 238 at 200k, verify K=7 at

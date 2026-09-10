@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Time the engine's decode step and say where the time goes.
 
-    python bench/decode.py --model <packed> [--backend tinygemm|triton|dequant] [--steps 20] [--profile]
+    python bench/decode.py [--model <repo id or packed dir>] [--backend tinygemm|triton|dequant] [--steps 20] [--profile]
 
 Prefills a short prompt, runs warmup steps, then times `steps` decode steps
 with the GPU synchronized. --profile prints the top CUDA kernels of one step.
@@ -17,12 +17,13 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tokenrush.model import Engine
-from tokenrush.weights import load_packed
+from tokenrush.weights import DEFAULT_REPO, load_packed, resolve_model
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
+    ap.add_argument("--model", default=DEFAULT_REPO, help="packed checkpoint: a Hub repo id or a local directory")
+    ap.add_argument("--no-download", action="store_true", help="fail instead of downloading a missing Hub checkpoint")
     ap.add_argument("--backend", default=None, help="int4 kernel (default: the engine default)")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--warmup", type=int, default=5)
@@ -32,6 +33,7 @@ def main():
     ap.add_argument("--context", type=int, default=0, help="prefill this many random tokens first")
     ap.add_argument("--kv", default="bf16", choices=("bf16", "fp8"), help="KV cache dtype")
     a = ap.parse_args()
+    a.model = resolve_model(a.model, download=not a.no_download)
 
     from tokenrush.quant import DEFAULT_BACKEND
     cfg, w, _ = load_packed(a.model, backend=a.backend or DEFAULT_BACKEND)

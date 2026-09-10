@@ -15,9 +15,13 @@ import argparse
 import collections
 import os
 import re
+import sys
 
 import torch
 from transformers import AutoTokenizer
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tokenrush.weights import DEFAULT_REPO, resolve_model  # noqa: E402
 
 MATHISH = re.compile(r"[0-9]|[=+\-*/^_<>≤≥≠±×÷√∑∫π%$]|\\(frac|sqrt|times|cdot|text|left|right|begin|end|boxed|approx|pm)"
                      r"|km|h\b|km/h|hour|minute|second|meter|speed|distance|time|train|equation|solve|therefore|total|answer|step")
@@ -50,13 +54,13 @@ def order_ids(tok, corpora, weights):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="/workspace/models/Qwen3.8-27B-int4g128")
+    ap.add_argument("--model", default=DEFAULT_REPO, help="the checkpoint whose tokenizer to use: a Hub repo id or a local directory")
     ap.add_argument("--en", required=True)
     ap.add_argument("--code", required=True)
     ap.add_argument("--zh", required=True)
     ap.add_argument("--out-dir", required=True)
     a = ap.parse_args()
-    tok = AutoTokenizer.from_pretrained(a.model)
+    tok = AutoTokenizer.from_pretrained(resolve_model(a.model))
     en = open(a.en).read()[:8_000_000]
     code = open(a.code).read()[:3_200_000]
     zh = open(a.zh).read()[:6_000_000]

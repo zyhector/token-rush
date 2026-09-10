@@ -37,14 +37,17 @@ the correct shape for a mini project.
   also far stronger on this host than public figures suggest, so the
   effective-throughput margin must come from deeper speculation, not from a
   weak rival.
-- vLLM 0.28 on our own 5090, NVFP4: **80.0 tok/s raw = 88% of the wall** at
-  bs=1 with torch.compile and full CUDA graphs, and **90% at 200k**. The strongest raw engine
-  measured; on matched bytes it leaves ~8 points to the GEMV ceiling.
-- SGLang 0.5.18 on our own 5090, NVFP4: **63.2 tok/s raw = 70% of the wall**,
-  flat from empty context to 200k. With DSpark (RadixArk, 1.86B draft, gamma
-  7): **104 / 137 / 205 tok/s** on prose / code / math, mean accepted length
-  2.4 / 3.1 / 4.7. Measured — see `docs/baselines.md`. RadixArk's published
-  bs=1 GSM8K figure (3.16x, accepted length 3.43) matches the math row.
+- vLLM 0.29 on our own 5090, NVFP4 (Phase 4, `docs/baselines.md`): **78.1
+  tok/s raw = 74.6% of the wall** at bs=1 with torch.compile and full CUDA
+  graphs, and **80.3% at 200k**. The strongest raw engine measured; on
+  matched bytes it leaves ~22 points to the GEMV ceiling, and every
+  speculative path it has is slower than its raw decode.
+- SGLang 0.5.19 on our own 5090, NVFP4: **62.7 tok/s raw = 59.9% of the
+  wall**, flat-to-rising from empty context to 200k (66.6%). With DSpark
+  (RadixArk, 1.86B draft, gamma 7): **106 / 138 / 207 tok/s** on prose /
+  code / math, mean accepted length 2.4 / 3.1 / 4.7 — reproduced within 1.5%
+  on two machines five days apart. RadixArk's published bs=1 GSM8K figure
+  (3.16x, accepted length 3.43) matches the math row.
 - 24 GB Blackwell card at 262k context: 50 → 12.6 tok/s. Long context is real.
 
 ## Resources are in hand
@@ -96,15 +99,18 @@ Raw decode first. At 4.0 bpw the text path is 13.45 GB, the ceiling is
 The +40–45% raw rows are mostly bytes: we read 13.65 GB where vLLM's NVFP4
 checkpoint streams 16.25 (its `lm_head` is bf16) and llama.cpp 15.39. Held to
 the same bytes the engine itself is worth a few percent over vLLM — measured
-after the fact, 78.2% of the wall against its 76.1%, i.e. **+3%**, not the
-+15% the projection above assumed at 92%. That is the fair-comparison row and
+in Phase 4 on one machine on one day, 81.0% of the wall (`--backend triton`;
+78.2% on the Marlin layout) against vLLM's 74.6%, i.e. **+6 to +9%**, not the
++15% the projection above assumed at 92%. The projection's 4.0 bpw raw row
+(116 tok/s) measured 100.9 at 4.25 bpw; the 200k row (78 projected) measured
+71.6 against vLLM's 59.9 and llama.cpp's 44.6. That is the fair-comparison row and
 it must be conceded up front: raw decode is table stakes, and the headline is
 speculation.
 
 > The two rows marked in bold were projections written before the engine
 > existed, and the byte counts they used included the embedding table. Both
-> are superseded by measurement: `docs/progress.md` step 30 and the corrected
-> tables in `docs/baselines.md`.
+> are superseded by measurement: `docs/progress.md` step 32 (Phase 4) and
+> the tables in `docs/baselines.md`.
 
 **Speculation is where the number comes from.** The step-cost model, from
 the component measurements on this machine:

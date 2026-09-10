@@ -40,7 +40,8 @@ Each of these cost real time. Do not rediscover them.
   `pkill -x <name>`, kill by PID, or kill in a separate step. The `[x]`
   bracket trick does not help when the same word also appears elsewhere in
   the command line (a shell function named after the thing being killed).
-  Paid for four times.
+  Paid for five times: the fifth was a Phase 4 wrapper script *named*
+  `sglang_ctx.sh`, killed by the previous stage's `pkill -9 -f sglang`.
 - **ollama keeps its model resident for `keep_alive` (10 min by default)**
   after the last request, holding ~20 GB of VRAM; the next engine's startup
   fails with "free memory less than desired utilization". `ollama stop

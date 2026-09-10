@@ -1,0 +1,19 @@
+ollama version is 0.33.3
+success [K[?25h[?2026l
+  Model
+    architecture        qwen35     
+    parameters          27.3B      
+    context length      262144     
+    embedding length    5120       
+    quantization        Q4_K_M     
+    requires            0.32.12    
+
+  Capabilities
+    completion    
+    vision        
+    tools         
+essay    136.4 tok/s   (256 tokens)
+code     143.8 tok/s   (256 tokens)
+math     175.3 tok/s   (256 tokens)
+[?25l[?2026h[?25l[1G[K[?25h[?2026l[2K[1G[?25h1 MiB
+STAGE DONE

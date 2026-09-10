@@ -1,0 +1,33 @@
+===== vLLM raw + context (220k) =====
+server ctx up after 250s
+essay     78.1 tok/s
+code      78.1 tok/s
+math      78.1 tok/s
+context       0:    78.1 tok/s
+context   22000:    75.9 tok/s
+context   90000:    69.3 tok/s
+context  200000:    59.9 tok/s
+gpu freed
+===== vLLM MTP 1 =====
+server mtp1 up after 125s
+essay     65.6 tok/s
+code      65.1 tok/s
+math      65.1 tok/s
+(APIServer pid=20338) INFO 09-09 23:51:23 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.86, Accepted throughput: 24.43 tokens/s, Drafted throughput: 28.50 tokens/s, Accepted: 509 tokens, Drafted: 594 tokens, Per-position acceptance rate: 0.857, Avg Draft acceptance rate: 85.7%
+(APIServer pid=20338) INFO 09-09 23:51:33 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.85, Accepted throughput: 53.99 tokens/s, Drafted throughput: 63.19 tokens/s, Accepted: 540 tokens, Drafted: 632 tokens, Per-position acceptance rate: 0.854, Avg Draft acceptance rate: 85.4%
+gpu freed
+===== vLLM DSpark =====
+server dspark up after 155s
+essay     53.0 tok/s
+code      53.6 tok/s
+math      52.9 tok/s
+(APIServer pid=21679) INFO 09-09 23:54:20 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 2.95, Accepted throughput: 41.53 tokens/s, Drafted throughput: 149.21 tokens/s, Accepted: 867 tokens, Drafted: 3115 tokens, Per-position acceptance rate: 0.739, 0.461, 0.249, 0.184, 0.144, 0.092, 0.079, Avg Draft acceptance rate: 27.8%
+gpu freed
+===== vLLM DFlash2 =====
+server dflash up after 255s
+essay     51.7 tok/s
+code      51.7 tok/s
+math      51.7 tok/s
+(APIServer pid=23290) INFO 09-09 23:58:52 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 4.03, Accepted throughput: 64.61 tokens/s, Drafted throughput: 170.37 tokens/s, Accepted: 1347 tokens, Drafted: 3552 tokens, Per-position acceptance rate: 0.845, 0.624, 0.466, 0.356, 0.291, 0.212, 0.160, 0.081, Avg Draft acceptance rate: 37.9%
+gpu freed
+STAGE DONE

@@ -1,0 +1,37 @@
+===== SGLang raw + context =====
+server raw up after 155s
+essay     62.7 tok/s   (prompt 26 tok)
+code      62.6 tok/s   (prompt 19 tok)
+math      62.6 tok/s   (prompt 49 tok)
+context       0:    62.5 tok/s   (prompt 1 tok)
+Traceback (most recent call last):
+  File "/workspace/token-rush/scripts/rivals/sglang_bench.py", line 117, in <module>
+    main()
+  File "/workspace/token-rush/scripts/rivals/sglang_bench.py", line 113, in main
+    {"raw": cmd_raw, "context": cmd_context, "spec": cmd_spec}[args.mode](args)
+  File "/workspace/token-rush/scripts/rivals/sglang_bench.py", line 90, in cmd_context
+    rate, meta = decode_rate({"input_ids": ids}, args.n, args.reps)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/sglang_bench.py", line 73, in decode_rate
+    rate, meta = stream_rate(body, n)
+                 ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/sglang_bench.py", line 66, in stream_rate
+    return (n_last - n_first) / (t_last - t_first), meta
+                                 ~~~~~~~^~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'NoneType' and 'NoneType'
+/tmp/claude-0/-workspace-token-rush/b661d676-d633-4503-a05e-5746ae648932/scratchpad/sglang_stage.sh: line 11: 25032 Killed                  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True setsid nohup $V/python -m sglang.launch_server --model-path $M --trust-remote-code --kv-cache-dtype fp8_e4m3 --mamba-ssm-dtype float32 --max-running-requests 1 --max-mamba-cache-size 6 --cuda-graph-max-bs 1 --disable-prefill-cuda-graph --port 30000 "$@" > $R/server_$name.log 2>&1 < /dev/null
+gpu freed
+===== SGLang + DSpark =====
+server spec up after 45s
+essay    105.9 tok/s   1024 tokens in  429 verify steps   mean accepted length 2.39
+code     138.1 tok/s   1024 tokens in  329 verify steps   mean accepted length 3.11
+math     207.3 tok/s   1024 tokens in  219 verify steps   mean accepted length 4.68
+gpu freed
+STAGE DONE
+server ctx up after 20s
+context       0:    62.7 tok/s   (prompt 1 tok)
+context   22000:    60.5 tok/s   (prompt 22000 tok)
+context   90000:    55.8 tok/s   (prompt 90000 tok)
+context  200000:    49.7 tok/s   (prompt 200000 tok)
+gpu freed
+STAGE DONE

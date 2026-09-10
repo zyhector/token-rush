@@ -1,0 +1,11 @@
+loaded 16.19 GB of weights in 1.3s
+captured graphs for buckets [8192] in 2.5s
+weights 16.19 GB, cuda allocated 17.02 GB
+prefill 5 tokens: 5221 ms
+decode at context 65: 9.91 ms/step = 100.9 tok/s   (13.65 GB read per step -> 1378 GB/s, 81.0% of the wall; ceiling 124.6 tok/s)
+peak cuda 17.32 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None

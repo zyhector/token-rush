@@ -1,19 +1,124 @@
 # Environment
 
-The machine Phase 0 was measured on (vast **94372**), 2026-09-04. Every
-"% of wall" claim in the project is relative to the 1701 GB/s recorded here.
+**The Phase 4 benchmark machine: vast 36542 (RTX 5090), 2026-09-09.** Every
+number in the final report — the wall, every rival, the engine — was measured
+on it on that day (`results/2026-09-09-machine-36542/`). Its read bandwidth
+measured **1702 GB/s**, within 0.1% of the 1701 GB/s recorded on the Phase 0
+machine (94372, 2026-09-04), so the project keeps quoting **1701 GB/s as the
+wall**: the difference is below run-to-run noise and moves no "% of wall"
+figure by as much as a tenth of a point.
 
-**This file is not re-run per development instance** (decision of
-2026-09-08). Instances are disposable and the engine is built on whichever
-5090 is rented at the time; the Phase 0 numbers below stand until Phase 4,
-which re-runs `scripts/env_check/`, every rival and the engine on the final
-benchmark machine and replaces this file's measurements with that machine's.
-Development-time engine numbers are provisional and are quoted against the
-wall recorded here.
+The Phase 0 machine is kept below as the historical section: its
+measurements were the baselines the engine was built against, and `docs/
+baselines.md` says which machine each rival number comes from.
+
+## Instance (Phase 4 — the reported one)
+
+| | |
+|---|---|
+| Instance / container id | 50438878 |
+| **Machine id** | **36542** (host 110266) |
+| Location | Idaho, US |
+| Image | `vastai/base-image:cuda-13.3.1-auto` |
+| Price | $1.047/hr |
+| Host reliability | 0.998 |
+| Motherboard | ProArt X870E-CREATOR WIFI |
+| Public IP | 135.131.174.76 |
+
+### GPU — RTX 5090
+
+| | |
+|---|---|
+| Architecture | Blackwell consumer, **SM120** (`compute_cap 12.0`), 170 SMs |
+| VRAM | 32607 MiB (31.4 GiB usable) |
+| Memory clock | 14001 MHz (GDDR7, 512-bit) |
+| SM clock (max) | 3090 MHz |
+| Power limit | 575 W |
+| PCIe | Gen5 x16 |
+| VBIOS | 98.02.2E.40.AF |
+| UUID | `GPU-1b4a7aa5-8835-76e7-d42f-88898869366c` |
+
+Idle and unshared, no throttling reported (`HW Slowdown: Not Active`).
+
+### Measured bandwidth (`check_bandwidth.py`)
+
+| | Measured | % of 1792 GB/s spec |
+|---|---|---|
+| **Read-only, Triton streaming kernel** | **1702 GB/s** | **95.0%** |
+| Read-only, `torch.sum` | 1687 GB/s | 94.2% |
+| Copy (read + write) | 1530 GB/s | 85.4% |
+
+Same card, same wall: 1702 against 94372's 1701. **1701 GB/s stays the
+project's wall** (see the top of this file).
+
+### CPU / memory / storage
+
+| | |
+|---|---|
+| CPU | AMD Ryzen 9 9950X 16-core, Zen 5 (32 threads), 5.76 GHz boost |
+| **Effective cores allocated** | **16** |
+| L3 | 64 MiB, 1 NUMA node |
+| RAM | 186 GiB visible |
+| `/` (overlay) | 300 GB — **wiped on recycle/destroy** |
+| `/workspace` | **not a volume** (`workspace_is_volume: false`) |
+| Disk bandwidth | ~11 GB/s |
+| Network | ~5.0 Gbps down / 3.3 Gbps up (the 17 GB checkpoint downloads in ~4 min) |
+
+### Software
+
+Driver **610.43.02** (CUDA 13.3 max), CUDA toolkit 13.3 from the image,
+`nvcc` 13.3.73, gcc 13.3, cmake 3.28.
+
+| | |
+|---|---|
+| Python | 3.12.14 (`/venv/main`) |
+| torch | 2.14.0+cu130 |
+| triton | 3.8.0 |
+| transformers | 5.17.0 |
+| flash-linear-attention | 0.6.0 (git main `cfaac24`) |
+| numpy / safetensors / einops / huggingface-hub | 2.5.3 / 0.8.0 / 0.8.2 / 1.30.0 |
+| Marlin extension (`tokenrush/csrc/`) | builds on first import with nvcc 13.3 + ninja 1.13.2 |
+
+Rival stacks, in their own venvs, all current PyPI/GitHub on 2026-09-09:
+llama.cpp `434ddbbc0` (built with CUDA 13.3, `sm_120`), SGLang 0.5.19
+(torch 2.13.0+cu130), vLLM 0.29.0 (torch 2.13.0+cu130), ExLlamaV3 1.4.6
+(`cu132.torch2.11.0` wheel), ollama 0.33.3. Versions in
+`results/2026-09-09-machine-36542/install/`.
+
+### What is verified on this card (`check_stack.py`, `check_gemv_sol.py`)
+
+Same picture as the Phase 0 machine, line for line:
+
+| | |
+|---|---|
+| `sm_120` Triton codegen, CUDA graph capture / replay | work |
+| `fla` `chunk_gated_delta_rule` at the decode shape, FP32 state | correct (2.1e-4 / 4.6e-3 over 6 calls) |
+| `fla` `fused_recurrent_gated_delta_rule` | **still miscompiled** — NaN heads over 6 calls (fla 0.6.0 `cfaac24`, triton 3.8.0) |
+| our minimal Triton step | correct (9.7e-5 / 1.2e-7) |
+| cuBLAS bf16 GEMVs at the real layer shapes, one CUDA graph | **1641 GB/s = 96.4% of the wall** (`gemvx` kernels) |
+| `nsys` 2026.2.1 | works |
+| `ncu` | **blocked**, `ERR_NVGPUCTRPERM` (third host in a row) |
+
+**One difference that matters for the rivals, not for us.** The 48-layer
+eager GDN chain costs **4.43 ms/token here against 10.50 on the Phase 0
+EPYC** (graphed: 1.48 vs 1.45 — identical). The Zen 5 desktop core issues
+kernel launches 2.4x faster than the EPYC 9B14 server core. Our engine
+replays one graph per step and does not see it; engines with host-side work
+between small kernels do — which is why llama.cpp's external drafts (DSpark,
+DFlash2) measure higher here than on 94372 while its `llama-bench` decode is
+identical to 0.05 tok/s. `docs/baselines.md` names the machine on every row.
+
+---
+
+# Phase 0 machine — 94372 (historical)
+
+The machine Phase 0 was measured on, 2026-09-04. Its numbers were the
+baselines the engine was built against; they are superseded for the report
+by the Phase 4 section above. Kept unedited.
 
 ## Instance
 
-Rented from vast.ai. Benchmarks must cite this machine.
+Rented from vast.ai.
 
 | | |
 |---|---|

@@ -4,7 +4,7 @@ decode), with the same prompt and scoring as bench/quality_hf.py --gsm8k, so
 the HF-side row for our quant can be cross-checked against the engine the user
 actually runs.
 
-    python bench/quality_gsm8k_engine.py --model /workspace/models/Qwen3.8-27B-int4g128 --out results/quality/gsm8k_int4_rtn_engine.json
+    python bench/quality_gsm8k_engine.py [--model <repo id or packed dir>] --out results/quality/gsm8k_engine.json
 """
 import argparse
 import json
@@ -18,17 +18,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from bench.quality_hf import INSTRUCTION, extract, same_number  # noqa: E402
 from tokenrush.generate import generate  # noqa: E402
 from tokenrush.model import Engine  # noqa: E402
-from tokenrush.weights import load_packed  # noqa: E402
+from tokenrush.weights import DEFAULT_REPO, load_packed, resolve_model  # noqa: E402
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
+    ap.add_argument("--model", default=DEFAULT_REPO, help="packed checkpoint: a Hub repo id or a local directory")
+    ap.add_argument("--no-download", action="store_true", help="fail instead of downloading a missing Hub checkpoint")
     ap.add_argument("--n", type=int, default=200)
     ap.add_argument("--max-new", type=int, default=1024)
     ap.add_argument("--backend", default=None)
     ap.add_argument("--out")
     a = ap.parse_args()
+    a.model = resolve_model(a.model, download=not a.no_download)
     from datasets import load_dataset
     from transformers import AutoTokenizer
     from tokenrush.quant import DEFAULT_BACKEND

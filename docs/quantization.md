@@ -323,6 +323,11 @@ six prompt families with the DFlash2 draft: 227 / 354 / 376 / 124 / 294 /
 219 tok/s for the MSE checkpoint against RTN's 218 / 368 / 376 / 117 / 291 /
 218, at step times of 13.8–13.9 ms either way. The spread is draft
 acceptance on different text, not step cost. All 76 tests pass unchanged.
+(Phase 4, on the final machine, `docs/progress.md` step 32: raw 97.5 at
+10.25 ms on the same layout, 100.9 on `--backend triton`; the six families
+228 / 357 / 378 / 125 / 296 / 220; GSM8K through the engine **194/200 =
+97.0%**, against 96.5% here and bf16's 96.0% — the same number inside the
+±3.5-point band.)
 
 ## Where it stands
 

@@ -1,4 +1,7 @@
-"""python -m tokenrush.run --model <packed dir> --prompt "..." [--chat] [--max-new N]"""
+"""python -m tokenrush.run --prompt "..." [--chat] [--max-new N]
+
+Runs the published checkpoint (downloaded into the Hub cache on first use, 17 GB) with
+the DFlash2 draft (3.9 GB). --model takes a Hub repo id or a local packed directory."""
 import argparse
 import json
 import time
@@ -11,12 +14,15 @@ from .model import Engine
 from .mtp import MTPHead, build_mtp
 from .quant import DEFAULT_BACKEND
 from .spec import cjk_share, generate_spec_graph, pick_draft
-from .weights import is_packed, load_packed
+from .weights import DEFAULT_REPO, DFLASH_REPO, is_packed, load_packed, not_packed_message, resolve_model
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True, help="packed checkpoint (see tokenrush.quantize)")
+    ap.add_argument("--model", default=DEFAULT_REPO,
+                    help="packed checkpoint: a Hub repo id (default: the published one) or a local directory")
+    ap.add_argument("--no-download", action="store_true",
+                    help="fail instead of downloading a missing Hub checkpoint or draft")
     ap.add_argument("--prompt", default="The capital of France is")
     ap.add_argument("--chat", action="store_true", help="wrap the prompt in the chat template, thinking off")
     ap.add_argument("--think", action="store_true", help="with --chat, leave thinking on")
@@ -31,7 +37,7 @@ def main():
     ap.add_argument("--draft", default="auto", choices=("auto", "dflash", "mtp"),
                     help="the draft: z-lab's DFlash2 block draft (needs --dflash-path), the shipped MTP head, or "
                          "auto (default): both resident, the MTP chain for prompts that are >= 20%% CJK, DFlash2 otherwise")
-    ap.add_argument("--dflash-path", default="/workspace/models/Qwen3.8-27B-DFlash2")
+    ap.add_argument("--dflash-path", default=DFLASH_REPO, help="the DFlash2 draft: a Hub repo id or a local directory")
     ap.add_argument("--draft-vocab", default="128k",
                     help="the draft chain's lm_head rows: 'full'; '128k' (the first 131072 token ids, i.e. the "
                          "tokenizer's BPE merge order, a language-neutral frequency proxy; default); a named list "
@@ -43,14 +49,21 @@ def main():
     ap.add_argument("--top-k", type=int, default=64)
     ap.add_argument("--seed", type=int, default=None)
     a = ap.parse_args()
+    a.model = resolve_model(a.model, download=not a.no_download)
     if not is_packed(a.model):
-        raise SystemExit(f"{a.model} is not a packed checkpoint; run python -m tokenrush.quantize first")
+        raise SystemExit(not_packed_message(a.model))
 
     import os
     spec = not a.no_spec and not a.eager
-    have_dflash = os.path.exists(a.dflash_path)
-    if spec and a.draft != "mtp" and not have_dflash:
-        print(f"[warn] DFlash2 checkpoint not found at {a.dflash_path}; using the MTP draft")
+    have_dflash = False
+    if spec and a.draft != "mtp":
+        try:
+            a.dflash_path = resolve_model(a.dflash_path, download=not a.no_download)
+            have_dflash = os.path.exists(os.path.join(a.dflash_path, "config.json"))
+        except SystemExit as e:
+            print(f"[warn] {e}")
+        if not have_dflash:
+            print(f"[warn] DFlash2 draft not found at {a.dflash_path}; using the MTP draft")
     want_dflash = spec and a.draft != "mtp" and have_dflash
     want_mtp = spec and (a.draft != "dflash" or not have_dflash)
     kmin, kmax = (int(v) for v in a.spec_depth.split(":"))

@@ -30,3 +30,4 @@ step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
 29,2026-09-09,Phase 3 closed: sampled 211/391/358 (DFlash) 210/292/294 (MTP); --draft auto picks MTP for CJK prompts,97.6,78,10.25,1500
 30,2026-09-09,Phase 1b: quality table + GPTQ with MSE range search (KL 0.0546 -> 0.0232; bar 0.0128 not met); speed unchanged,97.4,78,10.26,1500
 31,2026-09-09,Rival byte counts corrected (embedding not streamed): vLLM 88% -> 76% of the wall; ours unchanged; Phase 1b closed,97.4,78,10.26,1500
+32,2026-09-10,Phase 4 final measurement on vast 36542: raw 100.9 (triton) / 97.5 (marlin); spec 228/357/378 DFlash greedy; 71.6 at 200k (85.5%); needle 262k; GSM8K 97.0%,100.9,81,9.91,1500

@@ -1,0 +1,26 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 462410.51 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 607810.04 examples/s]
+loaded 16.19 GB of weights in 3.0s
+  10/200: acc 1.000  68 tok/s
+  20/200: acc 1.000  71 tok/s
+  30/200: acc 1.000  70 tok/s
+  40/200: acc 1.000  70 tok/s
+  50/200: acc 1.000  70 tok/s
+  60/200: acc 1.000  70 tok/s
+  70/200: acc 1.000  69 tok/s
+  80/200: acc 1.000  69 tok/s
+  90/200: acc 0.989  69 tok/s
+  100/200: acc 0.980  69 tok/s
+  110/200: acc 0.982  69 tok/s
+  120/200: acc 0.975  69 tok/s
+  130/200: acc 0.977  69 tok/s
+  140/200: acc 0.971  69 tok/s
+  150/200: acc 0.973  69 tok/s
+  160/200: acc 0.969  69 tok/s
+  170/200: acc 0.971  69 tok/s
+  180/200: acc 0.972  69 tok/s
+  190/200: acc 0.968  69 tok/s
+  200/200: acc 0.970  69 tok/s
+GSM8K 200 problems: 194 correct = 0.970; 0 unparsed; 1235s
+saved /workspace/token-rush/results/2026-09-09-machine-36542/engine/gsm8k_engine.json

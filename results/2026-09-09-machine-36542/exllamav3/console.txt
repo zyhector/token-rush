@@ -1,0 +1,22 @@
+===== exl3 raw =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 18.0 GB allocated
+essay     77.5 tok/s
+code      77.6 tok/s
+math      77.5 tok/s
+===== exl3 context =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 200448 tokens, 29.0 GB allocated
+context       0:    77.6 tok/s
+context   22000:    72.0 tok/s
+context   90000:    60.4 tok/s
+context  200000:    48.0 tok/s
+===== exl3 mtp 1 =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 20.7 GB allocated
+essay    119.6 tok/s   accepted draft tokens 113/254 -> 1.80 per step
+code     121.4 tok/s   accepted draft tokens 114/254 -> 1.81 per step
+math     130.9 tok/s   accepted draft tokens 125/254 -> 1.97 per step
+===== exl3 mtp 2 =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 23.2 GB allocated
+essay    131.8 tok/s   accepted draft tokens 140/253 -> 2.24 per step
+code     140.7 tok/s   accepted draft tokens 147/253 -> 2.39 per step
+math     166.1 tok/s   accepted draft tokens 163/253 -> 2.81 per step
+STAGE DONE

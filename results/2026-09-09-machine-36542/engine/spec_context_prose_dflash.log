@@ -1,0 +1,8 @@
+loaded 16.19 GB of weights in 2.9s
+cuda 28.2 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1382892 > 262144). Running this sequence through the model will result in indexing errors
+1382892 tokens available
+context      64: raw    nan tok/s | spec  279.5 tok/s, 3.85 tokens/step, 13.8 ms/step | KV read 0.0 GB/step | prefill nans | 4s  | '@ playing video game developed by Sega and published by Sega for'
+context   22000: raw    nan tok/s | spec  187.1 tok/s, 2.78 tokens/step, 14.8 ms/step | KV read 0.7 GB/step | prefill nans | 18s  | ' the Gallery of Maps , was equipped with a 13'
+context   90000: raw    nan tok/s | spec  167.9 tok/s, 3.03 tokens/step, 18.0 ms/step | KV read 3.0 GB/step | prefill nans | 79s  | ' Million Smiles " . \n In 2008'
+context  200000: raw    nan tok/s | spec  189.0 tok/s, 4.36 tokens/step, 23.1 ms/step | KV read 6.7 GB/step | prefill nans | 220s  | ' England . The club competed in League One , the third tier'

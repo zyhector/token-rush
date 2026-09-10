@@ -1,0 +1,14 @@
+NVIDIA GeForce RTX 5090 | sm_120 | torch 2.14.0+cu130 | cuda 13.0
+
+  [OK] triton sm_120 codegen  (triton 3.8.0)
+  [OK] CUDA graph capture + replay
+  [OK] fla fused_recurrent_gated_delta_rule runs at decode shape  (fla 0.6.0, out (1, 1, 48, 128) torch.bfloat16, state (1, 48, 128, 128) torch.float32)
+  [FAIL] fla fused_recurrent matches FP32 reference  (max|dO|=nan max|dS|=nan over 6 calls)
+        -> fused_recurrent is miscompiled on this stack: whole heads come back NaN, deterministically per call sequence. Use chunk_gated_delta_rule for the reference decode path until a Triton fix lands.
+  [OK] fla chunk_gated_delta_rule (T=1) matches FP32 reference  (max|dO|=2.13e-04 max|dS|=4.64e-03 over 6 calls)
+  [OK] minimal Triton step in this file matches FP32 reference  (max|dO|=9.74e-05 max|dS|=1.19e-07 over 6 calls)
+
+48-layer GDN decode chain, projections excluded (state update: own minimal Triton kernel, fla fused_recurrent being broken here):
+  eager     4.43 ms/token
+  graphed   1.48 ms/token
+  launch tax removed  2.95 ms  = 29% of a 10 ms budget for 100 tok/s

@@ -1,0 +1,5 @@
+loaded 16.19 GB of weights in 3.0s
+backend marlin, 300 new tokens, 128k draft vocab, T=0.0 top-p=1.0
+draft   |          essay |           code |           math |       zh-essay |        zh-math |          mixed   (tok/s, accepted/step, ms/step)
+dflash  |  228 3.15 13.8 |  357 4.92 13.8 |  378 5.21 13.8 |  125 1.71 13.8 |  296 4.08 13.8 |  220 3.03 13.8
+mtp     |  206 2.56 12.4 |  258 3.24 12.5 |  285 3.58 12.6 |  162 1.99 12.3 |  281 3.53 12.6 |  227 2.83 12.4

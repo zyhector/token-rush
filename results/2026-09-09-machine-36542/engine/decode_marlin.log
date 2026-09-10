@@ -1,0 +1,6 @@
+loaded 16.19 GB of weights in 4.4s
+captured graphs for buckets [8192] in 0.7s
+weights 16.19 GB, cuda allocated 16.97 GB
+prefill 5 tokens: 2377 ms
+decode at context 65: 10.25 ms/step = 97.5 tok/s   (13.65 GB read per step -> 1332 GB/s, 78.3% of the wall; ceiling 124.6 tok/s)
+peak cuda 19.00 GB

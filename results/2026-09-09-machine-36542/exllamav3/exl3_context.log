@@ -1,0 +1,5 @@
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 200448 tokens, 29.0 GB allocated
+context       0:    77.6 tok/s
+context   22000:    72.0 tok/s
+context   90000:    60.4 tok/s
+context  200000:    48.0 tok/s

@@ -1,0 +1,99 @@
+
+=== VAST INSTANCE ===
+id                     50438878
+machine_id             36542
+host_id                110266
+geolocation            Idaho, US
+mobo_name              ProArt X870E-CREATOR WIFI
+dph_total              1.0466666666666664
+gpu_name               RTX 5090
+gpu_ram                32607
+gpu_mem_bw             1455.1
+pcie_bw                27.5
+cpu_name               AMD Ryzen 9 9950X 16-Core Processor
+cpu_cores              32
+cpu_cores_effective    16.0
+cpu_ram                190844
+disk_space             299.9999999999994
+disk_bw                11264.0
+inet_down              4993.7
+inet_up                3308.7
+driver_version         610.43.02
+cuda_max_good          13.3
+compute_cap            1200
+image_uuid             vastai/base-image:cuda-13.3.1-auto
+reliability2           0.9977777
+
+=== GPU ===
+name	NVIDIA GeForce RTX 5090
+uuid	GPU-1b4a7aa5-8835-76e7-d42f-88898869366c
+vbios	98.02.2E.40.AF
+pci_bus	00000000:01:00.0
+pcie_gen	5
+pcie_width	16
+vram	32607 MiB
+sm_clock_max	3090 MHz
+mem_clock_max	14001 MHz
+power_limit	575.00 W
+compute_cap	12.0
+driver	610.43.02
+
+=== GPU THROTTLE STATE ===
+        Idle                                           : Not Active
+        Applications Clocks Setting                    : Not Active
+        SW Power Cap                                   : Not Active
+        HW Slowdown                                    : Not Active
+            HW Thermal Slowdown                        : Not Active
+            HW Power Brake Slowdown                    : Not Active
+        Sync Boost                                     : Not Active
+        SW Thermal Slowdown                            : Not Active
+
+=== CPU ===
+Architecture: x86_64
+CPU(s): 32
+Model name: AMD Ryzen 9 9950X 16-Core Processor
+Thread(s) per core: 2
+Core(s) per socket: 16
+Socket(s): 1
+CPU(s) scaling MHz: 56%
+CPU max MHz: 5756.4521
+L3 cache: 64 MiB (2 instances)
+NUMA node(s): 1
+
+=== MEMORY ===
+               total        used        free      shared  buff/cache   available
+Mem:             186           8          77           0         101         177
+
+=== STORAGE ===
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         300G   26G  275G   9% /
+overlay         300G   26G  275G   9% /
+workspace_is_volume: False
+
+=== TOOLCHAIN ===
+nvcc             Build cuda_13.3.r13.3/compiler.38244171_0
+gcc              gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+cmake            cmake version 3.28.3
+torch            2.14.0+cu130
+triton           3.8.0
+transformers     5.17.0
+flash-linear-attention 0.6.0
+safetensors      0.8.0
+huggingface-hub  1.30.0
+numpy            2.5.3
+einops           0.8.2
+accelerate       1.15.0
+
+=== CAPABILITIES ===
+CapEff:	00000000a80405fb
+(no cap_sys_admin / cap_perfmon)
+
+=== NSYS ===
+/usr/local/bin/nsys
+NVIDIA Nsight Systems version 2026.2.1.0
+RESULT: kernel timeline captured OK (4 kernels)
+
+=== NCU ===
+NVIDIA (R) Nsight Compute Command Line Profiler
+RESULT: BLOCKED — ERR_NVGPUCTRPERM (host must set
+        NVreg_RestrictProfilingToAdminUsers=0; not fixable in-container)

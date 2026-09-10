@@ -1,0 +1,38 @@
+
+
+Loading model... |-\|/-\|/-\|/-\|/-\| 
+
+▄▄ ▄▄
+██ ██
+██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄
+██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██
+██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀
+                                    ██    ██
+                                    ▀▀    ▀▀
+
+build      : b10884-434ddbbc0
+model      : /workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
+ftype      : Q4_K - Medium
+modalities : text
+
+available commands:
+  /exit or Ctrl+C     stop or exit
+  /regen              regenerate the last response
+  /clear              clear the chat history
+  /read <file>        add a text file
+  /glob <pattern>     add text files using globbing pattern
+
+
+
+> Solve step by step: A train leaves city A at 60 km/h and another leaves city B, 450 km away, at 90 km/h toward it one hour later. When and where do they meet?
+
+[Start thinking]
+
+We need answer user: "Solve step by step: A train leaves city A at 60 km/h and another leaves city B, 450 km away, at 90 km/h toward it one hour later. When and where do they meet?"
+
+Need solve step by step. Need be careful about timing. Let's parse: Train 1 leaves city A at 60 km/h. Another leaves city B, 450 km away, at 90 km/h toward it one hour later. Need when and where do they meet. Ambiguity: "one hour later" relative to what? Likely the second train leaves one hour after the first train leaves A. So first train has 1 hour head start. Distance 450 km. First travels 60 km in first hour, remaining distance 390 km. Then both travel toward each other at combined speed 150 km/h. Time after second departure =
+
+[ Prompt: 644.4 t/s | Generation: 81.6 t/s ]
+
+
+Exiting...

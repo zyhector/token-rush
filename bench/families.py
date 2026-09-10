@@ -2,7 +2,7 @@
 """Effective tok/s of the speculative decoder on six prompt families (English
 essay / code / math, Chinese essay / math, mixed) with either draft.
 
-    python bench/families.py --model <packed> [--draft dflash,mtp] [--new 300] [--backend marlin|triton]
+    python bench/families.py [--model <repo id or packed dir>] [--draft dflash,mtp] [--new 300] [--backend marlin|triton]
 """
 import argparse
 import os
@@ -18,13 +18,14 @@ from tokenrush.model import Engine  # noqa: E402
 from tokenrush.mtp import MTPHead, build_mtp  # noqa: E402
 from tokenrush.quant import DEFAULT_BACKEND  # noqa: E402
 from tokenrush.spec import generate_dflash, generate_spec_graph  # noqa: E402
-from tokenrush.weights import load_packed  # noqa: E402
+from tokenrush.weights import DEFAULT_REPO, DFLASH_REPO, load_packed, resolve_model  # noqa: E402
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
-    ap.add_argument("--dflash-path", default="/workspace/models/Qwen3.8-27B-DFlash2")
+    ap.add_argument("--model", default=DEFAULT_REPO, help="packed checkpoint: a Hub repo id or a local directory")
+    ap.add_argument("--no-download", action="store_true", help="fail instead of downloading a missing Hub checkpoint")
+    ap.add_argument("--dflash-path", default=DFLASH_REPO, help="the DFlash2 draft: a Hub repo id or a local directory")
     ap.add_argument("--draft", default="dflash,mtp", help="comma list of dflash, mtp")
     ap.add_argument("--new", type=int, default=300)
     ap.add_argument("--backend", default=None)
@@ -32,6 +33,8 @@ def main():
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--top-p", type=float, default=1.0)
     a = ap.parse_args()
+    a.model = resolve_model(a.model, download=not a.no_download)
+    a.dflash_path = resolve_model(a.dflash_path, download=not a.no_download)
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(a.model)
     drafts = a.draft.split(",")

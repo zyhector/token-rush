@@ -1,0 +1,5 @@
+loaded 16.19 GB of weights in 3.0s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1382892 > 262144). Running this sequence through the model will result in indexing errors
+1382892 tokens of haystack available; needle 19 tokens at depth 50%
+context  131072: RETRIEVED  'amber-falcon-7731'  | prefill 125s (1050 tok/s), decode 76.4 tok/s, peak 26.4 GB, 125s
+context  262119: RETRIEVED  'amber-falcon-7731'  | prefill 320s (819 tok/s), decode 64.3 tok/s, peak 26.4 GB, 320s

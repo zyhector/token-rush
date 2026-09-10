@@ -25,7 +25,7 @@ input dimension — so `transformers`, vLLM, SGLang and llama.cpp cannot read it
 | Left bf16 | embeddings, norms, conv, the small GDN projections, the MTP head |
 | Size | 17.0 GB |
 | KL divergence to bf16 | **0.0232** mean over 81,920 positions |
-| GSM8K | **96.5%** against bf16's 96.0% (200 problems, greedy) |
+| GSM8K | **96.5%** against bf16's 96.0% (200 problems, greedy); 97.0% re-measured through the engine in the final run |
 
 Text path only; the vision tower is not included.
 
