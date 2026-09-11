@@ -104,13 +104,21 @@ DFlash blog averages acceptance per request over whole datasets.
   ~120 at 240k, the MTP chain from ~240 to ~160; code ≈ 350 → 200 (DFlash2).
   The spread band across positions should be narrow — a few percent — and
   the raw curves underneath unchanged.
-- **The crossover to settle.** In the single-position sweep the MTP chain is
-  ahead of DFlash2 on prose at every context ≥ 16k (198 vs 189 at 200k, 160
-  vs 121 at 240k), because its step grows less with context (12.6 → 18.5 ms
-  against 13.8 → 24.9 ms) while acceptance is similar. `--draft auto`
-  currently picks by script only (CJK → MTP chain, else DFlash2; step 29);
-  if the averaged curves confirm the crossover, add a context-length term to
-  `spec.pick_draft` and document the rule in `progress.md` and `CLAUDE.md`.
+- **The crossover to settle, and what to do with it.** In the
+  single-position sweep the MTP chain is ahead of DFlash2 on prose at every
+  context >= 16k (198 vs 189 at 200k, 160 vs 121 at 240k), because its step
+  grows less with context (12.6 -> 18.5 ms against 13.8 -> 24.9 ms) while
+  acceptance is similar. The averaged curves will say whether that is real.
+  **Decision 2026-09-11: do not add a context-length term (or any further
+  rule) to `--draft auto` / `spec.pick_draft`.** The default of `run.py`
+  must simply be the fastest setting, so the user has nothing to choose or
+  understand. Concretely: if the averaged prose and code curves put the MTP
+  chain ahead of DFlash2 over most of the context range people actually
+  use, the default draft becomes the MTP chain and DFlash2 stays available
+  behind `--draft dflash`; if DFlash2 holds, nothing changes. Either way the
+  choice is made once, by measurement, and recorded in `progress.md` and
+  `CLAUDE.md`. The existing script-based switch (CJK -> MTP chain) is not
+  touched by this decision.
 - **The figure.** `scripts/plot_sweep.py` then reads the new CSV unchanged
   for the mean lines; add a 10%-opacity same-hue band for the per-position
   range, drop the "hence the wobble" sentence from the caption, and re-render
