@@ -1,36 +1,36 @@
-step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s
-1,2026-09-08,environment + weights,,,,
-2,2026-09-08,skeleton runs (int4 RTN; dequant-then-matmul),3.2,2.6,312,1490
-3,2026-09-08,own Triton int4 GEMV; fused projections (eager),36.0,29,27.7,1500
-4,2026-09-08,whole-step CUDA graph,68.4,55,14.62,1500
-5,2026-09-08,engine-correctness gate vs HF (no speed change),68.4,55,14.62,1500
-6,2026-09-08,fused GDN step + fused add/RMSNorm,83.2,67,12.02,1500
-7,2026-09-08,fused attention decode (flash-decoding),99.5,80,10.05,1500
-8,2026-09-08,b|a in GDN kernel + split-K GEMV,102.5,82,9.76,1500
-9,2026-09-08,FP8 KV + prefill attention kernel (256k usable),101.9,82,9.81,1500
-10,2026-09-08,sampling in graph (no speed change),101.9,82,9.81,1500
-11,2026-09-08,GEMV config re-pick (L2-proof); Phase 2 closed,102.2,82,9.78,1500
-12,2026-09-08,Phase 3 step 1: MTP acceptance (2.58/3.35/3.50 at depth 3); no speed change,102.2,82,9.78,1500
-13,2026-09-08,Phase 3 steps 2-3: graphed verify step + device accept/commit (eager MTP drafts): 172/212/204 effective,102.2,82,9.78,1500
-14,2026-09-08,Phase 3 step 4: MTP chain in graph + int4 head + adaptive depth 3:4: 183/254/258 effective,102.2,82,9.78,1500
-15,2026-09-08,speculation is the default decode (chunked hidden prefill; bounds; fp8 ok),102.2,82,9.78,1500
-16,2026-09-08,speculative sampling (exact): 167/237/239 at T=0.7,102.2,82,9.78,1500
-17,2026-09-08,spec vs context on real text: prose 174 / code 197 at 200k (raw 68),102.2,82,9.78,1500
-18,2026-09-08,fp8 cache for the MTP head: prose 180 / code 199 at 200k,102.2,82,9.78,1500
-19,2026-09-08,rows-GEMM config re-pick (neutral; verify 1.20x is structural),102.2,82,9.78,1500
-20,2026-09-08,draft vocabulary = first 128k ids (id order): 186/261/263 effective; 64k corpus list rejected (Chinese collapsed),102.2,82,9.78,1500
-21,2026-09-08,corpus-specific draft vocabularies measured; id-order 128k stays default; mix_96k for zh-en use,102.2,82,9.78,1500
-22,2026-09-09,flash-decoding kernel: 3 pipeline stages; at 200k raw 71.7 (85.6% wall) spec prose 195,100.9,81,9.91,1500
-23,2026-09-09,draft trees simulated and costed: net negative; dropped. smem overflow at M>=6 fixed,100.9,81,9.91,1500
-24,2026-09-09,research: DFlash2 draft measured at 3.57/5.37/5.76 accepted per 7-draft step; Marlin-class GEMM lead,100.9,81,9.91,1500
-25,2026-09-09,Phase 3b v1: DFlash2 draft in graph: 178/306/310 effective (16.8 ms/step),100.9,81,9.91,1500
-26,2026-09-09,Phase 3b v3: DFlash step tuned (GDN BV=64; fused draft norms/convs; own windowed attention): 220/342/353,100.9,81,9.91,1500
-27,2026-09-09,Phase 3b: DFlash ring cache (256k fits); six families 217/355/350/121/289/212; 200k prose 179 code 229,100.9,81,9.91,1500
-28,2026-09-09,Phase 3c: Marlin-class int4 GEMM (verify K=7 1.13x); DFlash 224/373/373; MTP 213/306/286; 200k 211/238; raw on the shared layout 97.6,97.6,78,10.25,1500
-29,2026-09-09,Phase 3 closed: sampled 211/391/358 (DFlash) 210/292/294 (MTP); --draft auto picks MTP for CJK prompts,97.6,78,10.25,1500
-30,2026-09-09,Phase 1b: quality table + GPTQ with MSE range search (KL 0.0546 -> 0.0232; bar 0.0128 not met); speed unchanged,97.4,78,10.26,1500
-31,2026-09-09,Rival byte counts corrected (embedding not streamed): vLLM 88% -> 76% of the wall; ours unchanged; Phase 1b closed,97.4,78,10.26,1500
-32,2026-09-10,Phase 4 final measurement on vast 36542: raw 100.9 (triton) / 97.5 (marlin); spec 228/357/378 DFlash greedy; 71.6 at 200k (85.5%); needle 262k; GSM8K 97.0%,100.9,81,9.91,1500
-33,2026-09-10,Phase 5: served (OpenAI + Anthropic APIs; Claude Code end to end); tool-result turn 0.07s,100.9,81,9.91,1500
-34,2026-09-10,Ten-point decode-vs-context sweep for the README plots (results/.../sweep10),100.9,81,9.91,1500
-35,2026-09-12,README data on vast 59052: matrix re-measured (raw 99.9 triton / 97.6 marlin; spec 229/358/379) + six-position 512-token context sweep (MTP chain overtakes DFlash2 on prose from 32k),99.9,80,10.01,1500
+step,date,label,decode_tok_s,pct_of_wall,ms_per_step,prefill_tok_s,spec_essay_tok_s,spec_code_tok_s,spec_math_tok_s
+1,2026-09-08,environment + weights,,,,,,,
+2,2026-09-08,skeleton runs (int4 RTN; dequant-then-matmul),3.2,2.6,312,1490,,,
+3,2026-09-08,own Triton int4 GEMV; fused projections (eager),36.0,29,27.7,1500,,,
+4,2026-09-08,whole-step CUDA graph,68.4,55,14.62,1500,,,
+5,2026-09-08,engine-correctness gate vs HF (no speed change),68.4,55,14.62,1500,,,
+6,2026-09-08,fused GDN step + fused add/RMSNorm,83.2,67,12.02,1500,,,
+7,2026-09-08,fused attention decode (flash-decoding),99.5,80,10.05,1500,,,
+8,2026-09-08,b|a in GDN kernel + split-K GEMV,102.5,82,9.76,1500,,,
+9,2026-09-08,FP8 KV + prefill attention kernel (256k usable),101.9,82,9.81,1500,,,
+10,2026-09-08,sampling in graph (no speed change),101.9,82,9.81,1500,,,
+11,2026-09-08,GEMV config re-pick (L2-proof); Phase 2 closed,102.2,82,9.78,1500,,,
+12,2026-09-08,Phase 3 step 1: MTP acceptance (2.58/3.35/3.50 at depth 3); no speed change,102.2,82,9.78,1500,,,
+13,2026-09-08,Phase 3 steps 2-3: graphed verify step + device accept/commit (eager MTP drafts): 172/212/204 effective,102.2,82,9.78,1500,172,212,204
+14,2026-09-08,Phase 3 step 4: MTP chain in graph + int4 head + adaptive depth 3:4: 183/254/258 effective,102.2,82,9.78,1500,183,254,258
+15,2026-09-08,speculation is the default decode (chunked hidden prefill; bounds; fp8 ok),102.2,82,9.78,1500,,,
+16,2026-09-08,speculative sampling (exact): 167/237/239 at T=0.7,102.2,82,9.78,1500,,,
+17,2026-09-08,spec vs context on real text: prose 174 / code 197 at 200k (raw 68),102.2,82,9.78,1500,,,
+18,2026-09-08,fp8 cache for the MTP head: prose 180 / code 199 at 200k,102.2,82,9.78,1500,,,
+19,2026-09-08,rows-GEMM config re-pick (neutral; verify 1.20x is structural),102.2,82,9.78,1500,179,243,252
+20,2026-09-08,draft vocabulary = first 128k ids (id order): 186/261/263 effective; 64k corpus list rejected (Chinese collapsed),102.2,82,9.78,1500,186,261,263
+21,2026-09-08,corpus-specific draft vocabularies measured; id-order 128k stays default; mix_96k for zh-en use,102.2,82,9.78,1500,186,261,263
+22,2026-09-09,flash-decoding kernel: 3 pipeline stages; at 200k raw 71.7 (85.6% wall) spec prose 195,100.9,81,9.91,1500,,,
+23,2026-09-09,draft trees simulated and costed: net negative; dropped. smem overflow at M>=6 fixed,100.9,81,9.91,1500,,,
+24,2026-09-09,research: DFlash2 draft measured at 3.57/5.37/5.76 accepted per 7-draft step; Marlin-class GEMM lead,100.9,81,9.91,1500,,,
+25,2026-09-09,Phase 3b v1: DFlash2 draft in graph: 178/306/310 effective (16.8 ms/step),100.9,81,9.91,1500,178,306,310
+26,2026-09-09,Phase 3b v3: DFlash step tuned (GDN BV=64; fused draft norms/convs; own windowed attention): 220/342/353,100.9,81,9.91,1500,220,342,353
+27,2026-09-09,Phase 3b: DFlash ring cache (256k fits); six families 217/355/350/121/289/212; 200k prose 179 code 229,100.9,81,9.91,1500,217,355,350
+28,2026-09-09,Phase 3c: Marlin-class int4 GEMM (verify K=7 1.13x); DFlash 224/373/373; MTP 213/306/286; 200k 211/238; raw on the shared layout 97.6,97.6,78,10.25,1500,224,373,373
+29,2026-09-09,Phase 3 closed: sampled 211/391/358 (DFlash) 210/292/294 (MTP); --draft auto picks MTP for CJK prompts,97.6,78,10.25,1500,224,373,373
+30,2026-09-09,Phase 1b: quality table + GPTQ with MSE range search (KL 0.0546 -> 0.0232; bar 0.0128 not met); speed unchanged,97.4,78,10.26,1500,,,
+31,2026-09-09,Rival byte counts corrected (embedding not streamed): vLLM 88% -> 76% of the wall; ours unchanged; Phase 1b closed,97.4,78,10.26,1500,,,
+32,2026-09-10,Phase 4 final measurement on vast 36542: raw 100.9 (triton) / 97.5 (marlin); spec 228/357/378 DFlash greedy; 71.6 at 200k (85.5%); needle 262k; GSM8K 97.0%,100.9,81,9.91,1500,228,357,378
+33,2026-09-10,Phase 5: served (OpenAI + Anthropic APIs; Claude Code end to end); tool-result turn 0.07s,100.9,81,9.91,1500,,,
+34,2026-09-10,Ten-point decode-vs-context sweep for the README plots (results/.../sweep10),100.9,81,9.91,1500,,,
+35,2026-09-12,README data on vast 59052: matrix re-measured (raw 99.9 triton / 97.6 marlin; spec 229/358/379) + six-position 512-token context sweep (MTP chain overtakes DFlash2 on prose from 32k),99.9,80,10.01,1500,229,358,379

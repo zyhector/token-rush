@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .pytest_cache/
 tokenrush/csrc/build/
+.venv/
