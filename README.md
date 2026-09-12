@@ -1,6 +1,11 @@
-# Token Rush
-
-*The fastest inference engine for Qwen3.8-27B on one RTX 5090 — built for one user, one card, one stream.*
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/logo_dark.png">
+    <img src="docs/img/logo.png" alt="Token Rush" width="180">
+  </picture>
+  <h1>Token Rush</h1>
+  <p><em>The fastest inference engine for Qwen3.8-27B on one RTX 5090 — built for one user, one card, one stream.</em></p>
+</div>
 
 ## What you get
 
