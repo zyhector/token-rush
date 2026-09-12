@@ -48,12 +48,6 @@ uv run python -m tokenrush.serve --port 8000
 ANTHROPIC_BASE_URL=http://127.0.0.1:8000 ANTHROPIC_AUTH_TOKEN=anything claude
 ```
 
-Without cloning, straight from GitHub:
-
-```bash
-uvx --from git+https://github.com/zyhector/token-rush tokenrush-serve --port 8000
-```
-
 `--draft mtp` switches to the shipped MTP head as the draft (the default picks it for Chinese prompts), `--no-spec` / `--draft raw` turns speculation off, `--max-len` sets the context window (256k needs ~30 GB with both drafts). More in [docs/serving.md](docs/serving.md).
 
 ## How
