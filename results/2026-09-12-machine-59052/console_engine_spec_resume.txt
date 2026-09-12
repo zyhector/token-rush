@@ -1,0 +1,151 @@
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine spec vs context, pg19, both drafts, contexts 160000,200000,240000, attempt 1 (09:43) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_pg19_both.log
+summary context  160000: raw   73.9 tok/s [74-74] | dflash  211.8 tok/s [169-279], 4.49 tokens/step [3.59-5.93], 21.2 ms/step | mtp  234.1 tok/s [201-286], 3.95 tokens/step [3.38-4.87], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 363s
+Fatal Python error: Segmentation fault
+attempt 1 exit status 139 (09:50)
+===== engine spec vs context, pg19, both drafts, contexts 160000,200000,240000, attempt 2 (09:50) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+resuming: 48 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_pg19_both.log
+summary context  160000: raw   73.9 tok/s [74-74] | dflash  211.8 tok/s [169-279], 4.49 tokens/step [3.59-5.93], 21.2 ms/step | mtp  234.2 tok/s [201-286], 3.95 tokens/step [3.38-4.87], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 2 exit status 139 (09:52)
+===== engine spec vs context, pg19, both drafts, contexts 160000,200000,240000, attempt 3 (09:52) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+resuming: 48 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_pg19_both.log
+summary context  160000: raw   73.9 tok/s [74-74] | dflash  211.8 tok/s [169-279], 4.49 tokens/step [3.59-5.93], 21.2 ms/step | mtp  234.2 tok/s [201-286], 3.95 tokens/step [3.38-4.87], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+########## resume driver restarted (2026-09-12 10:08) ##########
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine spec vs context, pg19, both drafts, contexts 160000,200000,240000, attempt 1 (10:08) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+resuming: 51 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_pg19_both.log
+summary context  160000: raw   73.9 tok/s [74-74] | dflash  211.8 tok/s [169-279], 4.49 tokens/step [3.59-5.93], 21.2 ms/step | mtp  234.2 tok/s [201-286], 3.95 tokens/step [3.38-4.87], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.7 tok/s [70-70] | dflash  202.2 tok/s [161-252], 4.67 tokens/step [3.72-5.82], 23.1 ms/step | mtp  222.7 tok/s [186-268], 3.99 tokens/step [3.32-4.85], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 727s
+Fatal Python error: Segmentation fault
+attempt 1 exit status 139 (10:42)
+===== engine spec vs context, pg19, both drafts, contexts 160000,200000,240000, attempt 2 (10:42) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+resuming: 58 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_pg19_both.log
+summary context  160000: raw   73.9 tok/s [74-74] | dflash  211.8 tok/s [169-279], 4.49 tokens/step [3.59-5.93], 21.2 ms/step | mtp  234.2 tok/s [201-286], 3.95 tokens/step [3.38-4.87], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.7 tok/s [70-70] | dflash  202.2 tok/s [161-252], 4.67 tokens/step [3.72-5.82], 23.1 ms/step | mtp  222.7 tok/s [186-268], 3.99 tokens/step [3.32-4.85], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 2 exit status 139 (10:44)
+===== engine spec vs context, pg19, both drafts, contexts 160000,200000,240000, attempt 3 (10:44) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+resuming: 58 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_pg19_both.log
+summary context  160000: raw   73.9 tok/s [74-74] | dflash  211.8 tok/s [169-279], 4.49 tokens/step [3.59-5.93], 21.2 ms/step | mtp  234.2 tok/s [201-286], 3.95 tokens/step [3.38-4.87], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.7 tok/s [70-70] | dflash  202.2 tok/s [161-252], 4.67 tokens/step [3.72-5.82], 23.1 ms/step | mtp  222.7 tok/s [186-268], 3.99 tokens/step [3.32-4.85], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+summary context  240000: raw   66.0 tok/s [66-66] | dflash  158.3 tok/s [121-216], 3.94 tokens/step [3.02-5.39], 24.9 ms/step | mtp  190.6 tok/s [150-250], 3.60 tokens/step [2.81-4.79], 18.9 ms/step | KV read 8.0 GB/step | 6 positions x 512 tokens | 624s
+attempt 3 exit status 0 (10:54)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 1 (10:54) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 26 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.3 tok/s [86-86] | dflash  336.9 tok/s [279-467], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 256s
+Fatal Python error: Segmentation fault
+attempt 1 exit status 139 (11:00)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 2 (11:00) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 31 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 492s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 827s
+Fatal Python error: Segmentation fault
+attempt 2 exit status 139 (11:32)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 3 (11:32) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 45 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 3 exit status 139 (11:36)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 4 (11:36) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 4 exit status 139 (11:39)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 5 (11:39) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 5 exit status 139 (11:42)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 6 (11:42) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 6 exit status 139 (11:43)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 7 (11:43) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 7 exit status 139 (11:44)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 8 (11:44) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+spec_context: received signal 15 (SIGTERM) at 11:44:34, exiting
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine spec vs context, pg19, both drafts, contexts 160000,200000,240000, attempt 1 (11:51) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+resuming: 60 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_pg19_both.log
+summary context  160000: raw   73.9 tok/s [74-74] | dflash  211.8 tok/s [169-279], 4.49 tokens/step [3.59-5.93], 21.2 ms/step | mtp  234.2 tok/s [201-286], 3.95 tokens/step [3.38-4.87], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.7 tok/s [70-70] | dflash  202.2 tok/s [161-252], 4.67 tokens/step [3.72-5.82], 23.1 ms/step | mtp  222.7 tok/s [186-268], 3.99 tokens/step [3.32-4.85], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+summary context  240000: raw   66.0 tok/s [66-66] | dflash  158.3 tok/s [121-216], 3.94 tokens/step [3.02-5.39], 24.9 ms/step | mtp  190.6 tok/s [150-250], 3.60 tokens/step [2.81-4.79], 18.9 ms/step | KV read 8.0 GB/step | 6 positions x 512 tokens | 0s
+attempt 1 exit status 0 (11:51)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 1 (11:51) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 48 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [185-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 1448s
+Fatal Python error: Segmentation fault
+attempt 1 exit status 139 (12:17)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 2 (12:17) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 54 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [186-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 2 exit status 139 (12:41)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 3 (12:41) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 58 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [186-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+attempt 3 exit status 139 (12:47)
+===== engine spec vs context, code, both drafts, contexts 64000,96000,128000,160000,200000,240000, attempt 4 (12:47) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+resuming: 59 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [186-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+summary context  240000: raw   65.9 tok/s [66-66] | dflash  208.4 tok/s [185-316], 5.19 tokens/step [4.60-7.88], 24.9 ms/step | mtp  213.5 tok/s [191-254], 4.06 tokens/step [3.62-4.88], 19.0 ms/step | KV read 8.0 GB/step | 6 positions x 512 tokens | 312s
+attempt 4 exit status 0 (12:53)
+STAGE DONE (12:53)

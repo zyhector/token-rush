@@ -1,0 +1,19 @@
+engine,config,raw_short,pct_short,raw_200k,pct_200k,spec_essay,spec_code,spec_math,note
+Token Rush,"spec, DFlash2 in-graph, K=7",97.6,78.32098765432099,69.9,83.44440917107585,229.0,358.0,379.0,raw on the Marlin layout the verify step shares
+Token Rush,"spec, MTP chain in-graph, depth 3:4",97.6,78.32098765432099,69.9,83.44440917107585,206.0,258.0,285.0,raw on the Marlin layout the verify step shares
+Token Rush,"raw, --backend triton",99.9,80.16666666666667,70.6,84.28004703115813,,,,the fast raw kernel
+llama.cpp,raw (llama-bench tg128; llama-cli median of 3),82.85,74.94491181657848,42.87,56.32881093474427,,,,llama-cli raw 80.7 / 80.5 / 80.4
+llama.cpp,"spec, built-in MTP (default n-max 3)",,,,,123.5,114.7,159.5,"median of 3, includes thinking"
+llama.cpp,"spec, built-in MTP n-max 4",,,,,116.4,122.3,161.1,"median of 3, includes thinking"
+llama.cpp,"spec, DSpark draft (bf16)",,,,,96.0,100.1,140.1,"median of 3, includes thinking"
+llama.cpp,"spec, DFlash2 draft (bf16)",,,,,123.5,107.6,154.2,"median of 3, includes thinking"
+ollama,default: MTP chain n-max 4 (no raw mode),,,,,128.7,134.6,165.7,
+vLLM,raw,78.1,74.58756613756614,59.9,80.2843115814227,,,,raw essay / code / math 78.1 / 78.1 / 78.0
+vLLM,"spec, MTP x1",,,,,66.4,65.9,65.8,
+vLLM,"spec, DSpark",,,,,52.9,52.9,52.9,
+vLLM,"spec, DFlash2",,,,,51.8,52.6,51.7,
+SGLang,raw,62.1,59.30714285714286,49.4,66.21110170487948,,,,raw essay / code / math 62.1 / 62.1 / 62.1
+SGLang,"spec, DSpark block 7",,,,,105.8,137.9,207.2,mean accepted length 2.39 / 3.11 / 4.68
+ExLlamaV3,raw,77.5,60.068195179306294,48.0,74.19033509700176,,,,raw essay / code / math 77.5 / 77.5 / 77.4
+ExLlamaV3,"spec, MTP x1",,,,,118.6,124.0,129.5,per step 1.79 / 1.87 / 1.95
+ExLlamaV3,"spec, MTP x2",,,,,131.5,141.5,165.5,per step 2.24 / 2.41 / 2.81

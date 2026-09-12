@@ -1,0 +1,377 @@
+loaded 16.19 GB of weights in 3.1s
+cuda 28.9 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+context      64 pos   240064: raw   97.4 tok/s | dflash  404.6 tok/s, 5.57 tokens/step, 13.8 ms/step exact | mtp  315.5 tok/s, 3.99 tokens/step, 12.7 ms/step exact | prefill 3s | ' ignore\n            self._runtest()\n            end_ts'
+context      64 pos   472814: raw   97.4 tok/s | dflash  489.3 tok/s, 6.73 tokens/step, 13.7 ms/step exact | mtp  338.4 tok/s, 4.30 tokens/step, 12.7 ms/step exact | prefill 2s | '    ) -> None:\n        if self._initialized:'
+context      64 pos   705565: raw   97.3 tok/s | dflash  565.3 tok/s, 7.77 tokens/step, 13.8 ms/step DIVERGED@25 | mtp  379.7 tok/s, 4.85 tokens/step, 12.8 ms/step DIVERGED@25 | prefill 2s | ' T2 | T3 | T4]: ...\n\n\n@'
+context      64 pos   938315: raw   97.3 tok/s | dflash  497.4 tok/s, 6.84 tokens/step, 13.8 ms/step exact | mtp  354.8 tok/s, 4.51 tokens/step, 12.7 ms/step exact | prefill 2s | '.options:\n            options = self.options\n        if kwargs'
+context      64 pos  1171066: raw   97.3 tok/s | dflash  375.3 tok/s, 5.16 tokens/step, 13.7 ms/step DIVERGED@187 | mtp  296.9 tok/s, 3.74 tokens/step, 12.6 ms/step DIVERGED@187 | prefill 2s | ' args=(item,),\n                    kwargs={},\n                ),\n'
+context      64 pos  1403817: raw   97.3 tok/s | dflash  407.1 tok/s, 5.60 tokens/step, 13.7 ms/step exact | mtp  313.0 tok/s, 3.97 tokens/step, 12.7 ms/step exact | prefill 2s | '[tuple[Any, ...], dict[str, Any]]]:'
+summary context      64: raw   97.4 tok/s [97-97] | dflash  447.2 tok/s [375-565], 6.15 tokens/step [5.16-7.77], 13.8 ms/step | mtp  330.8 tok/s [297-380], 4.20 tokens/step [3.74-4.85], 12.7 ms/step | KV read 0.0 GB/step | 6 positions x 512 tokens | 60s
+context    8000 pos   240064: raw   95.7 tok/s | dflash  370.2 tok/s, 5.24 tokens/step, 14.2 ms/step DIVERGED@185 | mtp  281.6 tok/s, 3.61 tokens/step, 12.8 ms/step DIVERGED@185 | prefill 6s | ' ignore [bad-argument-count]\n            result = prof'
+context    8000 pos   472814: raw   95.7 tok/s | dflash  347.3 tok/s, 4.92 tokens/step, 14.2 ms/step DIVERGED@26 | mtp  298.6 tok/s, 3.84 tokens/step, 12.9 ms/step DIVERGED@26 | prefill 6s | '    ) -> None:\n        if self._initialized:'
+context    8000 pos   705565: raw   95.7 tok/s | dflash  552.5 tok/s, 7.83 tokens/step, 14.2 ms/step exact | mtp  370.7 tok/s, 4.82 tokens/step, 13.0 ms/step exact | prefill 6s | ' T2 | T3 | T4]: ...\n\n\n@'
+context    8000 pos   938315: raw   95.7 tok/s | dflash  372.8 tok/s, 5.29 tokens/step, 14.2 ms/step DIVERGED@19 | mtp  299.3 tok/s, 3.85 tokens/step, 12.9 ms/step DIVERGED@19 | prefill 6s | '.source:\n            options["source"] = AttrSource(self'
+context    8000 pos  1171066: raw   95.7 tok/s | dflash  354.8 tok/s, 5.03 tokens/step, 14.2 ms/step DIVERGED@117 | mtp  305.5 tok/s, 3.94 tokens/step, 12.9 ms/step DIVERGED@117 | prefill 6s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context    8000 pos  1403817: raw   95.7 tok/s | dflash  407.0 tok/s, 5.77 tokens/step, 14.2 ms/step DIVERGED@169 | mtp  312.0 tok/s, 4.02 tokens/step, 12.9 ms/step DIVERGED@169 | prefill 6s | '[Any, ...]]:\n    """\n    Generate inputs'
+summary context    8000: raw   95.7 tok/s [96-96] | dflash  390.9 tok/s [347-553], 5.54 tokens/step [4.92-7.83], 14.2 ms/step | mtp  309.0 tok/s [282-371], 3.98 tokens/step [3.61-4.82], 12.9 ms/step | KV read 0.3 GB/step | 6 positions x 512 tokens | 86s
+context   16000 pos   240064: raw   94.2 tok/s | dflash  361.1 tok/s, 5.26 tokens/step, 14.6 ms/step exact | mtp  301.5 tok/s, 3.95 tokens/step, 13.1 ms/step exact | prefill 12s | ' ignore [bad-argument-count]\n            result = prof'
+context   16000 pos   472814: raw   94.2 tok/s | dflash  361.9 tok/s, 5.27 tokens/step, 14.5 ms/step DIVERGED@222 | mtp  300.7 tok/s, 3.94 tokens/step, 13.1 ms/step DIVERGED@222 | prefill 12s | '    ) -> None:\n        if self._initialized:'
+context   16000 pos   705565: raw   94.2 tok/s | dflash  541.3 tok/s, 7.88 tokens/step, 14.6 ms/step exact | mtp  374.7 tok/s, 4.95 tokens/step, 13.2 ms/step exact | prefill 12s | ' T2 | T3 | T4]: ...\n\n\n@'
+context   16000 pos   938315: raw   94.2 tok/s | dflash  375.0 tok/s, 5.46 tokens/step, 14.6 ms/step DIVERGED@139 | mtp  344.2 tok/s, 4.53 tokens/step, 13.2 ms/step DIVERGED@139 | prefill 12s | '.source:\n            options["source"] = AttrSource(self'
+context   16000 pos  1171066: raw   94.2 tok/s | dflash  358.9 tok/s, 5.22 tokens/step, 14.6 ms/step exact | mtp  341.0 tok/s, 4.49 tokens/step, 13.2 ms/step exact | prefill 12s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context   16000 pos  1403817: raw   94.2 tok/s | dflash  362.8 tok/s, 5.28 tokens/step, 14.6 ms/step DIVERGED@107 | mtp  294.6 tok/s, 3.85 tokens/step, 13.1 ms/step DIVERGED@107 | prefill 12s | '[Any, ...]]:\n    """\n    Generate inputs'
+summary context   16000: raw   94.2 tok/s [94-94] | dflash  384.8 tok/s [359-541], 5.60 tokens/step [5.22-7.88], 14.6 ms/step | mtp  323.6 tok/s [295-375], 4.25 tokens/step [3.85-4.95], 13.1 ms/step | KV read 0.5 GB/step | 6 positions x 512 tokens | 123s
+context   32000 pos   240064: raw   91.4 tok/s | dflash  295.6 tok/s, 4.53 tokens/step, 15.3 ms/step DIVERGED@48 | mtp  273.6 tok/s, 3.68 tokens/step, 13.5 ms/step DIVERGED@48 | prefill 25s | ' ignore [bad-argument-type]\n            result = prof'
+context   32000 pos   472814: raw   91.4 tok/s | dflash  338.7 tok/s, 5.19 tokens/step, 15.3 ms/step DIVERGED@168 | mtp  290.3 tok/s, 3.92 tokens/step, 13.5 ms/step DIVERGED@168 | prefill 25s | '    ) -> None:\n        if self._initialized:'
+context   32000 pos   705565: raw   91.4 tok/s | dflash  513.9 tok/s, 7.88 tokens/step, 15.3 ms/step exact | mtp  360.0 tok/s, 4.90 tokens/step, 13.6 ms/step exact | prefill 25s | ' T2 | T3 | T4]: ...\n\n\n@'
+context   32000 pos   938315: raw   91.4 tok/s | dflash  296.2 tok/s, 4.54 tokens/step, 15.3 ms/step DIVERGED@258 | mtp  327.8 tok/s, 4.45 tokens/step, 13.6 ms/step DIVERGED@258 | prefill 25s | '.source:\n            options["source"] = AttrSource(self'
+context   32000 pos  1171066: raw   91.4 tok/s | dflash  344.4 tok/s, 5.28 tokens/step, 15.3 ms/step DIVERGED@148 | mtp  296.6 tok/s, 4.00 tokens/step, 13.5 ms/step DIVERGED@148 | prefill 25s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context   32000 pos  1403817: raw   91.4 tok/s | dflash  304.5 tok/s, 4.67 tokens/step, 15.3 ms/step DIVERGED@107 | mtp  271.4 tok/s, 3.65 tokens/step, 13.4 ms/step DIVERGED@107 | prefill 25s | '[Any, ...]]:\n    """\n    Generate inputs'
+summary context   32000: raw   91.4 tok/s [91-91] | dflash  336.2 tok/s [296-514], 5.15 tokens/step [4.53-7.88], 15.3 ms/step | mtp  300.3 tok/s [271-360], 4.06 tokens/step [3.65-4.90], 13.5 ms/step | KV read 1.1 GB/step | 6 positions x 512 tokens | 204s
+context   64000 pos   240064: raw   86.2 tok/s | dflash  342.3 tok/s, 5.76 tokens/step, 16.8 ms/step DIVERGED@122 | mtp  292.4 tok/s, 4.20 tokens/step, 14.4 ms/step DIVERGED@122 | prefill 55s | ' ignore [bad-argument-type]\n            result = prof'
+===== continued 2026-09-12 09:17: contexts 64000..240000 at positions 240064,472814,705565,938315,1171066,1403817 (engine_spec_fill_code.sh) =====
+loaded 16.19 GB of weights in 3.1s
+[W912 09:17:11.414679353 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 838860800 bytes (free: 767885312, total: 33670758400).
+[W912 09:17:11.887396142 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 713031680 bytes (free: 428146688, total: 33670758400).
+cuda 29.0 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+[W912 09:17:17.903993223 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 419430400 bytes (free: 396689408, total: 33670758400).
+context   64000 pos   240064: raw   86.3 tok/s | dflash  342.5 tok/s, 5.76 tokens/step, 16.8 ms/step DIVERGED@122 | mtp  292.5 tok/s, 4.20 tokens/step, 14.3 ms/step DIVERGED@122 | prefill 55s | ' ignore [bad-argument-type]\n            result = prof'
+context   64000 pos   472814: raw   86.3 tok/s | dflash  289.3 tok/s, 4.87 tokens/step, 16.8 ms/step DIVERGED@167 | mtp  258.9 tok/s, 3.70 tokens/step, 14.3 ms/step DIVERGED@167 | prefill 55s | '    ) -> None:\n        if self._initialized:'
+Fatal Python error: Segmentation fault
+Current thread 0x0000788145098740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/marlin.py", line 118 in unpack
+  File "/workspace/token-rush/tokenrush/quant.py", line 351 in nibbles
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 154 in mlp_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 236 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 74 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 223 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 261 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 10:54: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 1, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 26 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+context   64000 pos   705565: raw   86.2 tok/s | dflash  467.5 tok/s, 7.88 tokens/step, 16.9 ms/step n=512/65 exact | mtp  335.2 tok/s, 4.85 tokens/step, 14.5 ms/step n=514/106 exact | prefill 55s | ' T2 | T3 | T4]: ...\n\n\n@'
+context   64000 pos   938315: raw   86.2 tok/s | dflash  279.4 tok/s, 4.71 tokens/step, 16.8 ms/step n=513/109 DIVERGED@94 | mtp  304.3 tok/s, 4.38 tokens/step, 14.4 ms/step n=512/117 DIVERGED@94 | prefill 55s | '.source:\n            options["source"] = AttrSource(self'
+context   64000 pos  1171066: raw   86.2 tok/s | dflash  375.1 tok/s, 6.32 tokens/step, 16.8 ms/step n=518/82 exact | mtp  306.2 tok/s, 4.41 tokens/step, 14.4 ms/step n=512/116 exact | prefill 55s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context   64000 pos  1403817: raw   86.2 tok/s | dflash  327.5 tok/s, 5.52 tokens/step, 16.8 ms/step n=513/93 DIVERGED@186 | mtp  271.5 tok/s, 3.89 tokens/step, 14.3 ms/step n=513/132 DIVERGED@186 | prefill 55s | '[Any, ...]]:\n    """\n    Generate inputs'
+summary context   64000: raw   86.3 tok/s [86-86] | dflash  336.9 tok/s [279-467], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 256s
+context   96000 pos   240064: raw   81.6 tok/s | dflash  254.0 tok/s, 4.65 tokens/step, 18.3 ms/step n=512/110 DIVERGED@48 | mtp  250.2 tok/s, 3.79 tokens/step, 15.2 ms/step n=516/136 DIVERGED@48 | prefill 89s | ' ignore [bad-argument-type]\n            result = prof'
+Fatal Python error: Segmentation fault
+Current thread 0x0000754f646c0740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/marlin.py", line 110 in unpack
+  File "/workspace/token-rush/tokenrush/quant.py", line 351 in nibbles
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 154 in mlp_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 236 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 11:00: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 2, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 31 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+context   96000 pos   472814: raw   81.6 tok/s | dflash  277.1 tok/s, 5.08 tokens/step, 18.3 ms/step n=513/101 DIVERGED@63 | mtp  252.3 tok/s, 3.83 tokens/step, 15.2 ms/step n=513/134 DIVERGED@63 | prefill 89s | '    ) -> None:\n        if self._initialized:'
+context   96000 pos   705565: raw   81.6 tok/s | dflash  429.7 tok/s, 7.88 tokens/step, 18.3 ms/step n=512/65 exact | mtp  318.5 tok/s, 4.88 tokens/step, 15.3 ms/step n=512/105 exact | prefill 88s | ' T2 | T3 | T4]: ...\n\n\n@'
+context   96000 pos   938315: raw   81.6 tok/s | dflash  332.6 tok/s, 6.10 tokens/step, 18.3 ms/step n=512/84 DIVERGED@140 | mtp  276.3 tok/s, 4.20 tokens/step, 15.2 ms/step n=513/122 DIVERGED@140 | prefill 89s | '.source:\n            options["source"] = AttrSource(self'
+context   96000 pos  1171066: raw   81.6 tok/s | dflash  363.0 tok/s, 6.65 tokens/step, 18.3 ms/step n=519/78 DIVERGED@28 | mtp  300.2 tok/s, 4.58 tokens/step, 15.3 ms/step n=513/112 DIVERGED@28 | prefill 88s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context   96000 pos  1403817: raw   81.6 tok/s | dflash  265.1 tok/s, 4.86 tokens/step, 18.3 ms/step n=515/106 DIVERGED@119 | mtp  235.6 tok/s, 3.55 tokens/step, 15.1 ms/step n=515/145 DIVERGED@119 | prefill 89s | '[tuple[Any, ...], dict[str, Any]]]:'
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 492s
+context  128000 pos   240064: raw   77.6 tok/s | dflash  224.2 tok/s, 4.44 tokens/step, 19.8 ms/step n=515/116 exact | mtp  232.2 tok/s, 3.71 tokens/step, 16.0 ms/step n=512/138 exact | prefill 127s | ' ignore [bad-argument-type]\n            result = prof'
+context  128000 pos   472814: raw   77.6 tok/s | dflash  236.4 tok/s, 4.68 tokens/step, 19.8 ms/step n=515/110 DIVERGED@139 | mtp  245.6 tok/s, 3.94 tokens/step, 16.0 ms/step n=512/130 DIVERGED@139 | prefill 127s | '    ) -> None:\n        if self._initialized:'
+context  128000 pos   705565: raw   77.6 tok/s | dflash  397.7 tok/s, 7.88 tokens/step, 19.8 ms/step n=512/65 exact | mtp  300.1 tok/s, 4.85 tokens/step, 16.2 ms/step n=514/106 exact | prefill 127s | ' T2 | T3 | T4]: ...\n\n\n@'
+context  128000 pos   938315: raw   77.6 tok/s | dflash  231.3 tok/s, 4.58 tokens/step, 19.8 ms/step n=513/112 DIVERGED@219 | mtp  226.4 tok/s, 3.61 tokens/step, 16.0 ms/step n=513/142 DIVERGED@219 | prefill 127s | '.source:\n            options["source"] = AttrSource(self'
+context  128000 pos  1171066: raw   77.6 tok/s | dflash  311.4 tok/s, 6.17 tokens/step, 19.8 ms/step n=512/83 exact | mtp  263.6 tok/s, 4.23 tokens/step, 16.1 ms/step n=512/121 exact | prefill 127s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context  128000 pos  1403817: raw   77.6 tok/s | dflash  242.2 tok/s, 4.80 tokens/step, 19.8 ms/step n=518/108 DIVERGED@79 | mtp  226.9 tok/s, 3.62 tokens/step, 15.9 ms/step n=514/142 DIVERGED@79 | prefill 128s | '[tuple[Any, ...], dict[str, Any]]]:'
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 827s
+context  160000 pos   240064: raw   73.8 tok/s | dflash  274.3 tok/s, 5.83 tokens/step, 21.3 ms/step n=513/88 DIVERGED@247 | mtp  252.4 tok/s, 4.28 tokens/step, 16.9 ms/step n=513/120 DIVERGED@247 | prefill 170s | ' ignore [bad-argument-type]\n            result = prof'
+context  160000 pos   472814: raw   73.8 tok/s | dflash  257.5 tok/s, 5.48 tokens/step, 21.3 ms/step n=515/94 DIVERGED@506 | mtp  250.9 tok/s, 4.26 tokens/step, 17.0 ms/step n=515/121 DIVERGED@506 | prefill 171s | '    ) -> None:\n        if self._initialized:'
+context  160000 pos   705565: raw   73.8 tok/s | dflash  370.7 tok/s, 7.88 tokens/step, 21.3 ms/step n=512/65 exact | mtp  281.3 tok/s, 4.79 tokens/step, 17.0 ms/step n=512/107 exact | prefill 170s | ' T2 | T3 | T4]: ...\n\n\n@'
+Fatal Python error: Segmentation fault
+Current thread 0x000074e655466740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/quant.py", line 52 in dequantize_int4
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 76 in gdn_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 228 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 11:32: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 3, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 45 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+context  160000 pos   938315: raw   73.8 tok/s | dflash  228.1 tok/s, 4.85 tokens/step, 21.3 ms/step n=514/106 DIVERGED@126 | mtp  230.2 tok/s, 3.88 tokens/step, 16.8 ms/step n=512/132 DIVERGED@126 | prefill 171s | '.source:\n            options["source"] = AttrSource(self'
+Fatal Python error: Segmentation fault
+Current thread 0x0000700051d26740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/marlin.py", line 118 in unpack
+  File "/workspace/token-rush/tokenrush/quant.py", line 351 in nibbles
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 123 in attn_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 230 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 11:36: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 4, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+Current thread 0x00007a5c2e40d740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/quant.py", line 52 in dequantize_int4
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 76 in gdn_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 228 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 11:39: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 5, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+Current thread 0x0000736460837740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/quant.py", line 52 in dequantize_int4
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 76 in gdn_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 228 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 11:42: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 6, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+Current thread 0x000078f3c18df740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 76 in gdn_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 228 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 11:43: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 7, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+Fatal Python error: Segmentation fault
+Current thread 0x00007cad594dd740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/marlin.py", line 118 in unpack
+  File "/workspace/token-rush/tokenrush/quant.py", line 351 in nibbles
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 154 in mlp_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 236 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 11:44: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 8, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.1s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 46 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+spec_context: received signal 15 (SIGTERM) at 11:44:34, exiting
+===== continued 2026-09-12 11:51: contexts 160000 at positions 1171066,1403817, run under gdb (the unit had crashed five resume attempts in a row at startup; it passed under gdb and these are its lines) =====
+context  160000 pos  1171066: raw   73.8 tok/s | dflash  297.8 tok/s, 6.33 tokens/step, 21.3 ms/step n=513/81 DIVERGED@81 | mtp  259.7 tok/s, 4.40 tokens/step, 17.0 ms/step n=515/117 DIVERGED@81 | prefill 171s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context  160000 pos  1403817: raw   73.8 tok/s | dflash  223.4 tok/s, 4.75 tokens/step, 21.3 ms/step n=513/108 DIVERGED@113 | mtp  210.5 tok/s, 3.53 tokens/step, 16.8 ms/step n=512/145 DIVERGED@113 | prefill 171s | '[tuple[Any, ...], dict[str, Any]]]:'
+===== continued 2026-09-12 11:51: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 1, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.5s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 48 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+context  200000 pos   240064: raw   69.6 tok/s | dflash  185.5 tok/s, 4.28 tokens/step, 23.1 ms/step n=514/120 DIVERGED@56 | mtp  211.1 tok/s, 3.78 tokens/step, 17.9 ms/step n=514/136 DIVERGED@56 | prefill 230s | ' ignore [bad-argument-type]\n            result = prof'
+context  200000 pos   472814: raw   69.6 tok/s | dflash  218.2 tok/s, 5.04 tokens/step, 23.1 ms/step n=519/103 exact | mtp  219.6 tok/s, 3.93 tokens/step, 17.9 ms/step n=515/131 exact | prefill 229s | '    ) -> None:\n        if self._initialized:'
+context  200000 pos   705565: raw   69.6 tok/s | dflash  341.1 tok/s, 7.88 tokens/step, 23.1 ms/step n=512/65 exact | mtp  270.2 tok/s, 4.89 tokens/step, 18.1 ms/step n=513/105 exact | prefill 229s | ' T2 | T3 | T4]: ...\n\n\n@'
+context  200000 pos   938315: raw   69.6 tok/s | dflash  194.9 tok/s, 4.50 tokens/step, 23.1 ms/step n=513/114 DIVERGED@100 | mtp  204.7 tok/s, 3.66 tokens/step, 17.9 ms/step n=512/140 DIVERGED@100 | prefill 229s | '.source:\n            options["source"] = AttrSource(self'
+context  200000 pos  1171066: raw   69.6 tok/s | dflash  270.3 tok/s, 6.24 tokens/step, 23.1 ms/step n=512/82 exact | mtp  249.2 tok/s, 4.49 tokens/step, 18.0 ms/step n=512/114 exact | prefill 229s | ' (item.as_proxy(),),\n                    {},\n                ),'
+context  200000 pos  1403817: raw   69.6 tok/s | dflash  227.6 tok/s, 5.26 tokens/step, 23.1 ms/step n=515/98 DIVERGED@25 | mtp  207.9 tok/s, 3.72 tokens/step, 17.9 ms/step n=513/138 DIVERGED@25 | prefill 229s | '[tuple[Any, ...], dict[str, Any]]]:'
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [185-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 1448s
+Fatal Python error: Segmentation fault
+Current thread 0x00007dac09264740 (most recent call first):
+  File "/venv/main/lib/python3.12/site-packages/fla/ops/common/chunk_delta_h.py", line 722 in chunk_gated_delta_rule_fwd_h
+  File "/venv/main/lib/python3.12/site-packages/fla/ops/backends/__init__.py", line 214 in wrapper
+  File "/venv/main/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1548 in _fn
+  File "/venv/main/lib/python3.12/site-packages/fla/ops/gated_delta_rule/chunk.py", line 95 in chunk_gated_delta_rule_fwd
+  File "/venv/main/lib/python3.12/site-packages/fla/ops/gated_delta_rule/chunk.py", line 292 in forward
+  File "/venv/main/lib/python3.12/site-packages/torch/amp/autocast_mode.py", line 481 in decorate_fwd
+  File "/venv/main/lib/python3.12/site-packages/fla/utils/_decorators.py", line 152 in wrapper
+  File "/venv/main/lib/python3.12/site-packages/fla/ops/gated_delta_rule/chunk.py", line 571 in chunk_gated_delta_rule
+  File "/venv/main/lib/python3.12/site-packages/fla/ops/backends/__init__.py", line 214 in wrapper
+  File "/venv/main/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1548 in _fn
+  File "/workspace/token-rush/tokenrush/ops.py", line 156 in gdn_prefill
+  File "/workspace/token-rush/tokenrush/model.py", line 99 in gdn_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 228 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 12:17: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 2, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.5s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 54 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [186-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+context  240000 pos   240064: raw   65.9 tok/s | dflash  195.4 tok/s, 4.87 tokens/step, 24.9 ms/step n=516/106 DIVERGED@57 | mtp  206.5 tok/s, 3.92 tokens/step, 19.0 ms/step n=513/131 DIVERGED@57 | prefill 298s | ' ignore [bad-argument-type]\n            result = prof'
+context  240000 pos   472814: raw   65.9 tok/s | dflash  184.6 tok/s, 4.60 tokens/step, 24.9 ms/step n=515/112 DIVERGED@32 | mtp  200.6 tok/s, 3.81 tokens/step, 19.0 ms/step n=514/135 DIVERGED@32 | prefill 298s | '    ) -> None:\n        if self._initialized:'
+context  240000 pos   705565: raw   65.9 tok/s | dflash  316.1 tok/s, 7.88 tokens/step, 24.9 ms/step n=512/65 exact | mtp  254.5 tok/s, 4.88 tokens/step, 19.2 ms/step n=512/105 exact | prefill 297s | ' T2 | T3 | T4]: ...\n\n\n@'
+context  240000 pos   938315: raw   65.9 tok/s | dflash  191.4 tok/s, 4.77 tokens/step, 24.9 ms/step n=515/108 DIVERGED@28 | mtp  212.5 tok/s, 4.04 tokens/step, 19.0 ms/step n=513/127 DIVERGED@28 | prefill 298s | '.source:\n            options["source"] = AttrSource(self'
+Fatal Python error: Segmentation fault
+Current thread 0x000072b126cea740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/marlin.py", line 118 in unpack
+  File "/workspace/token-rush/tokenrush/quant.py", line 351 in nibbles
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 76 in gdn_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 228 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 12:41: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 3, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.5s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 58 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [186-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+context  240000 pos  1171066: raw   65.9 tok/s | dflash  212.7 tok/s, 5.30 tokens/step, 24.9 ms/step n=514/97 DIVERGED@89 | mtp  227.3 tok/s, 4.34 tokens/step, 19.1 ms/step n=512/118 DIVERGED@89 | prefill 298s | ' (item.as_proxy(),),\n                    {},\n                ),'
+Fatal Python error: Segmentation fault
+Current thread 0x00007c7a5d308740 (most recent call first):
+  File "/workspace/token-rush/tokenrush/marlin.py", line 118 in unpack
+  File "/workspace/token-rush/tokenrush/quant.py", line 351 in nibbles
+  File "/workspace/token-rush/tokenrush/quant.py", line 360 in dequantize
+  File "/workspace/token-rush/tokenrush/quant.py", line 368 in __call__
+  File "/workspace/token-rush/tokenrush/model.py", line 154 in mlp_forward
+  File "/workspace/token-rush/tokenrush/model.py", line 236 in _body
+  File "/workspace/token-rush/tokenrush/model.py", line 580 in forward_hidden
+  File "/venv/main/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/workspace/token-rush/bench/spec_context.py", line 75 in prime_both
+  File "/workspace/token-rush/bench/spec_context.py", line 267 in main
+  File "/workspace/token-rush/bench/spec_context.py", line 305 in <module>
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, yaml._yaml, regex._regex, markupsafe._speedups, PIL._imaging, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, psutil._psutil_linux, cuda_utils (total: 36)
+===== continued 2026-09-12 12:47: contexts 64000,96000,128000,160000,200000,240000 at positions 240064,472814,705565,938315,1171066,1403817, attempt 4, resuming from this log (engine_spec_resume.sh) =====
+loaded 16.19 GB of weights in 3.5s
+cuda 28.3 GB after capture
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1404329 > 262144). Running this sequence through the model will result in indexing errors
+1404329 tokens available
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+512 new tokens per position; drafts: DFlash2, MTP chain
+resuming: 59 (context, position) units already in /workspace/token-rush/results/2026-09-12-machine-59052/sweep/engine_spec_code_both.log
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  336.9 tok/s [279-468], 5.67 tokens/step [4.71-7.88], 16.8 ms/step | mtp  292.7 tok/s [259-335], 4.20 tokens/step [3.70-4.85], 14.4 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 0s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  309.2 tok/s [254-430], 5.67 tokens/step [4.65-7.88], 18.3 ms/step | mtp  269.1 tok/s [236-318], 4.09 tokens/step [3.55-4.88], 15.2 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 0s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  262.2 tok/s [224-398], 5.19 tokens/step [4.44-7.88], 19.8 ms/step | mtp  246.6 tok/s [226-300], 3.95 tokens/step [3.61-4.85], 16.0 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  160000: raw   73.8 tok/s [74-74] | dflash  267.3 tok/s [223-371], 5.68 tokens/step [4.75-7.88], 21.3 ms/step | mtp  245.4 tok/s [210-281], 4.15 tokens/step [3.53-4.79], 16.9 ms/step | KV read 5.3 GB/step | 6 positions x 512 tokens | 0s
+summary context  200000: raw   69.6 tok/s [70-70] | dflash  229.5 tok/s [186-341], 5.30 tokens/step [4.28-7.88], 23.1 ms/step | mtp  224.7 tok/s [205-270], 4.03 tokens/step [3.66-4.89], 17.9 ms/step | KV read 6.7 GB/step | 6 positions x 512 tokens | 0s
+context  240000 pos  1403817: raw   65.9 tok/s | dflash  193.9 tok/s, 4.83 tokens/step, 24.9 ms/step n=517/107 DIVERGED@252 | mtp  191.1 tok/s, 3.62 tokens/step, 18.9 ms/step n=514/142 DIVERGED@252 | prefill 298s | '[tuple[Any, ...], dict[str, Any]]]:'
+summary context  240000: raw   65.9 tok/s [66-66] | dflash  208.4 tok/s [185-316], 5.19 tokens/step [4.60-7.88], 24.9 ms/step | mtp  213.5 tok/s [191-254], 4.06 tokens/step [3.62-4.88], 19.0 ms/step | KV read 8.0 GB/step | 6 positions x 512 tokens | 312s

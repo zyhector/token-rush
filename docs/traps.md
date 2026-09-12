@@ -123,6 +123,37 @@ Each of these cost real time. Do not rediscover them.
   allocation fails on the first long prompt. Use `--chunked-prefill-size 4096`
   and bound the pool with `--max-total-tokens`.
 - **Port 8080 is taken by Jupyter** on the vast base image. Use 8090 or 30000.
+- **`llama-cli` wraps every prompt in the chat template**, so a book excerpt
+  handed to it with `-f` is *answered* (with thinking), not continued; the
+  multi-position protocol's continuation runs through `llama-server`'s
+  `/completion` instead (`scripts/rivals/llama_server_bench.py`), and
+  `llama-completion` has no `--spec-type`. The server's default draft depth is
+  `--spec-draft-n-max 3` — the same as `llama-cli`'s, so the Phase 4 "MTP,
+  1 token" rows were also a 3-deep chain.
+- **A long GPU job that vanishes with no traceback is a SIGSEGV until proven
+  otherwise.** bash reports a signal death only for the *last* member of a
+  pipeline, so `python … | grep | tee` dies mute: record `${PIPESTATUS[0]}`,
+  run `python -X faulthandler`, and if it is still mute wrap it in
+  `strace -f -e trace=none -e signal=all -o file` (names the signal and its
+  sender). Two canary processes started the same way survived two hours
+  untouched, which ruled out an external killer. On vast 59052 the engine's
+  Marlin-backend prefill (the dequantize path: `marlin.unpack`, `unpack_int4`,
+  plain torch ops) segfaulted host-side once every 5–30 long-context units,
+  on the image's CUDA 13.3 forward-compat `libcuda` (610.57 over a 595.84
+  driver — a shim NVIDIA supports on datacenter GPUs only) *and* on the host's
+  native `libcuda`, never under `gdb`; the Triton backend's ten-point sweep
+  never did. Not root-caused (`docs/progress.md` step 35). The sweep script
+  grew `--resume-log` so a crash costs only the unit in flight
+  (`results/2026-09-12-machine-59052/scripts/engine_spec_resume.sh`).
+- **Both drafts resident next to a 262144-token fp8 cache sit at the
+  allocator's limit** (29.0 GB after capture; "allocation failed with OOM …
+  retrying" warnings during prefill). It works, but leave nothing else on the
+  card while it runs.
+- **`--positions 240064` is one offset, not a count.** `bench/spec_context.py`
+  and `bench/cut_prompts.py` treat a bare number under 1000 as a count of
+  evenly spread positions and anything else as offsets; the first version
+  spread 240064 positions across the corpus and measured 64k at 64064,
+  64069, … for twelve minutes before crashing.
 - **`llama-cli` no longer accepts `-no-cnv`**; use `--single-turn`. It prints
   `[ Prompt: N t/s | Generation: N t/s ]` at exit instead of `eval time` lines.
 

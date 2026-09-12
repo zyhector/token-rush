@@ -1,0 +1,16 @@
+path=/workspace/models/Qwen3.8-27B-GGUF
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+path=/workspace/models/Qwen3.8-27B-NVFP4
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+path=/workspace/models/Qwen3.8-27B-exl3-4.0
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Still waiting to acquire lock on /workspace/models/Qwen3.8-27B-DSpark/.cache/huggingface/.gitignore.lock (elapsed: 0.1 seconds)
+path=/workspace/models/Qwen3.8-27B-DSpark
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+path=/workspace/models/Qwen3.8-27B-DSpark-GGUF
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Still waiting to acquire lock on /workspace/models/Qwen3.8-27B-DFlash2-GGUF/.cache/huggingface/.gitignore.lock (elapsed: 0.1 seconds)
+path=/workspace/models/Qwen3.8-27B-DFlash2-GGUF
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+path=/workspace/models/Qwen3.8-27B-DFlash2
+MODELS_EXIT=0

@@ -1,0 +1,109 @@
+===== llama-bench tg128 (05:05) =====
+| model                          |       size |     params | backend    | ngl |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           pp512 |     3782.53 ± 140.86 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           tg128 |         82.85 ± 0.05 |
+===== llama-cli raw (05:05) =====
+essay raw r1: [ Prompt: 358.7 t/s | Generation: 80.9 t/s ]
+essay raw r2: [ Prompt: 357.6 t/s | Generation: 80.7 t/s ]
+essay raw r3: [ Prompt: 360.4 t/s | Generation: 80.1 t/s ]
+code raw r1: [ Prompt: 323.4 t/s | Generation: 80.2 t/s ]
+code raw r2: [ Prompt: 325.3 t/s | Generation: 80.6 t/s ]
+code raw r3: [ Prompt: 323.8 t/s | Generation: 80.5 t/s ]
+math raw r1: [ Prompt: 453.4 t/s | Generation: 80.2 t/s ]
+math raw r2: [ Prompt: 462.6 t/s | Generation: 80.4 t/s ]
+math raw r3: [ Prompt: 452.5 t/s | Generation: 80.4 t/s ]
+===== llama-cli draft-mtp =====
+essay mtp r1: [ Prompt: 315.3 t/s | Generation: 123.7 t/s ]
+essay mtp r2: [ Prompt: 307.6 t/s | Generation: 123.0 t/s ]
+essay mtp r3: [ Prompt: 315.0 t/s | Generation: 123.5 t/s ]
+code mtp r1: [ Prompt: 286.2 t/s | Generation: 114.3 t/s ]
+code mtp r2: [ Prompt: 290.9 t/s | Generation: 115.7 t/s ]
+code mtp r3: [ Prompt: 288.6 t/s | Generation: 114.7 t/s ]
+math mtp r1: [ Prompt: 399.6 t/s | Generation: 160.1 t/s ]
+math mtp r2: [ Prompt: 396.3 t/s | Generation: 159.5 t/s ]
+math mtp r3: [ Prompt: 392.3 t/s | Generation: 158.4 t/s ]
+===== llama-cli draft-mtp n-max 4 =====
+essay mtp4 r1: [ Prompt: 315.0 t/s | Generation: 116.2 t/s ]
+essay mtp4 r2: [ Prompt: 319.6 t/s | Generation: 116.4 t/s ]
+essay mtp4 r3: [ Prompt: 319.5 t/s | Generation: 117.2 t/s ]
+code mtp4 r1: [ Prompt: 288.8 t/s | Generation: 122.3 t/s ]
+code mtp4 r2: [ Prompt: 288.8 t/s | Generation: 122.5 t/s ]
+code mtp4 r3: [ Prompt: 287.1 t/s | Generation: 122.3 t/s ]
+math mtp4 r1: [ Prompt: 400.5 t/s | Generation: 161.1 t/s ]
+math mtp4 r2: [ Prompt: 399.3 t/s | Generation: 161.0 t/s ]
+math mtp4 r3: [ Prompt: 397.6 t/s | Generation: 163.4 t/s ]
+===== llama-cli draft-dspark =====
+essay dspark r1: [ Prompt: 209.3 t/s | Generation: 95.9 t/s ]
+essay dspark r2: [ Prompt: 218.0 t/s | Generation: 96.4 t/s ]
+essay dspark r3: [ Prompt: 218.2 t/s | Generation: 96.0 t/s ]
+code dspark r1: [ Prompt: 196.8 t/s | Generation: 101.0 t/s ]
+code dspark r2: [ Prompt: 198.0 t/s | Generation: 99.4 t/s ]
+code dspark r3: [ Prompt: 197.9 t/s | Generation: 100.1 t/s ]
+math dspark r1: [ Prompt: 274.8 t/s | Generation: 140.1 t/s ]
+math dspark r2: [ Prompt: 277.5 t/s | Generation: 139.3 t/s ]
+math dspark r3: [ Prompt: 276.8 t/s | Generation: 141.6 t/s ]
+===== llama-cli draft-dflash =====
+essay dflash r1: [ Prompt: 215.2 t/s | Generation: 123.0 t/s ]
+essay dflash r2: [ Prompt: 215.5 t/s | Generation: 123.5 t/s ]
+essay dflash r3: [ Prompt: 216.6 t/s | Generation: 123.8 t/s ]
+code dflash r1: [ Prompt: 195.3 t/s | Generation: 108.3 t/s ]
+code dflash r2: [ Prompt: 194.7 t/s | Generation: 107.6 t/s ]
+code dflash r3: [ Prompt: 195.6 t/s | Generation: 107.6 t/s ]
+math dflash r1: [ Prompt: 272.0 t/s | Generation: 154.2 t/s ]
+math dflash r2: [ Prompt: 276.0 t/s | Generation: 153.3 t/s ]
+math dflash r3: [ Prompt: 274.1 t/s | Generation: 155.1 t/s ]
+===== llama-bench depth sweep, ten points (q8_0 KV, fa) (05:08) =====
+| model                          |       size |     params | backend    | ngl | type_k | type_v |  fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -----: | -----: | --: | --------------: | -------------------: |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |           tg128 |         81.44 ± 0.23 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |   tg128 @ d8000 |         79.51 ± 0.18 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d16000 |         77.14 ± 0.16 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d32000 |         71.17 ± 0.11 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d64000 |         64.37 ± 0.11 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d96000 |         57.78 ± 0.07 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d128000 |         52.23 ± 0.08 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d160000 |         47.65 ± 0.06 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d200000 |         42.87 ± 0.06 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d240000 |         38.94 ± 0.05 |
+===== llama-server draft-mtp on the PG-19 prompt files: raw completion, 512 new tokens, q8_0 KV, fa (05:19) =====
+Traceback (most recent call last):
+  File "/workspace/token-rush/scripts/rivals/llama_server_bench.py", line 49, in <module>
+    main()
+  File "/workspace/token-rush/scripts/rivals/llama_server_bench.py", line 36, in main
+    out = completion(a.url, open(path).read(), a.n)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/llama_server_bench.py", line 24, in completion
+    with urllib.request.urlopen(req, timeout=7200) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 1373, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 1348, in do_open
+    r = h.getresponse()
+        ^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/http/client.py", line 1478, in getresponse
+    response.begin()
+  File "/venv/main/lib/python3.12/http/client.py", line 343, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/http/client.py", line 304, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/socket.py", line 720, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+STAGE DONE (05:29)

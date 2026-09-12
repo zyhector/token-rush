@@ -1,0 +1,4 @@
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 20.7 GB allocated
+essay    118.6 tok/s   accepted draft tokens 112/254 -> 1.79 per step
+code     124.0 tok/s   accepted draft tokens 118/254 -> 1.87 per step
+math     129.5 tok/s   accepted draft tokens 124/254 -> 1.95 per step

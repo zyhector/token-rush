@@ -1,0 +1,3 @@
+loaded 16.19 GB of weights in 3.1s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1382892 > 262144). Running this sequence through the model will result in indexing errors
+1382892 tokens of haystack available; needle 19 tokens at depth 50%

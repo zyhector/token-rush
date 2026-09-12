@@ -10,6 +10,7 @@ Usage:
   sglang_bench.py raw                   # short-context decode
   sglang_bench.py context 0 22000 90000 200000   # decode vs. tokens already in context
   sglang_bench.py spec                  # decode + mean accepted length, real prompts
+  sglang_bench.py files a.txt b.txt ... # one streamed request per prompt file (bench/cut_prompts.py), fixed n
 
 Speculation stats come from the response `meta_info`: `spec_verify_ct` is the
 number of verify steps, so completion_tokens / spec_verify_ct is the mean
@@ -103,14 +104,30 @@ def cmd_spec(args):
               f"   mean accepted length {acc:.2f}")
 
 
+def cmd_files(args):
+    """The multi-position protocol of bench/spec_context.py on a server: each file is
+    the prompt (N tokens ending at a position), n greedy tokens, one run each; the
+    line carries the file name, so the table script can group by context."""
+    for path in args.files:
+        rate, m = stream_rate({"text": open(path).read()}, args.n, ignore_eos=True)
+        n = m["completion_tokens"]
+        verify = m.get("spec_verify_ct", 0)
+        acc = f"   {n / verify:.2f} per step" if verify else ""
+        print(f"file {path}: {rate:7.1f} tok/s   (prompt {m['prompt_tokens']} tok, {n} new){acc}", flush=True)
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("mode", choices=["raw", "context", "spec"])
-    p.add_argument("depths", nargs="*", type=int)
+    p.add_argument("mode", choices=["raw", "context", "spec", "files"])
+    p.add_argument("depths", nargs="*")
     p.add_argument("--n", type=int, default=256)
     p.add_argument("--reps", type=int, default=3)
     args = p.parse_args()
-    {"raw": cmd_raw, "context": cmd_context, "spec": cmd_spec}[args.mode](args)
+    if args.mode == "files":
+        args.files = args.depths
+    else:
+        args.depths = [int(d) for d in args.depths]
+    {"raw": cmd_raw, "context": cmd_context, "spec": cmd_spec, "files": cmd_files}[args.mode](args)
 
 
 if __name__ == "__main__":

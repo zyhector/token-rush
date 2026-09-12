@@ -1,0 +1,6 @@
+########## engine_raw_fill stage (2026-09-12 08:57) ##########
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine raw, marlin, 96k and 200k again (08:57) =====
+decode at context 200040: 14.34 ms/step = 69.7 tok/s   (20.31 GB read per step -> 1416 GB/s, 83.3% of the wall; ceiling 83.8 tok/s)
+STAGE DONE (09:02)
+ALL DONE (2026-09-12 09:02)

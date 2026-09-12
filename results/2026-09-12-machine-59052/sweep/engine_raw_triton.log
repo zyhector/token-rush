@@ -1,0 +1,110 @@
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 5 tokens: 5165 ms
+decode at context 40: 9.96 ms/step = 100.4 tok/s   (13.65 GB read per step -> 1370 GB/s, 80.5% of the wall; ceiling 124.6 tok/s)
+peak cuda 25.57 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 8005 tokens: 4768 ms
+decode at context 8040: 10.24 ms/step = 97.7 tok/s   (13.92 GB read per step -> 1359 GB/s, 79.9% of the wall; ceiling 122.2 tok/s)
+peak cuda 26.12 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 16005 tokens: 7966 ms
+decode at context 16040: 10.42 ms/step = 95.9 tok/s   (14.18 GB read per step -> 1361 GB/s, 80.0% of the wall; ceiling 119.9 tok/s)
+peak cuda 26.12 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 32005 tokens: 15166 ms
+decode at context 32040: 10.78 ms/step = 92.8 tok/s   (14.72 GB read per step -> 1365 GB/s, 80.3% of the wall; ceiling 115.6 tok/s)
+peak cuda 26.12 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 64005 tokens: 32674 ms
+decode at context 64040: 11.45 ms/step = 87.3 tok/s   (15.78 GB read per step -> 1378 GB/s, 81.0% of the wall; ceiling 107.8 tok/s)
+peak cuda 26.12 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 96005 tokens: 54491 ms
+decode at context 96040: 12.07 ms/step = 82.9 tok/s   (16.85 GB read per step -> 1396 GB/s, 82.1% of the wall; ceiling 101.0 tok/s)
+peak cuda 26.12 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 128005 tokens: 80463 ms
+decode at context 128040: 12.71 ms/step = 78.7 tok/s   (17.91 GB read per step -> 1409 GB/s, 82.9% of the wall; ceiling 95.0 tok/s)
+peak cuda 26.13 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 160005 tokens: 111575 ms
+decode at context 160040: 13.37 ms/step = 74.8 tok/s   (18.98 GB read per step -> 1419 GB/s, 83.4% of the wall; ceiling 89.6 tok/s)
+peak cuda 26.13 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.6s
+captured graphs for buckets [262144] in 2.7s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 200005 tokens: 155873 ms
+decode at context 200040: 14.20 ms/step = 70.4 tok/s   (20.31 GB read per step -> 1430 GB/s, 84.1% of the wall; ceiling 83.8 tok/s)
+peak cuda 26.13 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+loaded 16.19 GB of weights in 1.4s
+captured graphs for buckets [262144] in 2.5s
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 240005 tokens: 206087 ms
+decode at context 240040: 14.95 ms/step = 66.9 tok/s   (21.64 GB read per step -> 1447 GB/s, 85.1% of the wall; ceiling 78.6 tok/s)
+peak cuda 26.13 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None

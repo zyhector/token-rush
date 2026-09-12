@@ -10,7 +10,7 @@ Instance for all entries so far: vast container 50295164, RTX 5090, driver
 610.43.02, CUDA 13.3, torch 2.14.0+cu130, triton 3.8.0, transformers 5.16.1,
 fla 0.6.0. 150 GB disk, 60 GB RAM.
 
-## Where things stand (after step 33, 2026-09-10 — Phase 4 done, the engine served)
+## Where things stand (after step 35, 2026-09-12 — Phase 4 done, the engine served, the README's data measured)
 
 **Phase 4 numbers — vast 36542, 2026-09-09/10, one sitting, every rival the
 same day** (step 32; `docs/baselines.md` has the matrix and every rival table,
@@ -30,7 +30,7 @@ reported.
 | serving (step 33) | `python -m tokenrush.serve`: OpenAI Chat / Completions + Anthropic Messages over the resident engine, tools through the model's own format, context kept between requests. **Claude Code runs on it** (read / edit / bash loop verified); a tool-result turn costs 0.07 s, 3 tokens after a 120k prefix 0.44 s | `docs/serving.md`; 96 tests |
 | phases | **all done**: 0 (frozen), 1a, 1b (quality bar itself not met), 2, 3, **4 (step 32)**, 5 serving (step 33) | |
 
-Every number in the table above is from the one Phase 4 sitting. The
+Every number in the table above is from the one Phase 4 sitting. **Step 35 (2026-09-12, vast 59052) measured the whole matrix again on one machine for the README and replaced the single-position context sweep with a six-position, 512-token one** — its tables are in `docs/baselines.md` ("The 2026-09-12 re-measurement") and agree with Phase 4 within 1.5% on every GPU-bound row; the speculative curves are now smooth, and the MTP chain overtakes DFlash2 on prose from 32k of context. The
 per-step table below is the development record; steps 1–31 are development
 numbers from disposable instances.
 
@@ -1863,6 +1863,99 @@ because acceptance is the text's property at each position, while the
 step cost underneath is smooth (MTP 12.6 → 18.5 ms, DFlash2 13.8 → 24.9
 ms). One more `pkill -f` self-kill on the way (the seventh — the driver
 survived, its wrapper shell did not).
+
+## Step 35 — the multi-position sweep, and the whole matrix again on one machine (2026-09-12)
+
+**Why.** Step 34's decode-vs-context figure had speculative curves that
+zig-zagged, and the zig-zag was the protocol: one 200-token continuation
+at one corpus position per context length, so every point was a different
+spot in WikiText and acceptance — the text's property — bounced between
+2.4 and 4.4 per step while the step cost underneath grew smoothly. The
+handoff that closed step 34 (`docs/handoff.md`, deleted here) laid out the
+fix the field uses (MagicDec, TriForce, LongSpec: many segments per length,
+long continuations, averaged) and this step ran it. Because the README will
+carry numbers from one machine and one day, the whole matrix was measured
+again alongside it, rivals included.
+
+**Machine.** vast **59052**: the same card, a 500 W power cap (36542 ran at
+575 W), a Core Ultra 9 285K host, 62 GB, driver 595.84 with the image's CUDA
+13.3 forward-compat `libcuda` on the loader path; the wall measured 1703
+GB/s and every GPU-bound number reproduced Phase 4 within 1.5%
+(`docs/environment.md`, `results/2026-09-12-machine-59052/env_check/`).
+Rival stacks pinned to the Phase 4 versions.
+
+**Protocol** (`bench/spec_context.py --positions 6 --new 512 --draft both`).
+Corpus: PG-19 for prose (`bench/long_text.py`, the `emozilla/pg19` mirror,
+whole books in dataset order, the Bible and Shakespeare skipped), torch's
+sources for code. Six fixed positions spread through each corpus (printed at
+the top of the logs); for each context N the prompt is the N tokens ending
+at the position and 512 greedy tokens are generated there. One prefill per
+(N, position) feeds both drafts (the union of `prime_spec` and
+`prime_dflash`), the state is snapshotted (GDN ring, live recurrent slot,
+position; KV rows below the position are never rewritten) and raw decode,
+DFlash2 and the MTP chain each restart from it. Per context, tok/s is total
+tokens over total decode seconds; mean / min / max of acceptance and of
+per-position tok/s are on the `summary` line. `bench/cut_prompts.py` writes
+the same prompts as files for the rivals: llama.cpp's built-in MTP through
+`llama-server`'s `/completion` (raw completion — `llama-cli` wraps a prompt
+in the chat template and answers it, `scripts/rivals/llama_server_bench.py`)
+and SGLang + DSpark on the contexts that fit its 30k window (`sglang_bench.py
+files`). The raw sweeps stayed on random-token prefills. `scripts/sweep_table.py`
+aggregates everything into `sweep.csv` (with the spread columns),
+`scripts/matrix_table.py` the short-context matrix into `matrix.csv`.
+
+**Cost, and what went wrong.** ~13 hours of GPU time on a $2.08/hr box.
+The engine's Marlin-backend prefill segfaulted host-side on this machine
+about once per 5–30 long-context units (`docs/traps.md`: SIGSEGV in plain
+torch ops on the dequantize path, on the compat and the native `libcuda`
+alike, never under `gdb`, never on the Triton backend's sweep; two canary
+processes lived through two hours untouched, so nothing external). Not
+root-caused; the script grew `--resume-log` so a crash costs only the unit in
+flight, and the sweep finished by resuming (`scripts/engine_spec_resume.sh`,
+the `===== continued …` markers in the logs). Also paid for again: `pkill -f`
+matching the caller's own shell (four times), Jupyter on port 8080, `grep`
+block-buffering a log, and `--positions 240064` read as a count.
+
+**Results.** The short-context matrix and the sweep tables are in
+`docs/baselines.md` ("The 2026-09-12 re-measurement"); the raw evidence in
+`results/2026-09-12-machine-59052/` (its README maps files to numbers).
+
+- Short context, same day, same card: **229 / 358 / 379** (DFlash2) and
+  206 / 258 / 285 (MTP chain) on essay / code / math against SGLang + DSpark
+  105.8 / 137.9 / 207.2, ollama's default chain 128.7 / 134.6 / 165.7,
+  llama.cpp + MTP 123.5 / 114.7 / 159.5, ExLlamaV3 + MTP ×2 131.5 / 141.5 /
+  165.5, vLLM's best (raw) 78.1; raw 99.9 tok/s = 80.2% of the wall (Triton
+  GEMV; 97.6 = 78.3% on the Marlin layout) against vLLM 74.6%, llama.cpp
+  74.9%, ExLlamaV3 60.1%, SGLang 59.3%; at 200k 70.6 = 84.3% against vLLM
+  80.3%. Needle retrieved at 131k and 262k. The host-bound rivals (ollama,
+  llama.cpp's drafts) are 4–6% under Phase 4, everything GPU-bound within 1.5%.
+- **Acceptance is flat with context** once averaged: DFlash2 3.7–4.8 tokens
+  per step on prose from 0 to 240k, the MTP chain 3.4–4.0; on code DFlash2
+  5–6. The tok/s curves are smooth and follow the step cost (DFlash2 13.7 →
+  24.9 ms, MTP 12.6 → 18.9 ms from 0 to 240k). The spread across positions
+  is wide (a factor of two on prose) — the reason one position could not
+  draw the curve.
+- **Prose crossover**: DFlash2 leads at 0–16k (350 / 323 / 275 tok/s vs
+  296 / 297 / 267), the MTP chain from 32k on (252 vs 242 at 32k, 223 vs
+  202 at 200k, 191 vs 158 at 240k). On code DFlash2 stays ahead through
+  200k (447 vs 331 at 0, 337 vs 293 at 64k, 230 vs 225 at 200k) and the
+  chain edges past it only at 240k (214 vs 208). **The default draft was not
+  changed here** — the handoff's rule
+  ("switch only if the chain leads over most of the range people use")
+  needs a judgment on which range that is; `sweep.csv` has the numbers,
+  `--draft mtp` selects the chain today.
+- Against the rivals on the same prompts: llama.cpp's chain 155 → 69 tok/s
+  from 0 to 240k (acceptance ~3 per step throughout; its raw decode is what
+  collapses), SGLang + DSpark 130 / 162 / 147 at 0 / 8k / 16k (book
+  continuation accepts 3.0–3.7 per step, far above the 2.4 of a chat
+  answer). Raw fractions of the wall re-measured within a point of step 34:
+  ours 80 → 85%, vLLM 75 → 81%, SGLang 59 → 67%, ExLlamaV3 60 → 74%,
+  llama.cpp 74 → 54%.
+
+**Owed.** The figures and the README itself (the author's), the default-draft
+decision, and the segfault's root cause (a Marlin-layout prefill path that
+does not dequantize through 700 MB of int32 temporaries would remove the
+trigger whatever the bug is).
 
 ## Next
 

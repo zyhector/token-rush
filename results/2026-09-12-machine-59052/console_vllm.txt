@@ -1,0 +1,39 @@
+===== vLLM raw + context, ten points (245k) (05:29) =====
+server ctx up after 290s
+essay     78.1 tok/s
+code      78.1 tok/s
+math      78.0 tok/s
+context       0:    78.1 tok/s
+context    8000:    77.5 tok/s
+context   16000:    76.7 tok/s
+context   32000:    75.3 tok/s
+context   64000:    72.1 tok/s
+context   96000:    68.8 tok/s
+context  128000:    65.7 tok/s
+context  160000:    63.1 tok/s
+context  200000:    59.9 tok/s
+context  240000:    57.1 tok/s
+gpu freed
+===== vLLM MTP 1 (05:43) =====
+server mtp1 up after 120s
+essay     66.4 tok/s
+code      65.9 tok/s
+math      65.8 tok/s
+(APIServer pid=100770) INFO 09-12 05:45:28 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.81, Accepted throughput: 23.68 tokens/s, Drafted throughput: 29.13 tokens/s, Accepted: 465 tokens, Drafted: 572 tokens, Per-position acceptance rate: 0.813, Avg Draft acceptance rate: 81.3%
+(APIServer pid=100770) INFO 09-12 05:45:38 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.86, Accepted throughput: 55.20 tokens/s, Drafted throughput: 64.10 tokens/s, Accepted: 552 tokens, Drafted: 641 tokens, Per-position acceptance rate: 0.861, Avg Draft acceptance rate: 86.1%
+gpu freed
+===== vLLM DSpark (05:45) =====
+server dspark up after 145s
+essay     52.9 tok/s
+code      52.9 tok/s
+math      52.9 tok/s
+(APIServer pid=106111) INFO 09-12 05:48:15 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 2.93, Accepted throughput: 44.83 tokens/s, Drafted throughput: 162.26 tokens/s, Accepted: 878 tokens, Drafted: 3178 tokens, Per-position acceptance rate: 0.744, 0.467, 0.249, 0.183, 0.137, 0.084, 0.070, Avg Draft acceptance rate: 27.6%
+gpu freed
+===== vLLM DFlash2 (05:48) =====
+server dflash up after 245s
+essay     51.8 tok/s
+code      52.6 tok/s
+math      51.7 tok/s
+(APIServer pid=112391) INFO 09-12 05:52:33 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 3.81, Accepted throughput: 38.18 tokens/s, Drafted throughput: 108.70 tokens/s, Accepted: 753 tokens, Drafted: 2144 tokens, Per-position acceptance rate: 0.795, 0.578, 0.410, 0.340, 0.276, 0.198, 0.153, 0.060, Avg Draft acceptance rate: 35.1%
+gpu freed
+STAGE DONE (05:52)

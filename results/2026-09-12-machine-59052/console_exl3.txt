@@ -1,0 +1,36 @@
+===== exl3 raw (06:05) =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 18.0 GB allocated
+essay     77.5 tok/s
+code      77.5 tok/s
+math      77.4 tok/s
+===== exl3 context =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 200448 tokens, 29.0 GB allocated
+context       0:    77.6 tok/s
+context    8000:    75.5 tok/s
+context   16000:    73.4 tok/s
+context   32000:    69.9 tok/s
+context   64000:    64.3 tok/s
+context   96000:    59.5 tok/s
+context  128000:    55.4 tok/s
+context  160000:    51.9 tok/s
+context  200000:    48.0 tok/s
+===== exl3 mtp 1 =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 20.7 GB allocated
+essay    118.6 tok/s   accepted draft tokens 112/254 -> 1.79 per step
+code     124.0 tok/s   accepted draft tokens 118/254 -> 1.87 per step
+math     129.5 tok/s   accepted draft tokens 124/254 -> 1.95 per step
+===== exl3 mtp 2 =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 23.2 GB allocated
+essay    131.5 tok/s   accepted draft tokens 140/253 -> 2.24 per step
+code     141.5 tok/s   accepted draft tokens 148/253 -> 2.41 per step
+math     165.5 tok/s   accepted draft tokens 163/253 -> 2.81 per step
+===== exl3 mtp 2 vs context =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 128512 tokens, 29.9 GB allocated
+context       0:   170.4 tok/s   2.88 per step
+context    8000:   166.3 tok/s   2.91 per step
+context   16000:   109.1 tok/s   1.96 per step
+context   32000:   121.7 tok/s   2.32 per step
+context   64000:    95.9 tok/s   2.02 per step
+context   96000:   126.0 tok/s   2.94 per step
+context  128000:    96.4 tok/s   2.43 per step
+STAGE DONE (06:19)

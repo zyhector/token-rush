@@ -1,0 +1,5 @@
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine spec vs context, pg19, both drafts, 160k/200k/240k at the same positions (09:02) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+pipeline status: 139 0 0 0 (09:16)
+STAGE DONE (09:16)

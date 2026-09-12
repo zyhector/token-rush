@@ -1,16 +1,114 @@
 # Environment
 
-**The Phase 4 benchmark machine: vast 36542 (RTX 5090), 2026-09-09.** Every
-number in the final report — the wall, every rival, the engine — was measured
-on it on that day (`results/2026-09-09-machine-36542/`). Its read bandwidth
-measured **1702 GB/s**, within 0.1% of the 1701 GB/s recorded on the Phase 0
-machine (94372, 2026-09-04), so the project keeps quoting **1701 GB/s as the
-wall**: the difference is below run-to-run noise and moves no "% of wall"
-figure by as much as a tenth of a point.
+**The README's measurements: vast 59052 (RTX 5090), 2026-09-12** — the engine,
+every rival and the multi-position decode-vs-context sweep, one machine, one
+sitting (`results/2026-09-12-machine-59052/`, `docs/progress.md` step 35).
+**The Phase 4 report: vast 36542 (RTX 5090), 2026-09-09/10** (`results/2026-09-09-machine-36542/`,
+step 32); its tables in `docs/baselines.md` stand as written. The two machines
+carry the same card and the same stack and agree on every GPU-bound row: read
+bandwidth 1703 vs 1702 GB/s, cuBLAS GEMV 1641 vs 1641 GB/s, raw decode 99.9 vs
+100.9 (Triton GEMV) and 97.6 vs 97.5 (Marlin layout), speculative 229 / 358 / 379
+vs 228 / 357 / 378 on prose / code / math, 70.6 vs 71.6 at 200k. The 1% on the
+raw rows is the newer host's 500 W power cap (below). **1701 GB/s stays the
+project's wall** (1703 and 1702 measured; the Phase 0 machine's 1701 kept).
 
-The Phase 0 machine is kept below as the historical section: its
-measurements were the baselines the engine was built against, and `docs/
-baselines.md` says which machine each rival number comes from.
+## Instance (2026-09-12 — the README's machine)
+
+| | |
+|---|---|
+| Instance / container id | 50692679 |
+| **Machine id** | **59052** (host 420718) |
+| Location | Alberta, CA |
+| Image | `vastai/base-image:cuda-13.3.1-auto` |
+| Price | $2.083/hr |
+| Host reliability | 0.993 |
+| Motherboard | TUF GAMING Z890-PLUS WIFI |
+
+### GPU — RTX 5090
+
+| | |
+|---|---|
+| Architecture | Blackwell consumer, **SM120** (`compute_cap 12.0`), 170 SMs |
+| VRAM | 32607 MiB (31.4 GiB usable) |
+| Memory clock | 14001 MHz max (13801 under load) |
+| SM clock (max) | 3090 MHz (2745 under load) |
+| **Power limit** | **500 W current, 600 W max** — `SW Power Cap` active during decode at 495 W; the Phase 4 card ran at 575 W |
+| PCIe | Gen5 x16 |
+| VBIOS | 98.02.2E.40.7D |
+| UUID | `GPU-046ba93a-9921-8ca1-45c9-b4e2dab31ae3` |
+| Driver | **595.84** (CUDA 13.2 max). The image's CUDA 13.3 toolkit puts the forward-compat `libcuda.so.610.57.04` first on the loader path, so every CUDA process here ran on that shim (NVIDIA supports it on datacenter GPUs only); `LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu` selects the host's own 595.84, which torch cu130 does not need the shim for. The segfaults below happened on both |
+
+Idle and unshared. The 500 W cap is the one hardware difference from 36542
+that shows in a number: raw decode at 99.9 / 97.6 tok/s against 100.9 / 97.5,
+and the ten-point raw sweep 1–1.5% under the first one at every context.
+Everything in the README was measured under it, rivals included.
+
+### Measured bandwidth (`check_bandwidth.py`)
+
+| | Measured | % of 1792 GB/s spec |
+|---|---|---|
+| **Read-only, Triton streaming kernel** | **1703 GB/s** | **95.0%** |
+| Read-only, `torch.sum` | 1686 GB/s | 94.1% |
+| Copy (read + write) | 1530 GB/s | 85.4% |
+
+### CPU / memory / storage
+
+| | |
+|---|---|
+| CPU | Intel Core Ultra 9 285K, 24 cores (no SMT), 5.1 GHz boost |
+| **Effective cores allocated** | **24** |
+| L3 | 36 MiB, 1 NUMA node |
+| RAM | **62 GiB** visible — enough for every engine and rival run; not for the bf16 HF reference (55.6 GB CPU-offloaded), which was not re-run |
+| `/` (overlay) | 300 GB — **wiped on recycle/destroy** |
+| `/workspace` | **not a volume** (`workspace_is_volume: false`) |
+| Disk bandwidth | ~8.7 GB/s |
+| Network | ~925 Mbps down / 930 up (the 17 GB checkpoint downloads in 2.4 min; ~75 GB of rival weights in 15) |
+
+### Software
+
+Driver 595.84, CUDA toolkit 13.3 from the image (`nvcc` 13.3.73), gcc 13.3,
+cmake 3.28. Same stack as Phase 4, installed fresh from the recipe in
+`scripts/env_check/README.md`:
+
+| | |
+|---|---|
+| Python | 3.12 (`/venv/main`) |
+| torch | 2.14.0+cu130 |
+| triton | 3.8.0 |
+| transformers | 5.17.0 |
+| flash-linear-attention | 0.6.0 (git main `516143e`) |
+| Marlin extension (`tokenrush/csrc/`) | built on first import, 8 s |
+
+Rival stacks pinned to the Phase 4 versions so the two days compare:
+llama.cpp `434ddbbc0` (CUDA 13.3, `sm_120`), SGLang 0.5.19, vLLM 0.29.0,
+ExLlamaV3 1.4.6 (`cu132.torch2.11.0` wheel), ollama 0.33.3. Install logs in
+`results/2026-09-12-machine-59052/install/`.
+
+### What is verified on this card (`check_stack.py`, `check_gemv_sol.py`)
+
+Line for line the Phase 4 picture:
+
+| | |
+|---|---|
+| `sm_120` Triton codegen, CUDA graph capture / replay | work |
+| `fla` `chunk_gated_delta_rule` at the decode shape, FP32 state | correct (2.1e-4 / 4.6e-3 over 6 calls) |
+| `fla` `fused_recurrent_gated_delta_rule` | **still miscompiled** — NaN heads over 6 calls (fla 0.6.0, triton 3.8.0) |
+| our minimal Triton step | correct (9.7e-5 / 1.2e-7) |
+| cuBLAS bf16 GEMVs at the real layer shapes, one CUDA graph | **1641 GB/s = 96.4% of the wall** (`gemvx` kernels) |
+| 48-layer eager GDN chain | 5.22 ms/token eager (4.43 on the 9950X, 10.50 on the Phase 0 EPYC), **1.51 graphed** (1.48 / 1.45) |
+| `nsys` 2026.2.1 | works |
+| `ncu` | **blocked**, `ERR_NVGPUCTRPERM` (fourth host in a row) |
+| the engine's Marlin-backend prefill at long context | **flaky host-side SIGSEGV** on this host, once per 5–30 long-context units, on the compat and the native `libcuda` alike (`docs/traps.md`, step 35); the Triton backend's sweep never crashed. The sweep resumed past each crash |
+
+The host core matters only to engines that launch kernels one by one: the
+eager GDN chain is 18% slower here than on the Ryzen 9950X, the graphed chain
+identical. ollama and llama.cpp's external-draft loops are host-bound
+(`docs/baselines.md`), so their rows are expected to sit a little below the
+Phase 4 ones; the graphed engine and the server engines with CUDA graphs are not.
+
+---
+
+# Phase 4 machine — 36542 (the report)
 
 ## Instance (Phase 4 — the reported one)
 

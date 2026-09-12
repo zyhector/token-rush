@@ -1,0 +1,37 @@
+
+
+Loading model... |-\|/-0.00.582.755 E llama_init_from_model: failed to initialize the context: dflash requires ctx_other to be set (this warning is normal during memory fitting)
+\|/-\|/-\|/-\|/-\|/- 
+
+▄▄ ▄▄
+██ ██
+██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄
+██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██
+██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀
+                                    ██    ██
+                                    ▀▀    ▀▀
+
+build      : b10884-434ddbbc0
+model      : /workspace/models/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_M.gguf
+ftype      : Q4_K - Medium
+modalities : text
+
+available commands:
+  /exit or Ctrl+C     stop or exit
+  /regen              regenerate the last response
+  /clear              clear the chat history
+  /read <file>        add a text file
+  /glob <pattern>     add text files using globbing pattern
+
+
+
+> Write a Python implementation of a thread-safe LRU cache with TTL expiry, including unit tests.
+
+[Start thinking]
+
+We need answer user: "Write a Python implementation of a thread-safe LRU cache with TTL expiry, including unit tests." Need provide code. Need think thoroughly. Need likely include implementation using OrderedDict or custom doubly linked list, threading.Lock, TTL expiry. Unit tests using unittest or pytest. Need maybe discuss usage. Need ensure thread-safe. Need handle TTL per item, maybe default ttl, optional ttl per set. Need eviction LRU among non-expired. Need get returns value or None, maybe sentinel for missing? Need consider storing None values. Could use sentinel _MISSING. Need thread-safe: lock around operations. TTL expiry: store expiration timestamp. On get, if expired remove and return missing. On set, update. On len, maybe purge expired? Could have purge_expired. Need max_size. Need maybe monotonic clock. Need handle max_size=0? Could disallow or allow no storage. Need thread safety with lock. Need unit tests: basic set/get, LRU
+
+[ Prompt: 194.7 t/s | Generation: 107.6 t/s ]
+
+
+Exiting...

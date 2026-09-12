@@ -1,0 +1,42 @@
+===== SGLang raw + context, ten points (05:52) =====
+server ctx up after 195s
+essay     62.1 tok/s   (prompt 26 tok)
+code      62.1 tok/s   (prompt 19 tok)
+math      62.1 tok/s   (prompt 49 tok)
+context       0:    62.1 tok/s   (prompt 1 tok)
+context    8000:    61.1 tok/s   (prompt 8000 tok)
+context   16000:    60.5 tok/s   (prompt 16000 tok)
+context   32000:    59.3 tok/s   (prompt 32000 tok)
+context   64000:    57.2 tok/s   (prompt 64000 tok)
+context   96000:    55.1 tok/s   (prompt 96000 tok)
+context  128000:    53.2 tok/s   (prompt 128000 tok)
+context  160000:    51.4 tok/s   (prompt 160000 tok)
+context  200000:    49.4 tok/s   (prompt 200000 tok)
+context  240000:    47.5 tok/s   (prompt 240000 tok)
+gpu freed
+===== SGLang + DSpark (06:03) =====
+/workspace/token-rush/results/2026-09-12-machine-59052/scripts/sglang_stage.sh: line 12: 122473 Killed                  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True setsid nohup $V/python -m sglang.launch_server --model-path $M --trust-remote-code --kv-cache-dtype fp8_e4m3 --mamba-ssm-dtype float32 --max-running-requests 1 --max-mamba-cache-size 6 --cuda-graph-max-bs 1 --disable-prefill-cuda-graph --port 30000 "$@" > $R/server_$name.log 2>&1 < /dev/null
+server spec up after 40s
+essay    105.8 tok/s   1024 tokens in  429 verify steps   mean accepted length 2.39
+code     137.9 tok/s   1024 tokens in  329 verify steps   mean accepted length 3.11
+math     207.2 tok/s   1024 tokens in  219 verify steps   mean accepted length 4.68
+file /workspace/data/prompts/pg19/N_0_p_240064.txt:    73.1 tok/s   (prompt 64 tok, 512 new)   1.65 per step
+file /workspace/data/prompts/pg19/N_0_p_488493.txt:   169.0 tok/s   (prompt 64 tok, 512 new)   3.82 per step
+file /workspace/data/prompts/pg19/N_0_p_736923.txt:   165.3 tok/s   (prompt 64 tok, 512 new)   3.74 per step
+file /workspace/data/prompts/pg19/N_0_p_985353.txt:   174.2 tok/s   (prompt 64 tok, 512 new)   3.94 per step
+file /workspace/data/prompts/pg19/N_0_p_1233783.txt:   219.9 tok/s   (prompt 64 tok, 512 new)   4.97 per step
+file /workspace/data/prompts/pg19/N_0_p_1482213.txt:    99.7 tok/s   (prompt 64 tok, 512 new)   2.26 per step
+file /workspace/data/prompts/pg19/N_8000_p_240064.txt:   140.1 tok/s   (prompt 8000 tok, 512 new)   3.22 per step
+file /workspace/data/prompts/pg19/N_8000_p_488493.txt:   170.1 tok/s   (prompt 8000 tok, 512 new)   3.91 per step
+file /workspace/data/prompts/pg19/N_8000_p_736923.txt:   187.1 tok/s   (prompt 8000 tok, 512 new)   4.30 per step
+file /workspace/data/prompts/pg19/N_8000_p_985353.txt:   234.4 tok/s   (prompt 8000 tok, 512 new)   5.39 per step
+file /workspace/data/prompts/pg19/N_8000_p_1233783.txt:   242.2 tok/s   (prompt 8000 tok, 512 new)   5.57 per step
+file /workspace/data/prompts/pg19/N_8000_p_1482213.txt:    98.1 tok/s   (prompt 8000 tok, 512 new)   2.26 per step
+file /workspace/data/prompts/pg19/N_16000_p_240064.txt:   153.9 tok/s   (prompt 16000 tok, 512 new)   3.58 per step
+file /workspace/data/prompts/pg19/N_16000_p_488493.txt:   135.8 tok/s   (prompt 16000 tok, 512 new)   3.16 per step
+file /workspace/data/prompts/pg19/N_16000_p_736923.txt:   146.7 tok/s   (prompt 16000 tok, 512 new)   3.41 per step
+file /workspace/data/prompts/pg19/N_16000_p_985353.txt:   241.5 tok/s   (prompt 16000 tok, 512 new)   5.63 per step
+file /workspace/data/prompts/pg19/N_16000_p_1233783.txt:   194.6 tok/s   (prompt 16000 tok, 512 new)   4.53 per step
+file /workspace/data/prompts/pg19/N_16000_p_1482213.txt:    92.7 tok/s   (prompt 16000 tok, 512 new)   2.16 per step
+gpu freed
+STAGE DONE (06:05)

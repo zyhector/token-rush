@@ -1,0 +1,428 @@
+(APIServer pid=74059) INFO 09-12 05:30:00 [api_utils.py:347] 
+(APIServer pid=74059) INFO 09-12 05:30:00 [api_utils.py:347]        █     █     █▄   ▄█
+(APIServer pid=74059) INFO 09-12 05:30:00 [api_utils.py:347]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.29.0
+(APIServer pid=74059) INFO 09-12 05:30:00 [api_utils.py:347]   █▄█▀ █     █     █     █  model   /workspace/models/Qwen3.8-27B-NVFP4
+(APIServer pid=74059) INFO 09-12 05:30:00 [api_utils.py:347]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=74059) INFO 09-12 05:30:00 [api_utils.py:347] 
+(APIServer pid=74059) INFO 09-12 05:30:00 [api_utils.py:286] non-default args: {'model_tag': '/workspace/models/Qwen3.8-27B-NVFP4', 'model': '/workspace/models/Qwen3.8-27B-NVFP4', 'trust_remote_code': True, 'max_model_len': 245000, 'gpu_memory_utilization': 0.95, 'kv_cache_dtype': 'fp8', 'max_num_batched_tokens': 8192, 'max_num_seqs': 1}
+(APIServer pid=74059) INFO 09-12 05:30:05 [model.py:684] Resolved architecture: Qwen3_5ForConditionalGeneration
+(APIServer pid=74059) INFO 09-12 05:30:05 [model.py:2021] Using max model len 245000
+(APIServer pid=74059) INFO 09-12 05:30:06 [cache.py:335] Using fp8 data type to store kv cache. It reduces the GPU memory footprint and boosts the performance. Meanwhile, it may cause accuracy drop without a proper scaling factor
+(APIServer pid=74059) INFO 09-12 05:30:06 [scheduler.py:277] Chunked prefill is enabled with max_num_batched_tokens=8192.
+(APIServer pid=74059) INFO 09-12 05:30:06 [config.py:625] Mamba cache mode is set to 'align' for Qwen3_5ForConditionalGeneration by default when prefix caching is enabled
+(APIServer pid=74059) INFO 09-12 05:30:06 [kernel.py:369] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=74059) INFO 09-12 05:30:06 [compilation.py:329] Enabled custom fusions: act_quant
+(APIServer pid=74059) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend="torchvision"` instead of `use_fast=True`, or `backend="pil"` instead of `use_fast=False`.
+(EngineCore pid=74758) INFO 09-12 05:30:14 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/workspace/models/Qwen3.8-27B-NVFP4', speculative_config=None, tokenizer='/workspace/models/Qwen3.8-27B-NVFP4', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=245000, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=compressed-tensors, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=fp8, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, per_request_spec_decode_metrics='none', kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=/workspace/models/Qwen3.8-27B-NVFP4, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'ir_enable_torch_wrap': True, 'splitting_ops': ['vllm::unified_attention_with_output', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::qwen4_exp_compute_ple_ngram_ids', 'vllm::qwen4_exp_ple_short_conv', 'vllm::qwen4_exp_qsa_with_output', 'vllm::linear_attention', 'vllm::qwen_gdn_attention_core', 'vllm::qwen_gdn_attention_core_fused_norm_packed', 'vllm::gdn_attention_core_xpu', 'vllm::olmo_hybrid_gdn_full_forward', 'vllm::sparse_attn_indexer', 'vllm::rocm_aiter_sparse_attn_indexer', 'vllm::deepseek_v4_attention', 'vllm::hpc_rope_norm_forward', 'vllm::unified_kv_cache_update', 'vllm::unified_mla_kv_cache_update'], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [8192], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 2, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=74758) INFO 09-12 05:30:14 [parallel_state.py:1775] world_size=1 rank=0 local_rank=0 distributed_init_method=file:///tmp/vllm_dist_e0b856fd6b2b41c9be49338c3cb05245 backend=nccl
+(EngineCore pid=74758) INFO 09-12 05:30:14 [parallel_state.py:2119] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=74758) INFO 09-12 05:30:14 [gpu_worker.py:429] Using V2 Model Runner
+(EngineCore pid=74758) INFO 09-12 05:30:15 [model_runner.py:382] Loading model from scratch...
+(EngineCore pid=74758) INFO 09-12 05:30:15 [cuda.py:551] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention
+(EngineCore pid=74758) INFO 09-12 05:30:15 [mm_encoder_attention.py:372] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+(EngineCore pid=74758) INFO 09-12 05:30:15 [__init__.py:1106] Using FlashInferCutlassNvFp4LinearKernel for NVFP4 GEMM
+(EngineCore pid=74758) INFO 09-12 05:30:15 [qwen_gdn_linear_attn.py:167] Using Triton/FLA GDN prefill kernel (requested=auto, head_k_dim=128).
+(EngineCore pid=74758) INFO 09-12 05:30:15 [qwen_gdn_linear_attn.py:519] GDN decode kernel: cuda
+(EngineCore pid=74758) INFO 09-12 05:30:16 [cuda.py:492] Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].
+(EngineCore pid=74758) INFO 09-12 05:30:17 [weight_utils.py:863] Filesystem type for checkpoints: OVERLAY. Checkpoint size: 19.15 GiB. Available RAM: 11.50 GiB.
+(EngineCore pid=74758) INFO 09-12 05:30:17 [weight_utils.py:893] Auto-prefetch is disabled because the filesystem (OVERLAY) is not a recognized network FS (NFS/Lustre) and the checkpoint size (19.15 GiB) exceeds 90% of available RAM (11.50 GiB).
+(EngineCore pid=74758) Loading safetensors checkpoint shards:   0% Completed | 0/5 [00:00<?, ?it/s]
+(EngineCore pid=74758) Loading safetensors checkpoint shards:  20% Completed | 1/5 [00:00<00:02,  1.93it/s]
+(EngineCore pid=74758) Loading safetensors checkpoint shards:  40% Completed | 2/5 [00:01<00:02,  1.18it/s]
+(EngineCore pid=74758) Loading safetensors checkpoint shards:  60% Completed | 3/5 [00:02<00:02,  1.02s/it]
+(EngineCore pid=74758) Loading safetensors checkpoint shards:  80% Completed | 4/5 [00:04<00:01,  1.13s/it]
+(EngineCore pid=74758) Loading safetensors checkpoint shards: 100% Completed | 5/5 [00:04<00:00,  1.09it/s]
+(EngineCore pid=74758) Loading safetensors checkpoint shards: 100% Completed | 5/5 [00:04<00:00,  1.07it/s]
+(EngineCore pid=74758) 
+(EngineCore pid=74758) INFO 09-12 05:30:21 [default_loader.py:430] Loading weights took 4.68 seconds
+(EngineCore pid=74758) INFO 09-12 05:30:22 [model_runner.py:404] Model loading took 18.74 GiB memory and 7.060877 seconds
+(EngineCore pid=74758) INFO 09-12 05:30:22 [topk_topp_sampler.py:62] Using FlashInfer for top-p & top-k sampling.
+(EngineCore pid=74758) INFO 09-12 05:30:22 [interface.py:918] Setting attention block size to 1568 tokens to ensure that attention page size is >= mamba page size.
+(EngineCore pid=74758) INFO 09-12 05:30:22 [interface.py:942] Padding mamba page size by 0.13% to ensure that mamba page size and attention page size are exactly equal.
+(EngineCore pid=74758) INFO 09-12 05:30:22 [utils.py:306] Using LBNHC KV cache layout.
+(EngineCore pid=74758) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend="torchvision"` instead of `use_fast=True`, or `backend="pil"` instead of `use_fast=False`.
+(EngineCore pid=74758) INFO 09-12 05:30:25 [encoder_runner.py:131] Encoder cache will be initialized with a budget of 16384 tokens, and profiled with 1 image items of the maximum feature size.
+(EngineCore pid=74758) INFO 09-12 05:30:41 [backends.py:1094] Using cache directory: /root/.cache/vllm/torch_compile_cache/4d269739c7/rank_0_0/backbone for vLLM's torch.compile
+(EngineCore pid=74758) INFO 09-12 05:30:41 [backends.py:1155] Dynamo bytecode transform time: 7.71 s
+(EngineCore pid=74758) INFO 09-12 05:30:55 [backends.py:393] Compiling a graph for compile range (1, 8192) takes 13.52 s
+(EngineCore pid=74758) INFO 09-12 05:30:58 [backends.py:920] collected artifacts: 65 entries, 21 artifacts, 28873398 bytes total
+(EngineCore pid=74758) INFO 09-12 05:30:58 [decorators.py:719] saved AOT compiled function to /root/.cache/vllm/torch_compile_cache/torch_aot_compile/5062ef1446000e48653a8b383b960259d47af4dd1b75fa7f0ac429679f4d6f16/rank_0_0/model
+(EngineCore pid=74758) INFO 09-12 05:30:58 [monitor.py:53] torch.compile took 24.90 s in total
+(EngineCore pid=74758) /workspace/venvs/vllm/lib/python3.12/site-packages/triton/language/core.py:2284: UserWarning: tl.make_block_ptr is deprecated. Use TensorDescriptor or tl.make_tensor_descriptor instead.
+(EngineCore pid=74758)   warn("tl.make_block_ptr is deprecated. Use TensorDescriptor or tl.make_tensor_descriptor instead.")
+(EngineCore pid=74758) INFO 09-12 05:33:11 [monitor.py:81] Initial profiling/warmup run took 132.71 s
+(EngineCore pid=74758) INFO 09-12 05:33:12 [flashinfer.py:910] FlashInfer resolved query dtypes: prefill=torch.bfloat16, decode=torch.bfloat16, decode_backend=xqa, kv_cache_dtype=torch.float8_e4m3fn, arch=sm120
+(EngineCore pid=74758) Capturing CUDA graphs (PIECEWISE):   0%|          | 0/2 [00:00<?, ?it/s]Capturing CUDA graphs (PIECEWISE):  50%|█████     | 1/2 [00:14<00:14, 14.46s/it]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 2/2 [00:18<00:00,  8.19s/it]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 2/2 [00:18<00:00,  9.13s/it]
+(EngineCore pid=74758) Capturing CUDA graphs (FULL):   0%|          | 0/1 [00:00<?, ?it/s]Capturing CUDA graphs (FULL): 100%|██████████| 1/1 [00:00<00:00, 11.67it/s]
+(EngineCore pid=74758) INFO 09-12 05:33:31 [model_runner.py:960] Graph capturing finished in 19 secs, took 0.43 GiB
+(EngineCore pid=74758) INFO 09-12 05:33:31 [gpu_worker.py:625] Available KV cache memory: 8.2 GiB
+(EngineCore pid=74758) INFO 09-12 05:33:31 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9500 is equivalent to --gpu-memory-utilization=0.9362 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9638. To disable, set VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0.
+(EngineCore pid=74758) INFO 09-12 05:33:31 [kv_cache_utils.py:2032] GPU KV cache size: 257,024 tokens, Maximum concurrency for 245,000 tokens per request: 1.05x
+(EngineCore pid=74758) INFO 09-12 05:33:31 [kernel_warmup.py:124] JIT kernel warmup starting.
+(EngineCore pid=74758) INFO 09-12 05:33:31 [kernel_warmup.py:134] JIT kernel warmup finished in 0.00s.
+(EngineCore pid=74758) INFO 09-12 05:33:31 [qwen_triton_warmup.py:270] Warming up Qwen Triton kernels for model_type=qwen3_5_text.
+(EngineCore pid=74758) INFO 09-12 05:33:32 [kernel_warmup.py:309] Using FlashInfer autotune cache file: /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/f2c1f7895b5738426dba33801c30c0e8718526b835112e09210b2be1dcf543f1/autotune_configs.json
+(EngineCore pid=74758) 2026-09-12 05:33:32,329 - INFO - autotuner.py:972 - flashinfer.jit: [Autotuner]: Autotuning process starts ...
+(EngineCore pid=74758) INFO 09-12 05:33:32 [kernel_warmup.py:266] Running FlashInfer autotune with 8192 tokens.
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:   0%|          | 0/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:   5%|▍         | 1/21 [00:02<00:51,  2.57s/profile][AutoTuner]: Tuning fp4_gemm:  19%|█▉        | 4/21 [00:02<00:08,  1.94profile/s][AutoTuner]: Tuning fp4_gemm:  38%|███▊      | 8/21 [00:02<00:02,  4.53profile/s][AutoTuner]: Tuning fp4_gemm:  52%|█████▏    | 11/21 [00:02<00:01,  6.46profile/s][AutoTuner]: Tuning fp4_gemm:  67%|██████▋   | 14/21 [00:03<00:00,  7.09profile/s][AutoTuner]: Tuning fp4_gemm:  76%|███████▌  | 16/21 [00:03<00:00,  6.69profile/s][AutoTuner]: Tuning fp4_gemm:  86%|████████▌ | 18/21 [00:04<00:00,  5.69profile/s][AutoTuner]: Tuning fp4_gemm:  95%|█████████▌| 20/21 [00:04<00:00,  4.57profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:05<00:00,  3.36profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:05<00:00,  3.81profile/s]
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:   0%|          | 0/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  33%|███▎      | 7/21 [00:00<00:00, 66.45profile/s][AutoTuner]: Tuning fp4_gemm:  67%|██████▋   | 14/21 [00:00<00:00, 65.47profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:00<00:00, 62.47profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:00<00:00, 63.33profile/s]
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:   0%|          | 0/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  24%|██▍       | 5/21 [00:00<00:00, 45.97profile/s][AutoTuner]: Tuning fp4_gemm:  48%|████▊     | 10/21 [00:00<00:00, 46.64profile/s][AutoTuner]: Tuning fp4_gemm:  71%|███████▏  | 15/21 [00:00<00:00, 29.00profile/s][AutoTuner]: Tuning fp4_gemm:  90%|█████████ | 19/21 [00:00<00:00, 17.86profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:01<00:00, 16.67profile/s]
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:   0%|          | 0/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  10%|▉         | 2/21 [00:00<00:01, 16.00profile/s][AutoTuner]: Tuning fp4_gemm:  19%|█▉        | 4/21 [00:00<00:01, 15.94profile/s][AutoTuner]: Tuning fp4_gemm:  29%|██▊       | 6/21 [00:00<00:00, 16.28profile/s][AutoTuner]: Tuning fp4_gemm:  43%|████▎     | 9/21 [00:00<00:00, 18.38profile/s][AutoTuner]: Tuning fp4_gemm:  52%|█████▏    | 11/21 [00:00<00:00, 12.63profile/s][AutoTuner]: Tuning fp4_gemm:  62%|██████▏   | 13/21 [00:01<00:01,  7.69profile/s][AutoTuner]: Tuning fp4_gemm:  71%|███████▏  | 15/21 [00:01<00:01,  5.11profile/s][AutoTuner]: Tuning fp4_gemm:  76%|███████▌  | 16/21 [00:02<00:01,  4.34profile/s][AutoTuner]: Tuning fp4_gemm:  81%|████████  | 17/21 [00:02<00:01,  3.43profile/s][AutoTuner]: Tuning fp4_gemm:  86%|████████▌ | 18/21 [00:03<00:01,  2.73profile/s][rank0]:[W912 05:33:42.251246078 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 499122176 bytes (free: 492503040, total: 33670758400).
+[rank0]:[W912 05:33:42.251397607 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 499122176 bytes (free: 492503040, total: 33670758400).
+2026-09-12 05:33:42,936 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:  86%|████████▌ | 18/21 [00:03<00:00,  5.16profile/s]
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:   0%|          | 0/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  14%|█▍        | 3/21 [00:00<00:00, 24.53profile/s][AutoTuner]: Tuning fp4_gemm:  29%|██▊       | 6/21 [00:00<00:00, 26.24profile/s][AutoTuner]: Tuning fp4_gemm:  43%|████▎     | 9/21 [00:00<00:00, 27.57profile/s][AutoTuner]: Tuning fp4_gemm:  57%|█████▋    | 12/21 [00:00<00:00, 19.01profile/s][AutoTuner]: Tuning fp4_gemm:  71%|███████▏  | 15/21 [00:01<00:00, 11.44profile/s][AutoTuner]: Tuning fp4_gemm:  81%|████████  | 17/21 [00:01<00:00,  8.31profile/s][AutoTuner]: Tuning fp4_gemm:  90%|█████████ | 19/21 [00:02<00:00,  5.88profile/s][AutoTuner]: Tuning fp4_gemm:  95%|█████████▌| 20/21 [00:02<00:00,  4.94profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:03<00:00,  3.34profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:03<00:00,  6.66profile/s]
+[rank0]:[W912 05:33:46.421512081 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 499122176 bytes (free: 440074240, total: 33670758400).
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:  86%|████████▌ | 18/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  90%|█████████ | 19/21 [00:00<00:01,  1.48profile/s][rank0]:[W912 05:33:46.101414734 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 570425344 bytes (free: 351993856, total: 33670758400).
+[rank0]:[W912 05:33:46.101467810 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 570425344 bytes (free: 351993856, total: 33670758400).
+2026-09-12 05:33:46,780 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:  90%|█████████ | 19/21 [00:00<00:01,  1.47profile/s]
+[rank0]:[W912 05:33:46.109815840 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 570425344 bytes (free: 351993856, total: 33670758400).
+[rank0]:[W912 05:33:46.112037359 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 570425344 bytes (free: 486211584, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:46,790 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:   0%|          | 0/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  14%|█▍        | 3/21 [00:00<00:00, 29.64profile/s][AutoTuner]: Tuning fp4_gemm:  33%|███▎      | 7/21 [00:00<00:00, 32.19profile/s][AutoTuner]: Tuning fp4_gemm:  52%|█████▏    | 11/21 [00:00<00:00, 27.53profile/s][AutoTuner]: Tuning fp4_gemm:  67%|██████▋   | 14/21 [00:00<00:00, 16.99profile/s][AutoTuner]: Tuning fp4_gemm:  81%|████████  | 17/21 [00:01<00:00, 10.56profile/s][AutoTuner]: Tuning fp4_gemm:  90%|█████████ | 19/21 [00:01<00:00,  7.52profile/s][rank0]:[W912 05:33:48.138559036 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 469762048 bytes (free: 381353984, total: 33670758400).
+[rank0]:[W912 05:33:48.138620226 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 469762048 bytes (free: 381353984, total: 33670758400).
+2026-09-12 05:33:48,817 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:  95%|█████████▌| 20/21 [00:02<00:00,  9.88profile/s]
+[rank0]:[W912 05:33:48.146501386 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 570425344 bytes (free: 280690688, total: 33670758400).
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:  90%|█████████ | 19/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  95%|█████████▌| 20/21 [00:00<00:00,  1.27profile/s][rank0]:[W912 05:33:49.939963231 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 620429312, total: 33670758400).
+[rank0]:[W912 05:33:49.940016566 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 620429312, total: 33670758400).
+2026-09-12 05:33:49,623 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:  95%|█████████▌| 20/21 [00:00<00:00,  1.26profile/s]
+[rank0]:[W912 05:33:49.952739907 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 620429312, total: 33670758400).
+[rank0]:[W912 05:33:49.955078259 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:49,633 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:49.962603125 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:49.962659079 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:49,641 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:49.970044323 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:49.970099766 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:49,648 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+(EngineCore pid=74758) [AutoTuner]: Tuning fp4_gemm:  95%|█████████▌| 20/21 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:00<00:00,  1.64profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 21/21 [00:00<00:00,  1.64profile/s]
+[rank0]:[W912 05:33:50.593459207 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 649789440, total: 33670758400).
+[rank0]:[W912 05:33:50.593543911 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 649789440, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,272 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.601257858 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 649789440, total: 33670758400).
+[rank0]:[W912 05:33:50.603660426 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 79364096, total: 33670758400).
+[rank0]:[W912 05:33:50.603703404 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 79364096, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,282 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.612765944 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 79364096, total: 33670758400).
+[rank0]:[W912 05:33:50.612809871 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 79364096, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,291 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.621096091 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 79364096, total: 33670758400).
+[rank0]:[W912 05:33:50.621141075 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 79364096, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,300 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.628184725 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 649789440, total: 33670758400).
+[rank0]:[W912 05:33:50.628235111 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 649789440, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,306 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.636042472 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 649789440, total: 33670758400).
+[rank0]:[W912 05:33:50.640321404 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,318 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.647810325 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.647865757 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,326 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.655179077 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.655457349 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,333 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.661691806 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.661751175 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,340 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.669097027 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.669151873 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,347 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.676565898 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.676621240 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,355 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.683903059 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.683958739 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,362 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.690241269 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.690290604 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,368 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.697703537 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.702303872 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,380 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.709869935 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.709925418 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,388 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.717237270 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.717466017 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,395 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.723820407 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.723868987 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,402 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.731300722 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.736354799 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,414 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.744027839 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.744083555 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,422 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.751349710 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.751405651 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,429 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.757864577 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.757913304 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,436 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.765226390 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.770259786 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,448 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.777687888 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.777743211 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,456 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.785276949 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.785707943 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,464 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.792145162 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.792193623 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,470 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.799510063 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.804347349 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,482 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.811781341 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.811836654 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,490 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.819165991 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.819224191 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,497 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.825562076 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.825611942 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,504 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.832869930 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.838339804 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,516 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.845906296 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.845961403 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,524 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.853236045 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.853480935 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,531 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.859853275 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.859902080 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,538 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.867273061 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.872371387 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,550 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.879740318 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.879795336 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,558 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.887093769 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.887150248 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,565 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.893392732 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.893441621 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,571 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.900661935 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.906345655 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,584 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.913938430 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.913994436 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,592 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.921339671 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.921395474 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,599 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.927691492 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.927740146 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,606 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.935086475 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.940348745 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,618 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.947857476 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.947914200 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,626 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.955245756 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.955301765 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,633 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.961554567 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.961602860 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,640 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.968886051 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.974313446 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,652 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.981828783 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.981890355 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,660 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.989187498 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.989243071 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,667 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.995596232 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.995645203 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,674 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.002976162 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.008428314 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,686 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.019296723 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.019352088 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,697 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.026642891 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.026698858 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,705 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.033006148 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.033058152 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,711 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.040411442 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.045326341 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,723 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.052770749 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.052826732 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,731 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.060196105 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+[rank0]:[W912 05:33:50.060252132 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 1119551488, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,738 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+[rank0]:[W912 05:33:50.066507947 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+[rank0]:[W912 05:33:50.066556873 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 1140850688 bytes (free: 549126144, total: 33670758400).
+(EngineCore pid=74758) 2026-09-12 05:33:50,745 - WARNING - autotuner.py:1896 - flashinfer.jit: [Autotuner]: OOM detected, falling back to default tactic
+(EngineCore pid=74758) 2026-09-12 05:33:50,746 - INFO - autotuner.py:995 - flashinfer.jit: [Autotuner]: Autotuning process ends
+(EngineCore pid=74758) 2026-09-12 05:33:50,848 - INFO - autotuner.py:2652 - flashinfer.jit: [Autotuner]: Saved 125 configs to /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/f2c1f7895b5738426dba33801c30c0e8718526b835112e09210b2be1dcf543f1/autotune_configs.json (125 new, 0 from previous config)
+(EngineCore pid=74758) Capturing CUDA graphs (PIECEWISE):   0%|          | 0/2 [00:00<?, ?it/s]Capturing CUDA graphs (PIECEWISE):  50%|█████     | 1/2 [00:00<00:00,  7.27it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 2/2 [00:00<00:00,  3.19it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]
+(EngineCore pid=74758) Capturing CUDA graphs (FULL):   0%|          | 0/1 [00:00<?, ?it/s]Capturing CUDA graphs (FULL): 100%|██████████| 1/1 [00:00<00:00, 13.86it/s]
+(EngineCore pid=74758) INFO 09-12 05:33:51 [model_runner.py:960] Graph capturing finished in 1 secs, took 0.02 GiB
+(EngineCore pid=74758) INFO 09-12 05:33:51 [gpu_worker.py:797] CUDA graph pool memory: 0.02 GiB (actual), 0.43 GiB (estimated), difference: 0.41 GiB (1750.0%).
+(EngineCore pid=74758) INFO 09-12 05:33:51 [gpu_worker.py:860] Free memory on device (30.86/31.36 GiB) on startup. Desired GPU memory utilization is (0.95, 29.79 GiB). Actual usage is 19.3 GiB for consumed memory (weights + non-torch), 2.29 GiB for peak activation, and 0.02 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=8623062528` (8.03 GiB) to fit into requested memory, or `--kv-cache-memory=9774710272` (9.1 GiB) to fully utilize gpu memory. Current kv cache memory in use is 8.2 GiB.
+(EngineCore pid=74758) INFO 09-12 05:34:27 [jit_monitor.py:85] Kernel JIT monitor activated; monitored JIT compilations during inference will use mode=warn.
+(EngineCore pid=74758) INFO 09-12 05:34:28 [torch_utils.py:277] Reducing Torch threads from 24 to 1 for serving. Set OMP_NUM_THREADS in the external environment to override.
+(EngineCore pid=74758) INFO 09-12 05:34:28 [core.py:361] init engine (profile, create kv cache, warmup model) took 245.83 s (compilation: 24.90 s)
+(EngineCore pid=74758) INFO 09-12 05:34:28 [kernel.py:369] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=74758) INFO 09-12 05:34:28 [compilation.py:329] Enabled custom fusions: act_quant
+(APIServer pid=74059) INFO 09-12 05:34:29 [entry.py:135] Supported tasks: ['generate']
+(APIServer pid=74059) INFO 09-12 05:34:31 [hf.py:547] Detected the chat template content format to be 'openai'. You can set `--chat-template-content-format` to override this.
+(APIServer pid=74059) [transformers] Qwen3VL video processing does not apply the per-frame pixel cap the reference implementation (qwen-vl-utils) applies, so some videos cost far more tokens than they would there. In v5.22 the capped behavior will become the default and `cap_pixels_per_frame` will be removed. Pass `cap_pixels_per_frame=True` to adopt the reference behavior now, or `False` to keep the current behavior and silence this warning.
+(APIServer pid=74059) INFO 09-12 05:34:40 [base.py:244] Multi-modal warmup completed in 9.412s
+(APIServer pid=74059) INFO 09-12 05:34:41 [base.py:244] Readonly multi-modal warmup completed in 0.963s
+(APIServer pid=74059) WARNING 09-12 05:34:41 [model.py:1759] Default vLLM sampling parameters have been overridden by the model's `generation_config.json`: `{'temperature': 1.0, 'top_k': 20, 'top_p': 0.95}`. If this is not intended, please relaunch vLLM instance with `--generation-config vllm`.
+(APIServer pid=74059) INFO 09-12 05:34:41 [entry.py:139] Starting vLLM server on http://0.0.0.0:8000
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:61] Available routes are:
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /openapi.json, Methods: HEAD, GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /docs, Methods: HEAD, GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /docs/oauth2-redirect, Methods: HEAD, GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /redoc, Methods: HEAD, GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /load, Methods: GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /version, Methods: GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /health, Methods: GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /metrics, Methods: GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /tokenize, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /detokenize, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/models, Methods: GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /ping, Methods: GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /ping, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /invocations, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/chat/completions, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/chat/completions/batch, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/responses, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/responses/{response_id}, Methods: GET
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/responses/{response_id}/cancel, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/completions, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/messages, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/messages/count_tokens, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /generative_scoring, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /scale_elastic_ep, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /is_scaling_elastic_ep, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/chat/completions/render, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/messages/render, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/completions/render, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/chat/completions/derender, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /v1/completions/derender, Methods: POST
+(APIServer pid=74059) INFO 09-12 05:34:41 [launcher.py:70] Route: /inference/v1/generate, Methods: POST
+(APIServer pid=74059) INFO:     Started server process [74059]
+(APIServer pid=74059) INFO:     Waiting for application startup.
+(APIServer pid=74059) INFO:     Application startup complete.
+(APIServer pid=74059) INFO:     127.0.0.1:35294 - "GET /v1/models HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:35308 - "GET /v1/models HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:35314 - "POST /v1/completions HTTP/1.1" 200 OK
+(EngineCore pid=74758) WARNING 09-12 05:34:45 [jit_monitor.py:141] Triton kernel JIT compilation during inference: layer_norm_fwd_kernel. This causes a latency spike; consider extending warmup to cover this shape/config.
+(APIServer pid=74059) INFO:     127.0.0.1:35318 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:35330 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:34:54 [loggers.py:310] Engine 000: Avg prompt throughput: 3.0 tokens/s, Avg generation throughput: 25.3 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 2.4%, Prefix cache hit rate: 0.0%
+(APIServer pid=74059) INFO:     127.0.0.1:37814 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:37824 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:37834 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:35:04 [loggers.py:310] Engine 000: Avg prompt throughput: 5.7 tokens/s, Avg generation throughput: 76.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 2.4%, Prefix cache hit rate: 0.0%
+(APIServer pid=74059) INFO:     127.0.0.1:39500 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:39516 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:39526 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:35:14 [loggers.py:310] Engine 000: Avg prompt throughput: 14.7 tokens/s, Avg generation throughput: 76.6 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 2.4%, Prefix cache hit rate: 0.0%
+(APIServer pid=74059) INFO:     127.0.0.1:34008 - "GET /v1/models HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:34018 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:34034 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:34040 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:35:24 [loggers.py:310] Engine 000: Avg prompt throughput: 0.3 tokens/s, Avg generation throughput: 77.7 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 2.4%, Prefix cache hit rate: 0.0%
+(APIServer pid=74059) INFO:     127.0.0.1:58082 - "POST /v1/completions HTTP/1.1" 200 OK
+(EngineCore pid=74758) 2026-09-12 05:35:25,664 - WARNING - autotuner.py:1688 - flashinfer.jit: [AutoTuner]: No tuned config covers fp4_gemm input_shapes=((7840, 2560), (2560, 34816), (7936, 320), (320, 34816), (), (0,), (7840, 34816), (0,), (0,), (33554432,)); falling back to runner=CutlassFp4GemmRunner tactic=-1.  This shape is outside the tuning bucket range -- expand tuning_buckets / max_num_tokens during the next tuning pass to avoid this perf cliff.
+(APIServer pid=74059) INFO:     127.0.0.1:58094 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:43640 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:35:34 [loggers.py:310] Engine 000: Avg prompt throughput: 831.9 tokens/s, Avg generation throughput: 71.7 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 5.3%, Prefix cache hit rate: 64.6%
+(APIServer pid=74059) INFO:     127.0.0.1:43652 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:43664 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:35:44 [loggers.py:310] Engine 000: Avg prompt throughput: 1631.7 tokens/s, Avg generation throughput: 65.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 8.2%, Prefix cache hit rate: 55.7%
+(APIServer pid=74059) INFO:     127.0.0.1:41248 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:41250 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:35:54 [loggers.py:310] Engine 000: Avg prompt throughput: 3231.7 tokens/s, Avg generation throughput: 50.1 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 19.4%, Prefix cache hit rate: 45.1%
+(APIServer pid=74059) INFO:     127.0.0.1:51232 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:51248 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:51258 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:36:04 [loggers.py:310] Engine 000: Avg prompt throughput: 128.0 tokens/s, Avg generation throughput: 52.7 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 14.1%, Prefix cache hit rate: 47.3%
+(APIServer pid=74059) INFO:     127.0.0.1:52800 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:36:14 [loggers.py:310] Engine 000: Avg prompt throughput: 6398.7 tokens/s, Avg generation throughput: 25.6 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 47.3%
+(APIServer pid=74059) INFO:     127.0.0.1:52814 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:52822 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:36:24 [loggers.py:310] Engine 000: Avg prompt throughput: 256.0 tokens/s, Avg generation throughput: 51.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 14.1%, Prefix cache hit rate: 51.5%
+(APIServer pid=74059) INFO 09-12 05:36:34 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 47.1%, Prefix cache hit rate: 51.5%
+(APIServer pid=74059) INFO:     127.0.0.1:34334 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:36:44 [loggers.py:310] Engine 000: Avg prompt throughput: 9635.6 tokens/s, Avg generation throughput: 32.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 38.2%, Prefix cache hit rate: 59.9%
+(APIServer pid=74059) INFO:     127.0.0.1:34344 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:34356 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:36:54 [loggers.py:310] Engine 000: Avg prompt throughput: 35.2 tokens/s, Avg generation throughput: 44.6 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 18.8%, Prefix cache hit rate: 54.9%
+(APIServer pid=74059) INFO 09-12 05:37:04 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 47.1%, Prefix cache hit rate: 54.9%
+(APIServer pid=74059) INFO:     127.0.0.1:59454 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:37:24 [loggers.py:310] Engine 000: Avg prompt throughput: 12899.3 tokens/s, Avg generation throughput: 29.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 50.0%, Prefix cache hit rate: 61.2%
+(APIServer pid=74059) INFO:     127.0.0.1:59468 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:59482 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:37:34 [loggers.py:310] Engine 000: Avg prompt throughput: 99.2 tokens/s, Avg generation throughput: 47.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 14.1%, Prefix cache hit rate: 57.1%
+(APIServer pid=74059) INFO 09-12 05:37:44 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 47.1%, Prefix cache hit rate: 57.1%
+(APIServer pid=74059) INFO 09-12 05:38:14 [loggers.py:310] Engine 000: Avg prompt throughput: 15998.9 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 97.6%, Prefix cache hit rate: 57.1%
+(APIServer pid=74059) INFO:     127.0.0.1:46254 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:46268 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:38:24 [loggers.py:310] Engine 000: Avg prompt throughput: 12.8 tokens/s, Avg generation throughput: 61.5 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 62.4%, Prefix cache hit rate: 66.2%
+(APIServer pid=74059) INFO:     127.0.0.1:56044 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:38:34 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 9.1 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 37.6%, Prefix cache hit rate: 58.4%
+(APIServer pid=74059) INFO 09-12 05:38:44 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 61.2%, Prefix cache hit rate: 58.4%
+(APIServer pid=74059) INFO 09-12 05:40:14 [loggers.py:310] Engine 000: Avg prompt throughput: 20001.8 tokens/s, Avg generation throughput: 21.9 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 85.9%, Prefix cache hit rate: 58.4%
+(APIServer pid=74059) INFO:     127.0.0.1:56370 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:56386 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:40:24 [loggers.py:310] Engine 000: Avg prompt throughput: 172.8 tokens/s, Avg generation throughput: 53.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 77.1%, Prefix cache hit rate: 66.2%
+(APIServer pid=74059) INFO:     127.0.0.1:57264 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:40:34 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 1.7 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 37.6%, Prefix cache hit rate: 59.5%
+(APIServer pid=74059) INFO 09-12 05:40:44 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 61.2%, Prefix cache hit rate: 59.5%
+(APIServer pid=74059) INFO 09-12 05:43:04 [loggers.py:310] Engine 000: Avg prompt throughput: 23999.8 tokens/s, Avg generation throughput: 9.1 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 97.6%, Prefix cache hit rate: 59.5%
+(APIServer pid=74059) INFO:     127.0.0.1:52574 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO:     127.0.0.1:52582 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=74059) INFO 09-12 05:43:14 [loggers.py:310] Engine 000: Avg prompt throughput: 19.2 tokens/s, Avg generation throughput: 55.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 92.4%, Prefix cache hit rate: 66.3%
+(EngineCore pid=74758) INFO 09-12 05:43:16 [core.py:1350] [shutdown] EngineCore: trigger received signal=SIGTERM
+(APIServer pid=74059) INFO 09-12 05:43:16 [launcher.py:124] [shutdown] API server: shutdown triggered
+(APIServer pid=74059) INFO 09-12 05:43:16 [launcher.py:140] [shutdown] API server: stopping engine client mode=abort timeout=0s
+(EngineCore pid=74758) INFO 09-12 05:43:16 [core.py:1501] [shutdown] EngineCore: start mode=abort timeout=0s
+(EngineCore pid=74758) INFO 09-12 05:43:16 [core.py:1532] [shutdown] EngineCore: request processing complete; starting resource teardown
+(EngineCore pid=74758) INFO 09-12 05:43:16 [core.py:1363] [shutdown] EngineCore: exiting busy loop
+(APIServer pid=74059) INFO 09-12 05:43:16 [core_client.py:689] [shutdown] MPClient: start timeout=0s
+(APIServer pid=74059) INFO 09-12 05:43:16 [core_client.py:691] [shutdown] MPClient: stopping engine manager
+(APIServer pid=74059) INFO 09-12 05:43:16 [utils.py:620] [shutdown] Process manager: send sigterm to process EngineCore
+(APIServer pid=74059) WARNING 09-12 05:43:16 [utils.py:640] [shutdown] Process manager: force killing remaining processes count=1
+(APIServer pid=74059) WARNING 09-12 05:43:16 [utils.py:645] [shutdown] Process manager: force killing remaining process EngineCore pid 74758
+(APIServer pid=74059) INFO 09-12 05:43:16 [core_client.py:693] [shutdown] MPClient: engine manager stopped
+(APIServer pid=74059) INFO 09-12 05:43:16 [core_client.py:694] [shutdown] MPClient: cleaning up background resources
+(APIServer pid=74059) INFO 09-12 05:43:16 [core_client.py:696] [shutdown] MPClient: complete
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819] AsyncLLM output_handler failed.
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819] Traceback (most recent call last):
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819]   File "/workspace/venvs/vllm/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 765, in output_handler
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819]     outputs = await engine_core.get_output_async()
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819]               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819]   File "/workspace/venvs/vllm/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 1105, in get_output_async
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819]     raise self._format_exception(outputs) from None
+(APIServer pid=74059) ERROR 09-12 05:43:16 [async_llm.py:819] vllm.v1.engine.exceptions.EngineDeadError: EngineCore encountered an issue. See stack trace (above) for the root cause.
+(APIServer pid=74059) INFO 09-12 05:43:16 [launcher.py:149] [shutdown] API server: engine client stopped
+(APIServer pid=74059) INFO 09-12 05:43:16 [launcher.py:152] [shutdown] API server: signalling HTTP server shutdown
+(APIServer pid=74059) INFO 09-12 05:43:16 [launcher.py:173] [shutdown] API server: shutting down FastAPI HTTP server
+(APIServer pid=74059) INFO:     Shutting down
+(APIServer pid=74059) INFO:     Waiting for application shutdown.
+(APIServer pid=74059) INFO:     Application shutdown complete.
+/venv/main/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

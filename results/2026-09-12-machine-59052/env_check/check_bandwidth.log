@@ -1,0 +1,15 @@
+NVIDIA GeForce RTX 5090 | sm_120 | 31.4 GiB | 170 SMs
+torch 2.14.0+cu130 | cuda 13.0
+
+read-only (torch.sum)         1686 GB/s    94.1% of spec
+read-only (triton stream)     1703 GB/s    95.0% of spec
+copy (read+write)             1530 GB/s    85.4% of spec
+
+READ WALL (best of the above)    1703 GB/s
+
+Decode roofline for 26.90B text params, weights-only, empty KV:
+   bpw   weights     ceiling     85-90% of wall
+   4.0    13.45 GB    126.7 t/s      108-114 t/s
+   4.5    15.13 GB    112.6 t/s       96-101 t/s
+   5.0    16.81 GB    101.3 t/s       86-91 t/s
+   5.5    18.49 GB     92.1 t/s       78-83 t/s

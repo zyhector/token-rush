@@ -1,0 +1,7 @@
+########## engine_raw_fill2 stage (2026-09-12 09:20) ##########
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine raw, marlin, 96k, third attempt under strace (09:20) =====
+decode at context 96040: 12.23 ms/step = 81.8 tok/s   (16.85 GB read per step -> 1378 GB/s, 81.0% of the wall; ceiling 101.0 tok/s)
+pipeline status: 0 0 0 0 (09:21)
+STAGE DONE (09:21)
+ALL DONE (2026-09-12 09:21)

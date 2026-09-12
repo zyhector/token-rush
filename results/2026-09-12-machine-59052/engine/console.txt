@@ -1,0 +1,36 @@
+===== decode_marlin =====
+weights 16.19 GB, cuda allocated 16.97 GB
+prefill 5 tokens: 1909 ms
+decode at context 65: 10.24 ms/step = 97.6 tok/s   (13.65 GB read per step -> 1333 GB/s, 78.4% of the wall; ceiling 124.6 tok/s)
+peak cuda 19.00 GB
+===== decode_triton =====
+weights 16.19 GB, cuda allocated 17.02 GB
+prefill 5 tokens: 7562 ms
+decode at context 65: 10.01 ms/step = 99.9 tok/s   (13.65 GB read per step -> 1364 GB/s, 80.2% of the wall; ceiling 124.6 tok/s)
+peak cuda 17.32 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+===== decode_200k_triton =====
+weights 16.19 GB, cuda allocated 25.27 GB
+prefill 200005 tokens: 155084 ms
+decode at context 200065: 14.17 ms/step = 70.6 tok/s   (20.31 GB read per step -> 1433 GB/s, 84.3% of the wall; ceiling 83.8 tok/s)
+peak cuda 26.13 GB
+autotuner picks (N, K) -> config:
+  (16384, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 256, num_warps: 2, num_ctas: 1, num_stages: 3, maxnreg: None
+  (34816, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+  (14336, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 8, BLOCK_K: 512, num_warps: 2, num_ctas: 1, num_stages: 2, maxnreg: None
+  (248320, 5120, 'torch.bfloat16', 'torch.uint8', 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16'): BLOCK_N: 16, BLOCK_K: 1024, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+===== decode_200k_marlin =====
+weights 16.19 GB, cuda allocated 25.23 GB
+prefill 200005 tokens: 221557 ms
+decode at context 200065: 14.31 ms/step = 69.9 tok/s   (20.31 GB read per step -> 1419 GB/s, 83.4% of the wall; ceiling 83.8 tok/s)
+peak cuda 26.39 GB
+===== families_greedy =====
+backend marlin, 300 new tokens, 128k draft vocab, T=0.0 top-p=1.0
+draft   |          essay |           code |           math |       zh-essay |        zh-math |          mixed   (tok/s, accepted/step, ms/step)
+dflash  |  229 3.15 13.7 |  358 4.92 13.7 |  379 5.21 13.7 |  125 1.71 13.7 |  297 4.08 13.7 |  221 3.03 13.7
+mtp     |  206 2.56 12.4 |  258 3.24 12.5 |  285 3.58 12.6 |  162 1.99 12.3 |  281 3.53 12.6 |  228 2.83 12.4
+STAGE DONE

@@ -1,0 +1,4 @@
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 18.0 GB allocated
+essay     77.5 tok/s
+code      77.5 tok/s
+math      77.4 tok/s

@@ -1,0 +1,18 @@
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine spec vs context, pg19, both drafts, 6 positions x 512 (06:46) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+summary context      64: raw   97.4 tok/s [97-97] | dflash  349.9 tok/s [259-446], 4.81 tokens/step [3.57-6.13], 13.7 ms/step | mtp  295.8 tok/s [242-358], 3.72 tokens/step [3.02-4.56], 12.6 ms/step | KV read 0.0 GB/step | 6 positions x 512 tokens | 63s
+summary context    8000: raw   95.7 tok/s [96-96] | dflash  323.4 tok/s [261-480], 4.58 tokens/step [3.70-6.80], 14.2 ms/step | mtp  297.0 tok/s [241-371], 3.82 tokens/step [3.07-4.81], 12.9 ms/step | KV read 0.3 GB/step | 6 positions x 512 tokens | 88s
+summary context   16000: raw   94.2 tok/s [94-94] | dflash  275.3 tok/s [166-391], 4.00 tokens/step [2.42-5.69], 14.5 ms/step | mtp  267.2 tok/s [185-329], 3.47 tokens/step [2.37-4.33], 13.0 ms/step | KV read 0.5 GB/step | 6 positions x 512 tokens | 128s
+summary context   32000: raw   91.4 tok/s [91-91] | dflash  242.4 tok/s [164-352], 3.71 tokens/step [2.52-5.40], 15.3 ms/step | mtp  252.0 tok/s [192-329], 3.37 tokens/step [2.53-4.47], 13.4 ms/step | KV read 1.1 GB/step | 6 positions x 512 tokens | 210s
+summary context   64000: raw   86.2 tok/s [86-86] | dflash  241.6 tok/s [156-375], 4.07 tokens/step [2.62-6.32], 16.8 ms/step | mtp  257.9 tok/s [182-329], 3.68 tokens/step [2.56-4.76], 14.3 ms/step | KV read 2.1 GB/step | 6 positions x 512 tokens | 388s
+summary context   96000: raw   81.6 tok/s [82-82] | dflash  210.1 tok/s [150-294], 3.85 tokens/step [2.75-5.38], 18.3 ms/step | mtp  242.2 tok/s [197-321], 3.66 tokens/step [2.95-4.91], 15.1 ms/step | KV read 3.2 GB/step | 6 positions x 512 tokens | 596s
+summary context  128000: raw   77.6 tok/s [78-78] | dflash  209.4 tok/s [160-282], 4.15 tokens/step [3.17-5.58], 19.8 ms/step | mtp  232.3 tok/s [183-307], 3.70 tokens/step [2.88-4.95], 15.9 ms/step | KV read 4.3 GB/step | 6 positions x 512 tokens | 830s
+===== engine spec vs context, code, both drafts, 6 positions x 512 (07:37) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+summary context      64: raw   97.4 tok/s [97-97] | dflash  447.2 tok/s [375-565], 6.15 tokens/step [5.16-7.77], 13.8 ms/step | mtp  330.8 tok/s [297-380], 4.20 tokens/step [3.74-4.85], 12.7 ms/step | KV read 0.0 GB/step | 6 positions x 512 tokens | 60s
+summary context    8000: raw   95.7 tok/s [96-96] | dflash  390.9 tok/s [347-553], 5.54 tokens/step [4.92-7.83], 14.2 ms/step | mtp  309.0 tok/s [282-371], 3.98 tokens/step [3.61-4.82], 12.9 ms/step | KV read 0.3 GB/step | 6 positions x 512 tokens | 86s
+summary context   16000: raw   94.2 tok/s [94-94] | dflash  384.8 tok/s [359-541], 5.60 tokens/step [5.22-7.88], 14.6 ms/step | mtp  323.6 tok/s [295-375], 4.25 tokens/step [3.85-4.95], 13.1 ms/step | KV read 0.5 GB/step | 6 positions x 512 tokens | 123s
+summary context   32000: raw   91.4 tok/s [91-91] | dflash  336.2 tok/s [296-514], 5.15 tokens/step [4.53-7.88], 15.3 ms/step | mtp  300.3 tok/s [271-360], 4.06 tokens/step [3.65-4.90], 13.5 ms/step | KV read 1.1 GB/step | 6 positions x 512 tokens | 204s
+===== needle (07:46) =====
+STAGE DONE (07:47)

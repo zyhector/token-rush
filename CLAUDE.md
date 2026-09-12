@@ -182,6 +182,7 @@ works" risk.
 | 3c (done) | **Marlin-class M-row int4 GEMM**: Marlin (Apache-2) ported to bf16, our asymmetric g128 format, fp32 reduction and a lock-free partial mode, as a torch extension for `sm_120` (`tokenrush/csrc/`); one kernel and one layout for M <= 16, the default backend. **Done 2026-09-09** (step 28): verify K=7 1.35x -> **1.13x**; 224 / 373 / 373 (DFlash2) and 213 / 306 / 286 (MTP chain) on prose / code / math, 211 / 238 at 200k; raw decode on the shared layout 97.6 (102 with `--backend triton`) | The verify step near free: +5% DFlash, +15% MTP chain |
 | 3 (closed) | **Closed 2026-09-09** (step 29): `--draft auto` keeps both drafts resident and picks the MTP chain for CJK prompts; the sampled path is exact rejection sampling for deterministic drafts (measured 211 / 391 / 358 at T=0.7). Optional items in `docs/progress.md` step 29 | 224 / 373 / 373 greedy on prose / code / math; 179 / 310 / 251 Chinese; 211 / 238 at 200k |
 | 4 (done) | **Final measurement, on one machine, in one sitting. Done 2026-09-09/10** (`docs/progress.md` step 32) on vast 36542: the wall re-anchored (1702 GB/s; 1701 kept), every rival re-run from the recipes in `docs/baselines.md` and the engine measured the same day; bytes from the headers. The matrix is at the top of `docs/baselines.md`; the Targets table above carries the results | 228 / 357 / 378 vs the best rival per family 136 / 144 / 207; raw 100.9 = 81% of the wall, 85.5% at 200k; 256k needle retrieved |
+| README data (done) | **Re-measure for the README, on one machine, one sitting: 2026-09-12, vast 59052** — the short-context matrix, every rival, the ten-point raw sweep and the multi-position speculative sweep (six positions × 512 tokens on PG-19 and code, both drafts, llama.cpp + MTP and SGLang + DSpark on the same prompt files); `docs/progress.md` step 35, `results/2026-09-12-machine-59052/` | The numbers and curves the README is drawn from; figures and the README itself are still to be written |
 | 5 (done) | **Serve it.** `python -m tokenrush.serve`: OpenAI Chat / Completions and the Anthropic Messages API over the resident engine, tool calling through the model's own format, the context kept between requests by state snapshots (a tool-result turn costs 0.07 s). **Done 2026-09-10** (`docs/progress.md` step 33, `docs/serving.md`); Claude Code verified on it end to end | The local model, opened every day — Claude Code included |
 
 Step-by-step progress and the numbers each step produced: `docs/progress.md`.
@@ -221,6 +222,23 @@ or two on every GPU-bound row, and the ollama and llama.cpp-external-draft
 rows moved because those loops are host-CPU-bound (`docs/baselines.md`).
 Development numbers in `docs/progress.md` steps 1–31 are from disposable
 instances and are quoted against the 1701 GB/s wall; they are not the report.
+
+**The README's data is the 2026-09-12 re-measurement on vast 59052** (same
+card, a 500 W power cap, a Core Ultra 9 285K host; rival versions pinned to
+Phase 4's): the whole matrix again on one machine in one sitting, plus the
+**multi-position decode-vs-context sweep** that replaced the single-position
+one of step 34 — PG-19 prose and torch code, six positions per context
+length, 512 greedy tokens each, both drafts from one shared prefill, tok/s
+as total tokens over total decode seconds, llama.cpp's MTP and SGLang's
+DSpark on the same prompt files. Logs in `results/2026-09-12-machine-59052/`
+(its README maps files to numbers), tables generated from them by
+`scripts/matrix_table.py` (short context → `matrix.csv`) and
+`scripts/sweep_table.py` (context sweep → `sweep.csv`), the protocol and
+what it found in `docs/progress.md` step 35, the tables in
+`docs/baselines.md` ("The 2026-09-12 re-measurement"), the machine in
+`docs/environment.md`. Every GPU-bound row agrees with Phase 4 within 1.5%;
+the host-bound rival rows (ollama, llama.cpp's drafts) are 4–6% lower on
+this host. Regenerate the tables from the logs rather than retyping them.
 Two constraints to plan around: **`fla`'s fused GDN decode kernel is
 miscompiled here** (the chunk kernel is correct and is the Phase 1 reference
 path; the Phase 2 fused step is ours anyway), and **`ncu` hardware counters

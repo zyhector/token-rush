@@ -522,6 +522,139 @@ on every prompt and level with its 4-token chain. It is listed as the sanity
 floor and is no longer one; the comparison rows in this file and in
 `CLAUDE.md` use it as the best llama.cpp-family figure where it is.
 
+## The 2026-09-12 re-measurement — vast 59052, the README's data
+
+Everything above was measured on machine 36542. On 2026-09-12 the whole
+matrix was measured again on **machine 59052** (same card, a 500 W power
+cap, a Core Ultra 9 285K host; `docs/environment.md`), with the rival stacks
+pinned to the versions above and the same stage scripts
+(`results/2026-09-12-machine-59052/scripts/`), so that the README can carry
+numbers from one machine and one day. The logs are in
+`results/2026-09-12-machine-59052/`; the tables below are generated from
+them by `scripts/matrix_table.py` (short context, `matrix.csv`) and
+`scripts/sweep_table.py` (decode vs. context, `sweep.csv`) — regenerate
+rather than retype.
+
+### Short context (`scripts/matrix_table.py results/2026-09-12-machine-59052`)
+
+Same prompts, method and byte counts as the Phase 4 matrix; greedy; % of
+the wall on each engine's own bytes per step. The engine's rows are
+`bench/decode.py` (50 timed steps) and `bench/families.py` (300 tokens).
+
+| engine | config | raw, short | % wall | raw at 200k | % wall | spec essay / code / math | note |
+|---|---|---|---|---|---|---|---|
+| **Token Rush** | spec, DFlash2 in-graph, K=7 | 97.6 | 78.3% | 69.9 | 83.4% | **229 / 358 / 379** | raw on the Marlin layout the verify step shares |
+| Token Rush | spec, MTP chain in-graph, depth 3:4 | 97.6 | 78.3% | 69.9 | 83.4% | 206 / 258 / 285 | Chinese essay 162 (`families_greedy.log`) |
+| Token Rush | raw, `--backend triton` | **99.9** | **80.2%** | **70.6** | **84.3%** | — | the fast raw kernel |
+| llama.cpp `434ddbbc0` | raw (`llama-bench` tg128) | 82.8 | 74.9% | 42.9 | 56.3% | — | `llama-cli` raw 80.7 / 80.5 / 80.4 |
+| llama.cpp | spec, built-in MTP (`--spec-draft-n-max` default 3) | — | — | — | — | 123.5 / 114.7 / 159.5 | median of 3, includes thinking |
+| llama.cpp | spec, built-in MTP n-max 4 | — | — | — | — | 116.4 / 122.3 / 161.1 | |
+| llama.cpp | spec, DSpark draft (bf16) | — | — | — | — | 96.0 / 100.1 / 140.1 | |
+| llama.cpp | spec, DFlash2 draft (bf16) | — | — | — | — | 123.5 / 107.6 / 154.2 | |
+| ollama 0.33.3 | default: MTP chain n-max 4 (no raw mode) | — | — | — | — | 128.7 / 134.6 / 165.7 | host-bound loop: 136 / 144 / 175 on the 9950X |
+| vLLM 0.29.0 | raw | 78.1 | 74.6% | 59.9 | 80.3% | — | |
+| vLLM | spec, MTP ×1 | — | — | — | — | 66.4 / 65.9 / 65.8 | slower than its raw decode |
+| vLLM | spec, DSpark | — | — | — | — | 52.9 / 52.9 / 52.9 | |
+| vLLM | spec, DFlash2 | — | — | — | — | 51.8 / 52.6 / 51.7 | |
+| SGLang 0.5.19 | raw | 62.1 | 59.3% | 49.4 | 66.2% | — | |
+| **SGLang** | spec, DSpark block 7 | — | — | — | — | **105.8 / 137.9 / 207.2** | mean accepted length 2.39 / 3.11 / 4.68 |
+| ExLlamaV3 1.4.6 | raw | 77.5 | 60.1% | 48.0 | 74.2% | — | |
+| ExLlamaV3 | spec, MTP ×1 | — | — | — | — | 118.6 / 124.0 / 129.5 | 1.79 / 1.87 / 1.95 per step |
+| ExLlamaV3 | spec, MTP ×2 | — | — | — | — | 131.5 / 141.5 / 165.5 | 2.24 / 2.41 / 2.81 per step |
+
+Against the Phase 4 matrix: every GPU-bound row agrees within 1.5% (the
+engine's raw rows are the 500 W cap: 99.9 vs 100.9, 97.6 vs 97.5; SGLang,
+vLLM, ExLlamaV3 and `llama-bench` within 1%), and the host-bound rows moved
+as `docs/environment.md` predicts from the slower host core: ollama −6%,
+llama.cpp's MTP −5%, its external drafts −4 to −6%. The margins the README
+draws from this table: **2.16x / 2.6x / 1.83x** over SGLang + DSpark on
+prose / code / math, **1.78x / 2.66x / 2.29x** over ollama's default chain
+(the fastest llama.cpp-family number), 2.9x / 4.6x / 4.8x over vLLM's best
+config (raw), 1.74x / 2.53x / 2.29x over ExLlamaV3's chained MTP; raw decode
++21% over llama.cpp on 11% fewer bytes, and at matched bytes +5.6 points of
+the wall over vLLM (80.2 vs 74.6).
+
+### Decode vs. context, the multi-position protocol (`scripts/sweep_table.py results/2026-09-12-machine-59052`)
+
+The protocol (`docs/progress.md` step 35): for every context length N and
+each of **six fixed positions** p in the corpus, the prompt is the N tokens
+ending at p and the continuation is **512 greedy tokens** at p — the same
+positions for every N and for both drafts, so the drafters are compared on
+identical text; the target is prefilled once per (N, p) and raw decode, DFlash2
+and the MTP chain each restart from a snapshot of that state. Per context,
+tok/s is total generated tokens over total decode seconds across the positions;
+the brackets are the min–max over positions. Prose is **PG-19** (Project
+Gutenberg books, `bench/long_text.py`), code is torch's Python sources. llama.cpp's
+built-in MTP (`llama-server`, `--spec-draft-n-max` default 3, q8_0 KV) and
+SGLang + DSpark (the contexts that fit its 30k window) ran on the same prompt
+files (`bench/cut_prompts.py`); the raw rows are random-token prefills as
+before (raw decode does not depend on the text). ExLlamaV3's MTP runs in its
+own harness on random-token context and is listed for completeness only.
+
+tok/s (% of the wall on each engine's own bytes per step; over 100% is speculation):
+
+| engine / config | 0 | 8k | 16k | 32k | 64k | 96k | 128k | 160k | 200k | 240k |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Token Rush, raw, triton GEMV | 100 (81%) | 98 (80%) | 96 (80%) | 93 (80%) | 87 (81%) | 83 (82%) | 79 (83%) | 75 (83%) | 70 (84%) | 67 (85%) |
+| Token Rush, raw, Marlin layout | 98 (78%) | 96 (78%) | 94 (79%) | 92 (79%) | 86 (80%) | 82 (81%) | 78 (82%) | 74 (82%) | 70 (83%) | 66 (84%) |
+| Token Rush, spec, DFlash2, prose | 350 (281%) | 323 (265%) | 275 (230%) | 242 (210%) | 242 (224%) | 210 (208%) | 209 (220%) | 212 (236%) | 202 (241%) | 158 (201%) |
+| Token Rush, spec, MTP chain, prose | 296 (237%) | 297 (243%) | 267 (223%) | 252 (218%) | 258 (239%) | 242 (240%) | 232 (245%) | 234 (261%) | 223 (266%) | 191 (242%) |
+| Token Rush, spec, DFlash2, code | 447 (359%) | 391 (320%) | 385 (321%) | 336 (291%) | 337 (312%) | 309 (306%) | 262 (276%) | 267 (298%) | 230 (274%) | 208 (265%) |
+| Token Rush, spec, MTP chain, code | 331 (266%) | 309 (253%) | 324 (270%) | 300 (260%) | 293 (272%) | 269 (266%) | 247 (260%) | 245 (274%) | 225 (268%) | 214 (272%) |
+| llama.cpp, raw | 81 (74%) | 80 (73%) | 77 (72%) | 71 (69%) | 64 (67%) | 58 (64%) | 52 (61%) | 48 (59%) | 43 (56%) | 39 (54%) |
+| llama.cpp, spec, MTP n-max 3, prose | 155 (140%) | 159 (146%) | 154 (144%) | 140 (136%) | 119 (123%) | 111 (123%) | 100 (117%) | 86 (106%) | 69 (90%) | 69 (96%) |
+| vLLM, raw | 78 (75%) | 78 (75%) | 77 (76%) | 75 (77%) | 72 (78%) | 69 (78%) | 66 (79%) | 63 (80%) | 60 (80%) | 57 (81%) |
+| SGLang, raw | 62 (59%) | 61 (59%) | 60 (60%) | 59 (60%) | 57 (62%) | 55 (63%) | 53 (64%) | 51 (65%) | 49 (66%) | 48 (67%) |
+| SGLang, spec, DSpark, prose | 130 (125%) | 162 (158%) | 147 (145%) | — | — | — | — | — | — | — |
+| ExLlamaV3, raw | 78 (60%) | 76 (61%) | 73 (61%) | 70 (63%) | 64 (66%) | 60 (68%) | 55 (70%) | 52 (72%) | 48 (74%) | — |
+| ExLlamaV3, spec, MTP x2 | 170 (132%) | 166 (134%) | 109 (91%) | 122 (109%) | 96 (98%) | 126 (144%) | 96 (122%) | — | — | — |
+
+The speculative rows with their spread over the six positions — **tok/s** [min–max], accepted tokens per step [min–max], ms per verify step:
+
+| engine / config | 0 | 8k | 16k | 32k | 64k | 96k | 128k | 160k | 200k | 240k |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Token Rush, spec, DFlash2, prose | **350** [259–446], 4.81/step [3.57–6.13], 13.7 ms | **323** [261–480], 4.58/step [3.70–6.80], 14.2 ms | **275** [166–391], 4.00/step [2.42–5.69], 14.5 ms | **242** [164–352], 3.71/step [2.52–5.40], 15.3 ms | **242** [156–375], 4.07/step [2.62–6.32], 16.8 ms | **210** [150–294], 3.85/step [2.75–5.38], 18.3 ms | **209** [160–282], 4.15/step [3.17–5.58], 19.8 ms | **212** [169–279], 4.49/step [3.59–5.93], 21.2 ms | **202** [161–252], 4.67/step [3.72–5.82], 23.1 ms | **158** [121–216], 3.94/step [3.02–5.39], 24.9 ms |
+| Token Rush, spec, MTP chain, prose | **296** [242–358], 3.72/step [3.02–4.56], 12.6 ms | **297** [241–371], 3.82/step [3.07–4.81], 12.9 ms | **267** [185–329], 3.47/step [2.37–4.33], 13.0 ms | **252** [192–329], 3.37/step [2.53–4.47], 13.4 ms | **258** [182–329], 3.68/step [2.56–4.76], 14.3 ms | **242** [197–321], 3.66/step [2.95–4.91], 15.1 ms | **232** [183–307], 3.70/step [2.88–4.95], 15.9 ms | **234** [201–286], 3.95/step [3.38–4.87], 16.9 ms | **223** [186–268], 3.99/step [3.32–4.85], 17.9 ms | **191** [150–250], 3.60/step [2.81–4.79], 18.9 ms |
+| Token Rush, spec, DFlash2, code | **447** [375–565], 6.15/step [5.16–7.77], 13.8 ms | **391** [347–553], 5.54/step [4.92–7.83], 14.2 ms | **385** [359–541], 5.60/step [5.22–7.88], 14.6 ms | **336** [296–514], 5.15/step [4.53–7.88], 15.3 ms | **337** [279–468], 5.67/step [4.71–7.88], 16.8 ms | **309** [254–430], 5.67/step [4.65–7.88], 18.3 ms | **262** [224–398], 5.19/step [4.44–7.88], 19.8 ms | **267** [223–371], 5.68/step [4.75–7.88], 21.3 ms | **230** [186–341], 5.30/step [4.28–7.88], 23.1 ms | **208** [185–316], 5.19/step [4.60–7.88], 24.9 ms |
+| Token Rush, spec, MTP chain, code | **331** [297–380], 4.20/step [3.74–4.85], 12.7 ms | **309** [282–371], 3.98/step [3.61–4.82], 12.9 ms | **324** [295–375], 4.25/step [3.85–4.95], 13.1 ms | **300** [271–360], 4.06/step [3.65–4.90], 13.5 ms | **293** [259–335], 4.20/step [3.70–4.85], 14.4 ms | **269** [236–318], 4.09/step [3.55–4.88], 15.2 ms | **247** [226–300], 3.95/step [3.61–4.85], 16.0 ms | **245** [210–281], 4.15/step [3.53–4.79], 16.9 ms | **225** [205–270], 4.03/step [3.66–4.89], 17.9 ms | **214** [191–254], 4.06/step [3.62–4.88], 19.0 ms |
+| llama.cpp, spec, MTP n-max 3, prose | **155** [100–190], 2.94/step [1.90–3.63] | **159** [127–188], 3.12/step [2.47–3.71] | **154** [126–184], 3.08/step [2.53–3.74] | **140** [113–174], 3.07/step [2.46–3.82] | **119** [98–152], 3.06/step [2.52–3.91] | **111** [95–133], 3.31/step [2.83–3.94] | **100** [85–117], 3.37/step [2.88–3.94] | **86** [71–103], 3.26/step [2.68–3.91] | **69** [57–91], 2.95/step [2.45–3.91] | **69** [59–81], 3.30/step [2.80–3.91] |
+| SGLang, spec, DSpark, prose | **130** [73–220], 2.95/step [1.65–4.97] | **162** [98–242], 3.74/step [2.26–5.57] | **147** [93–242], 3.43/step [2.16–5.63] | — | — | — | — | — | — | — |
+
+What the averaged curves say, on prose:
+
+- **Acceptance is flat with context.** DFlash2 accepts 3.7–4.8 tokens per
+  verify step at every context from 0 to 240k, the MTP chain 3.4–4.0 —
+  no drift, so the single-position sweep's zig-zag was the text, as the
+  step-cost argument said. Position to position the spread stays wide
+  (DFlash2 156–375 tok/s at 64k, llama.cpp 98–152), which is why one
+  position per context could not draw this curve.
+- **tok/s falls with the step cost alone.** DFlash2's step goes 13.7 → 24.9
+  ms from 0 to 240k, the MTP chain's 12.6 → 18.9 ms; both curves are now
+  smooth and monotone within noise.
+- **The crossover is real.** DFlash2 leads at short context (350 vs 296 tok/s
+  at 0, 323 vs 297 at 8k, 275 vs 267 at 16k); from 32k on the MTP chain is
+  ahead and the gap widens with context (252 vs 242 at 32k, 242 vs 210 at 96k,
+  223 vs 202 at 200k, 191 vs 158 at 240k), because its step grows less with
+  context while acceptance is similar. On code DFlash2's acceptance is higher
+  (5.2–6.2 per step against 4.0–4.3) and it stays ahead through 200k (447 vs
+  331 at 0, 337 vs 293 at 64k, 230 vs 225 at 200k); the chain edges past it
+  only at 240k (214 vs 208). **The default draft was not changed in this
+  run** (`--draft auto` still picks DFlash2 for non-CJK text): the
+  handoff's decision rule — switch the default only if the chain leads over
+  most of the range people use — is a call for the author with both corpora
+  in front of him, and the numbers to make it are in `sweep.csv`.
+- **Against the rivals on the same text**: llama.cpp's MTP chain accepts
+  about 3 tokens per step at every context but its step cost grows with the
+  raw decode's collapse, so it goes 155 → 69 tok/s over the range while ours
+  goes 350 → 158 (DFlash2) / 296 → 191 (MTP chain): 2.3x at short context,
+  2.8x at 240k. SGLang + DSpark on the same prompt files reaches 130 / 162 /
+  147 at 0 / 8k / 16k — book continuation accepts far more than a chat
+  answer (3.0–3.7 per step against 2.4) — against our 350 / 323 / 275.
+- **Raw decode as a fraction of the wall** re-measured within a point of the
+  first sweep for every engine: ours 80 → 85% (Triton GEMV; the 500 W cap
+  costs one point at every context), vLLM 75 → 81%, SGLang 59 → 67%,
+  ExLlamaV3 60 → 74%, llama.cpp 74 → 54%.
+
 ## Decode vs. context, ten points (for the plots)
 
 The protocol tables above have four contexts. For drawing, the same

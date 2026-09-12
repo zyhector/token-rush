@@ -1,0 +1,98 @@
+
+=== VAST INSTANCE ===
+id                     50692679
+machine_id             59052
+host_id                420718
+geolocation            Alberta, CA
+mobo_name              TUF GAMING Z890-PLUS WIFI
+dph_total              2.0833333333333335
+gpu_name               RTX 5090
+gpu_ram                32607
+gpu_mem_bw             1457.4
+pcie_bw                48.5
+cpu_name               Core™ Ultra 9 285K
+cpu_cores              24
+cpu_cores_effective    24.0
+cpu_ram                63562
+disk_space             300.0
+disk_bw                8704.0
+inet_down              925.5
+inet_up                930.8
+driver_version         595.84
+cuda_max_good          13.2
+compute_cap            1200
+image_uuid             vastai/base-image:cuda-13.3.1-auto
+reliability2           0.9927836
+
+=== GPU ===
+name	NVIDIA GeForce RTX 5090
+uuid	GPU-046ba93a-9921-8ca1-45c9-b4e2dab31ae3
+vbios	98.02.2E.40.7D
+pci_bus	00000000:02:00.0
+pcie_gen	5
+pcie_width	16
+vram	32607 MiB
+sm_clock_max	3090 MHz
+mem_clock_max	14001 MHz
+power_limit	600.00 W
+compute_cap	12.0
+driver	595.84
+
+=== GPU THROTTLE STATE ===
+        Idle                                           : Not Active
+        Applications Clocks Setting                    : Not Active
+        SW Power Cap                                   : Not Active
+        HW Slowdown                                    : Not Active
+            HW Thermal Slowdown                        : Not Active
+            HW Power Brake Slowdown                    : Not Active
+        Sync Boost                                     : Not Active
+        SW Thermal Slowdown                            : Not Active
+
+=== CPU ===
+Architecture: x86_64
+CPU(s): 24
+Model name: Intel(R) Core(TM) Ultra 9 285K
+Thread(s) per core: 1
+Core(s) per socket: 1
+Socket(s): 24
+CPU(s) scaling MHz: 33%
+CPU max MHz: 5100.0000
+L3 cache: 36 MiB (1 instance)
+NUMA node(s): 1
+
+=== MEMORY ===
+               total        used        free      shared  buff/cache   available
+Mem:              62           9          26           0          31          52
+
+=== STORAGE ===
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         300G  2.1G  298G   1% /
+overlay         300G  2.1G  298G   1% /
+workspace_is_volume: False
+
+=== TOOLCHAIN ===
+nvcc             Build cuda_13.3.r13.3/compiler.38244171_0
+gcc              gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+cmake            cmake version 3.28.3
+torch            -
+triton           -
+transformers     -
+flash-linear-attention -
+safetensors      -
+huggingface-hub  1.30.0
+numpy            -
+einops           -
+accelerate       -
+
+=== CAPABILITIES ===
+CapEff:	00000000a80405fb
+(no cap_sys_admin / cap_perfmon)
+
+=== NSYS ===
+/usr/local/bin/nsys
+SKIPPED: needs a python with torch - activate the venv and re-run
+
+=== NCU ===
+NVIDIA (R) Nsight Compute Command Line Profiler
+RESULT: BLOCKED — ERR_NVGPUCTRPERM (host must set
+        NVreg_RestrictProfilingToAdminUsers=0; not fixable in-container)

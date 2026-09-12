@@ -1,0 +1,267 @@
+########## llama stage (2026-09-12 05:05) ##########
+===== llama-bench tg128 (05:05) =====
+| model                          |       size |     params | backend    | ngl |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           pp512 |     3782.53 ± 140.86 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |           tg128 |         82.85 ± 0.05 |
+===== llama-cli raw (05:05) =====
+essay raw r1: [ Prompt: 358.7 t/s | Generation: 80.9 t/s ]
+essay raw r2: [ Prompt: 357.6 t/s | Generation: 80.7 t/s ]
+essay raw r3: [ Prompt: 360.4 t/s | Generation: 80.1 t/s ]
+code raw r1: [ Prompt: 323.4 t/s | Generation: 80.2 t/s ]
+code raw r2: [ Prompt: 325.3 t/s | Generation: 80.6 t/s ]
+code raw r3: [ Prompt: 323.8 t/s | Generation: 80.5 t/s ]
+math raw r1: [ Prompt: 453.4 t/s | Generation: 80.2 t/s ]
+math raw r2: [ Prompt: 462.6 t/s | Generation: 80.4 t/s ]
+math raw r3: [ Prompt: 452.5 t/s | Generation: 80.4 t/s ]
+===== llama-cli draft-mtp =====
+essay mtp r1: [ Prompt: 315.3 t/s | Generation: 123.7 t/s ]
+essay mtp r2: [ Prompt: 307.6 t/s | Generation: 123.0 t/s ]
+essay mtp r3: [ Prompt: 315.0 t/s | Generation: 123.5 t/s ]
+code mtp r1: [ Prompt: 286.2 t/s | Generation: 114.3 t/s ]
+code mtp r2: [ Prompt: 290.9 t/s | Generation: 115.7 t/s ]
+code mtp r3: [ Prompt: 288.6 t/s | Generation: 114.7 t/s ]
+math mtp r1: [ Prompt: 399.6 t/s | Generation: 160.1 t/s ]
+math mtp r2: [ Prompt: 396.3 t/s | Generation: 159.5 t/s ]
+math mtp r3: [ Prompt: 392.3 t/s | Generation: 158.4 t/s ]
+===== llama-cli draft-mtp n-max 4 =====
+essay mtp4 r1: [ Prompt: 315.0 t/s | Generation: 116.2 t/s ]
+essay mtp4 r2: [ Prompt: 319.6 t/s | Generation: 116.4 t/s ]
+essay mtp4 r3: [ Prompt: 319.5 t/s | Generation: 117.2 t/s ]
+code mtp4 r1: [ Prompt: 288.8 t/s | Generation: 122.3 t/s ]
+code mtp4 r2: [ Prompt: 288.8 t/s | Generation: 122.5 t/s ]
+code mtp4 r3: [ Prompt: 287.1 t/s | Generation: 122.3 t/s ]
+math mtp4 r1: [ Prompt: 400.5 t/s | Generation: 161.1 t/s ]
+math mtp4 r2: [ Prompt: 399.3 t/s | Generation: 161.0 t/s ]
+math mtp4 r3: [ Prompt: 397.6 t/s | Generation: 163.4 t/s ]
+===== llama-cli draft-dspark =====
+essay dspark r1: [ Prompt: 209.3 t/s | Generation: 95.9 t/s ]
+essay dspark r2: [ Prompt: 218.0 t/s | Generation: 96.4 t/s ]
+essay dspark r3: [ Prompt: 218.2 t/s | Generation: 96.0 t/s ]
+code dspark r1: [ Prompt: 196.8 t/s | Generation: 101.0 t/s ]
+code dspark r2: [ Prompt: 198.0 t/s | Generation: 99.4 t/s ]
+code dspark r3: [ Prompt: 197.9 t/s | Generation: 100.1 t/s ]
+math dspark r1: [ Prompt: 274.8 t/s | Generation: 140.1 t/s ]
+math dspark r2: [ Prompt: 277.5 t/s | Generation: 139.3 t/s ]
+math dspark r3: [ Prompt: 276.8 t/s | Generation: 141.6 t/s ]
+===== llama-cli draft-dflash =====
+essay dflash r1: [ Prompt: 215.2 t/s | Generation: 123.0 t/s ]
+essay dflash r2: [ Prompt: 215.5 t/s | Generation: 123.5 t/s ]
+essay dflash r3: [ Prompt: 216.6 t/s | Generation: 123.8 t/s ]
+code dflash r1: [ Prompt: 195.3 t/s | Generation: 108.3 t/s ]
+code dflash r2: [ Prompt: 194.7 t/s | Generation: 107.6 t/s ]
+code dflash r3: [ Prompt: 195.6 t/s | Generation: 107.6 t/s ]
+math dflash r1: [ Prompt: 272.0 t/s | Generation: 154.2 t/s ]
+math dflash r2: [ Prompt: 276.0 t/s | Generation: 153.3 t/s ]
+math dflash r3: [ Prompt: 274.1 t/s | Generation: 155.1 t/s ]
+===== llama-bench depth sweep, ten points (q8_0 KV, fa) (05:08) =====
+| model                          |       size |     params | backend    | ngl | type_k | type_v |  fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -----: | -----: | --: | --------------: | -------------------: |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |           tg128 |         81.44 ± 0.23 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |   tg128 @ d8000 |         79.51 ± 0.18 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d16000 |         77.14 ± 0.16 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d32000 |         71.17 ± 0.11 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d64000 |         64.37 ± 0.11 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 |  tg128 @ d96000 |         57.78 ± 0.07 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d128000 |         52.23 ± 0.08 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d160000 |         47.65 ± 0.06 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d200000 |         42.87 ± 0.06 |
+| qwen35 27B Q4_K - Medium       |  15.32 GiB |    27.32 B | CUDA       | 999 |   q8_0 |   q8_0 |   1 | tg128 @ d240000 |         38.94 ± 0.05 |
+===== llama-server draft-mtp on the PG-19 prompt files: raw completion, 512 new tokens, q8_0 KV, fa (05:19) =====
+Traceback (most recent call last):
+  File "/workspace/token-rush/scripts/rivals/llama_server_bench.py", line 49, in <module>
+    main()
+  File "/workspace/token-rush/scripts/rivals/llama_server_bench.py", line 36, in main
+    out = completion(a.url, open(path).read(), a.n)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/token-rush/scripts/rivals/llama_server_bench.py", line 24, in completion
+    with urllib.request.urlopen(req, timeout=7200) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 1373, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/urllib/request.py", line 1348, in do_open
+    r = h.getresponse()
+        ^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/http/client.py", line 1478, in getresponse
+    response.begin()
+  File "/venv/main/lib/python3.12/http/client.py", line 343, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/http/client.py", line 304, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/socket.py", line 720, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+STAGE DONE (05:29)
+########## vllm stage (2026-09-12 05:29) ##########
+===== vLLM raw + context, ten points (245k) (05:29) =====
+server ctx up after 290s
+essay     78.1 tok/s
+code      78.1 tok/s
+math      78.0 tok/s
+context       0:    78.1 tok/s
+context    8000:    77.5 tok/s
+context   16000:    76.7 tok/s
+context   32000:    75.3 tok/s
+context   64000:    72.1 tok/s
+context   96000:    68.8 tok/s
+context  128000:    65.7 tok/s
+context  160000:    63.1 tok/s
+context  200000:    59.9 tok/s
+context  240000:    57.1 tok/s
+gpu freed
+===== vLLM MTP 1 (05:43) =====
+server mtp1 up after 120s
+essay     66.4 tok/s
+code      65.9 tok/s
+math      65.8 tok/s
+(APIServer pid=100770) INFO 09-12 05:45:28 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.81, Accepted throughput: 23.68 tokens/s, Drafted throughput: 29.13 tokens/s, Accepted: 465 tokens, Drafted: 572 tokens, Per-position acceptance rate: 0.813, Avg Draft acceptance rate: 81.3%
+(APIServer pid=100770) INFO 09-12 05:45:38 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.86, Accepted throughput: 55.20 tokens/s, Drafted throughput: 64.10 tokens/s, Accepted: 552 tokens, Drafted: 641 tokens, Per-position acceptance rate: 0.861, Avg Draft acceptance rate: 86.1%
+gpu freed
+===== vLLM DSpark (05:45) =====
+server dspark up after 145s
+essay     52.9 tok/s
+code      52.9 tok/s
+math      52.9 tok/s
+(APIServer pid=106111) INFO 09-12 05:48:15 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 2.93, Accepted throughput: 44.83 tokens/s, Drafted throughput: 162.26 tokens/s, Accepted: 878 tokens, Drafted: 3178 tokens, Per-position acceptance rate: 0.744, 0.467, 0.249, 0.183, 0.137, 0.084, 0.070, Avg Draft acceptance rate: 27.6%
+gpu freed
+===== vLLM DFlash2 (05:48) =====
+server dflash up after 245s
+essay     51.8 tok/s
+code      52.6 tok/s
+math      51.7 tok/s
+(APIServer pid=112391) INFO 09-12 05:52:33 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 3.81, Accepted throughput: 38.18 tokens/s, Drafted throughput: 108.70 tokens/s, Accepted: 753 tokens, Drafted: 2144 tokens, Per-position acceptance rate: 0.795, 0.578, 0.410, 0.340, 0.276, 0.198, 0.153, 0.060, Avg Draft acceptance rate: 35.1%
+gpu freed
+STAGE DONE (05:52)
+########## sglang stage (2026-09-12 05:52) ##########
+===== SGLang raw + context, ten points (05:52) =====
+server ctx up after 195s
+essay     62.1 tok/s   (prompt 26 tok)
+code      62.1 tok/s   (prompt 19 tok)
+math      62.1 tok/s   (prompt 49 tok)
+context       0:    62.1 tok/s   (prompt 1 tok)
+context    8000:    61.1 tok/s   (prompt 8000 tok)
+context   16000:    60.5 tok/s   (prompt 16000 tok)
+context   32000:    59.3 tok/s   (prompt 32000 tok)
+context   64000:    57.2 tok/s   (prompt 64000 tok)
+context   96000:    55.1 tok/s   (prompt 96000 tok)
+context  128000:    53.2 tok/s   (prompt 128000 tok)
+context  160000:    51.4 tok/s   (prompt 160000 tok)
+context  200000:    49.4 tok/s   (prompt 200000 tok)
+context  240000:    47.5 tok/s   (prompt 240000 tok)
+gpu freed
+===== SGLang + DSpark (06:03) =====
+/workspace/token-rush/results/2026-09-12-machine-59052/scripts/sglang_stage.sh: line 12: 122473 Killed                  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True setsid nohup $V/python -m sglang.launch_server --model-path $M --trust-remote-code --kv-cache-dtype fp8_e4m3 --mamba-ssm-dtype float32 --max-running-requests 1 --max-mamba-cache-size 6 --cuda-graph-max-bs 1 --disable-prefill-cuda-graph --port 30000 "$@" > $R/server_$name.log 2>&1 < /dev/null
+server spec up after 40s
+essay    105.8 tok/s   1024 tokens in  429 verify steps   mean accepted length 2.39
+code     137.9 tok/s   1024 tokens in  329 verify steps   mean accepted length 3.11
+math     207.2 tok/s   1024 tokens in  219 verify steps   mean accepted length 4.68
+file /workspace/data/prompts/pg19/N_0_p_240064.txt:    73.1 tok/s   (prompt 64 tok, 512 new)   1.65 per step
+file /workspace/data/prompts/pg19/N_0_p_488493.txt:   169.0 tok/s   (prompt 64 tok, 512 new)   3.82 per step
+file /workspace/data/prompts/pg19/N_0_p_736923.txt:   165.3 tok/s   (prompt 64 tok, 512 new)   3.74 per step
+file /workspace/data/prompts/pg19/N_0_p_985353.txt:   174.2 tok/s   (prompt 64 tok, 512 new)   3.94 per step
+file /workspace/data/prompts/pg19/N_0_p_1233783.txt:   219.9 tok/s   (prompt 64 tok, 512 new)   4.97 per step
+file /workspace/data/prompts/pg19/N_0_p_1482213.txt:    99.7 tok/s   (prompt 64 tok, 512 new)   2.26 per step
+file /workspace/data/prompts/pg19/N_8000_p_240064.txt:   140.1 tok/s   (prompt 8000 tok, 512 new)   3.22 per step
+file /workspace/data/prompts/pg19/N_8000_p_488493.txt:   170.1 tok/s   (prompt 8000 tok, 512 new)   3.91 per step
+file /workspace/data/prompts/pg19/N_8000_p_736923.txt:   187.1 tok/s   (prompt 8000 tok, 512 new)   4.30 per step
+file /workspace/data/prompts/pg19/N_8000_p_985353.txt:   234.4 tok/s   (prompt 8000 tok, 512 new)   5.39 per step
+file /workspace/data/prompts/pg19/N_8000_p_1233783.txt:   242.2 tok/s   (prompt 8000 tok, 512 new)   5.57 per step
+file /workspace/data/prompts/pg19/N_8000_p_1482213.txt:    98.1 tok/s   (prompt 8000 tok, 512 new)   2.26 per step
+file /workspace/data/prompts/pg19/N_16000_p_240064.txt:   153.9 tok/s   (prompt 16000 tok, 512 new)   3.58 per step
+file /workspace/data/prompts/pg19/N_16000_p_488493.txt:   135.8 tok/s   (prompt 16000 tok, 512 new)   3.16 per step
+file /workspace/data/prompts/pg19/N_16000_p_736923.txt:   146.7 tok/s   (prompt 16000 tok, 512 new)   3.41 per step
+file /workspace/data/prompts/pg19/N_16000_p_985353.txt:   241.5 tok/s   (prompt 16000 tok, 512 new)   5.63 per step
+file /workspace/data/prompts/pg19/N_16000_p_1233783.txt:   194.6 tok/s   (prompt 16000 tok, 512 new)   4.53 per step
+file /workspace/data/prompts/pg19/N_16000_p_1482213.txt:    92.7 tok/s   (prompt 16000 tok, 512 new)   2.16 per step
+gpu freed
+STAGE DONE (06:05)
+########## exl3 stage (2026-09-12 06:05) ##########
+===== exl3 raw (06:05) =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 18.0 GB allocated
+essay     77.5 tok/s
+code      77.5 tok/s
+math      77.4 tok/s
+===== exl3 context =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 200448 tokens, 29.0 GB allocated
+context       0:    77.6 tok/s
+context    8000:    75.5 tok/s
+context   16000:    73.4 tok/s
+context   32000:    69.9 tok/s
+context   64000:    64.3 tok/s
+context   96000:    59.5 tok/s
+context  128000:    55.4 tok/s
+context  160000:    51.9 tok/s
+context  200000:    48.0 tok/s
+===== exl3 mtp 1 =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 20.7 GB allocated
+essay    118.6 tok/s   accepted draft tokens 112/254 -> 1.79 per step
+code     124.0 tok/s   accepted draft tokens 118/254 -> 1.87 per step
+math     129.5 tok/s   accepted draft tokens 124/254 -> 1.95 per step
+===== exl3 mtp 2 =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 32768 tokens, 23.2 GB allocated
+essay    131.5 tok/s   accepted draft tokens 140/253 -> 2.24 per step
+code     141.5 tok/s   accepted draft tokens 148/253 -> 2.41 per step
+math     165.5 tok/s   accepted draft tokens 163/253 -> 2.81 per step
+===== exl3 mtp 2 vs context =====
+loaded /workspace/models/Qwen3.8-27B-exl3-4.0, cache 128512 tokens, 29.9 GB allocated
+context       0:   170.4 tok/s   2.88 per step
+context    8000:   166.3 tok/s   2.91 per step
+context   16000:   109.1 tok/s   1.96 per step
+context   32000:   121.7 tok/s   2.32 per step
+context   64000:    95.9 tok/s   2.02 per step
+context   96000:   126.0 tok/s   2.94 per step
+context  128000:    96.4 tok/s   2.43 per step
+STAGE DONE (06:19)
+########## ollama stage (2026-09-12 06:19) ##########
+ollama version is 0.33.3
+success [K[?25h[?2026l
+  Model
+    architecture        qwen35     
+    parameters          27.3B      
+    context length      262144     
+    embedding length    5120       
+    quantization        Q4_K_M     
+    requires            0.32.12    
+
+  Capabilities
+    completion    
+    vision        
+    tools         
+essay    128.7 tok/s   (256 tokens)
+code     134.6 tok/s   (256 tokens)
+math     165.7 tok/s   (256 tokens)
+[?25l[?2026h[?25l[1G[K[?25h[?2026l[2K[1G[?25h2 MiB
+STAGE DONE (06:23)
+########## engine_spec stage (2026-09-12 06:23) ##########
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine spec vs context, pg19, both drafts, 6 positions x 512 (06:23) =====
+positions (token offsets of the generation point): 240064,488493,736923,985353,1233783,1482213
+summary context      64: raw   97.5 tok/s [97-98] | dflash  349.7 tok/s [259-446], 4.81 tokens/step [3.57-6.13], 13.7 ms/step | mtp  295.6 tok/s [242-358], 3.72 tokens/step [3.02-4.56], 12.6 ms/step | KV read 0.0 GB/step | 6 positions x 512 tokens | 63s
+summary context    8000: raw   95.8 tok/s [96-96] | dflash  323.4 tok/s [261-480], 4.58 tokens/step [3.70-6.80], 14.2 ms/step | mtp  296.8 tok/s [240-370], 3.82 tokens/step [3.07-4.81], 12.9 ms/step | KV read 0.3 GB/step | 6 positions x 512 tokens | 87s
+===== engine spec vs context, code, both drafts, 6 positions x 512 (06:26) =====
+positions (token offsets of the generation point): 240064,472814,705565,938315,1171066,1403817
+summary context      64: raw   97.5 tok/s [97-97] | dflash  447.1 tok/s [375-565], 6.15 tokens/step [5.16-7.77], 13.8 ms/step | mtp  330.7 tok/s [297-380], 4.20 tokens/step [3.74-4.85], 12.7 ms/step | KV read 0.0 GB/step | 6 positions x 512 tokens | 59s
+summary context    8000: raw   95.8 tok/s [96-96] | dflash  390.9 tok/s [347-553], 5.54 tokens/step [4.92-7.83], 14.2 ms/step | mtp  308.8 tok/s [281-370], 3.98 tokens/step [3.61-4.82], 12.9 ms/step | KV read 0.3 GB/step | 6 positions x 512 tokens | 85s
+summary context   16000: raw   94.3 tok/s [94-94] | dflash  384.8 tok/s [359-541], 5.60 tokens/step [5.22-7.88], 14.5 ms/step | mtp  323.3 tok/s [294-374], 4.25 tokens/step [3.85-4.95], 13.1 ms/step | KV read 0.5 GB/step | 6 positions x 512 tokens | 122s
+summary context   32000: raw   91.5 tok/s [91-92] | dflash  336.1 tok/s [296-514], 5.15 tokens/step [4.53-7.88], 15.3 ms/step | mtp  300.2 tok/s [271-360], 4.06 tokens/step [3.65-4.90], 13.5 ms/step | KV read 1.1 GB/step | 6 positions x 512 tokens | 204s
+===== needle (06:34) =====
+context  131072: RETRIEVED  'amber-falcon-7731'  | prefill 126s (1044 tok/s), decode 76.5 tok/s, peak 26.4 GB, 126s
+context  262119: RETRIEVED  'amber-falcon-7731'  | prefill 323s (811 tok/s), decode 64.4 tok/s, peak 26.4 GB, 323s
+STAGE DONE (06:42)
+ALL DONE (2026-09-12 06:42)

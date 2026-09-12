@@ -91,11 +91,13 @@ def generate_spec(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=T
 
 
 def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, stream=True, chunk=4096,
-                        dynamic=(3, 4), temperature=0.0, top_p=1.0, top_k=64, seed=None):
+                        dynamic=(3, 4), temperature=0.0, top_p=1.0, top_k=64, seed=None, primed=None):
     """Same as generate_spec, with the draft chain inside the graph (Engine.capture_spec(K)).
     dynamic=(Kmin, Kmax): pick each step's depth as clamp(n_prev + 2, Kmin, Kmax) — deeper
     after a well-accepted chain, shallower after an early rejection; needs graphs for every
-    K in the range. The previous step's n accepted drafts are always <= the new K."""
+    K in the range. The previous step's n accepted drafts are always <= the new K.
+    primed=(first token, T): the caller already primed engine and head for this prompt
+    (bench/spec_context.py shares one prefill between drafts); skip prime_spec."""
     dev = engine.device
     Ks = list(range(dynamic[0], dynamic[1] + 1)) if dynamic else [K]
     assert all(("spec", k) in engine.spec_graphs for k in Ks)
@@ -105,7 +107,7 @@ def generate_spec_graph(engine, mtp, tok, prompt_ids, max_new, stop_ids, K=3, st
         torch.manual_seed(seed)
     torch.cuda.synchronize()
     t0 = time.perf_counter()
-    nxt, T = prime_spec(engine, mtp, prompt_ids, chunk)
+    nxt, T = primed if primed is not None else prime_spec(engine, mtp, prompt_ids, chunk)
     torch.cuda.synchronize()
     t_prefill = time.perf_counter() - t0
 
@@ -194,8 +196,9 @@ def prime_dflash(engine, draft, prompt_ids, chunk=4096):
 
 
 def generate_dflash(engine, draft, tok, prompt_ids, max_new, stop_ids, stream=True, chunk=4096,
-                    temperature=0.0, top_p=1.0, top_k=64, seed=None):
-    """Speculative generation with the DFlash2 block draft inside the graph."""
+                    temperature=0.0, top_p=1.0, top_k=64, seed=None, primed=None):
+    """Speculative generation with the DFlash2 block draft inside the graph.
+    primed=(first token, T): the caller already primed engine and draft; skip prime_dflash."""
     dev = engine.device
     K = engine.drafts.numel()
     assert ("dflash", K) in engine.spec_graphs
@@ -204,7 +207,7 @@ def generate_dflash(engine, draft, tok, prompt_ids, max_new, stop_ids, stream=Tr
         torch.manual_seed(seed)
     torch.cuda.synchronize()
     t0 = time.perf_counter()
-    nxt, T = prime_dflash(engine, draft, prompt_ids, chunk)
+    nxt, T = primed if primed is not None else prime_dflash(engine, draft, prompt_ids, chunk)
     torch.cuda.synchronize()
     t_prefill = time.perf_counter() - t0
     out, printed, steps = [], 0, 0

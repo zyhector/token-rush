@@ -1,0 +1,22 @@
+[32mActivated conda/uv virtual environment at [36m/venv/main[0m
+===== engine raw, triton (04:38) =====
+decode at context 40: 9.96 ms/step = 100.4 tok/s   (13.65 GB read per step -> 1370 GB/s, 80.5% of the wall; ceiling 124.6 tok/s)
+decode at context 8040: 10.24 ms/step = 97.7 tok/s   (13.92 GB read per step -> 1359 GB/s, 79.9% of the wall; ceiling 122.2 tok/s)
+decode at context 16040: 10.42 ms/step = 95.9 tok/s   (14.18 GB read per step -> 1361 GB/s, 80.0% of the wall; ceiling 119.9 tok/s)
+decode at context 32040: 10.78 ms/step = 92.8 tok/s   (14.72 GB read per step -> 1365 GB/s, 80.3% of the wall; ceiling 115.6 tok/s)
+decode at context 64040: 11.45 ms/step = 87.3 tok/s   (15.78 GB read per step -> 1378 GB/s, 81.0% of the wall; ceiling 107.8 tok/s)
+decode at context 96040: 12.07 ms/step = 82.9 tok/s   (16.85 GB read per step -> 1396 GB/s, 82.1% of the wall; ceiling 101.0 tok/s)
+decode at context 128040: 12.71 ms/step = 78.7 tok/s   (17.91 GB read per step -> 1409 GB/s, 82.9% of the wall; ceiling 95.0 tok/s)
+decode at context 160040: 13.37 ms/step = 74.8 tok/s   (18.98 GB read per step -> 1419 GB/s, 83.4% of the wall; ceiling 89.6 tok/s)
+decode at context 200040: 14.20 ms/step = 70.4 tok/s   (20.31 GB read per step -> 1430 GB/s, 84.1% of the wall; ceiling 83.8 tok/s)
+decode at context 240040: 14.95 ms/step = 66.9 tok/s   (21.64 GB read per step -> 1447 GB/s, 85.1% of the wall; ceiling 78.6 tok/s)
+===== engine raw, marlin (04:50) =====
+decode at context 40: 10.24 ms/step = 97.6 tok/s   (13.65 GB read per step -> 1333 GB/s, 78.3% of the wall; ceiling 124.6 tok/s)
+decode at context 8040: 10.42 ms/step = 96.0 tok/s   (13.92 GB read per step -> 1336 GB/s, 78.5% of the wall; ceiling 122.2 tok/s)
+decode at context 16040: 10.60 ms/step = 94.4 tok/s   (14.18 GB read per step -> 1338 GB/s, 78.7% of the wall; ceiling 119.9 tok/s)
+decode at context 32040: 10.92 ms/step = 91.6 tok/s   (14.72 GB read per step -> 1347 GB/s, 79.2% of the wall; ceiling 115.6 tok/s)
+decode at context 64040: 11.59 ms/step = 86.3 tok/s   (15.78 GB read per step -> 1361 GB/s, 80.0% of the wall; ceiling 107.8 tok/s)
+decode at context 128040: 12.88 ms/step = 77.7 tok/s   (17.91 GB read per step -> 1391 GB/s, 81.8% of the wall; ceiling 95.0 tok/s)
+decode at context 160040: 13.51 ms/step = 74.0 tok/s   (18.98 GB read per step -> 1404 GB/s, 82.6% of the wall; ceiling 89.6 tok/s)
+decode at context 240040: 15.09 ms/step = 66.3 tok/s   (21.64 GB read per step -> 1434 GB/s, 84.3% of the wall; ceiling 78.6 tok/s)
+STAGE DONE

@@ -6,6 +6,7 @@ last chunk over the wall time between them, greedy, ignore_eos, best of
 `reps`. Usage:
   vllm_bench.py raw
   vllm_bench.py context 0 22000 90000 200000   # random-token prompts already in KV
+  vllm_bench.py files a.txt b.txt ...          # one streamed request per prompt file, fixed n
 """
 import argparse
 import json
@@ -48,8 +49,8 @@ def best_rate(url, model, prompt, n, reps):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("mode", choices=["raw", "context"])
-    p.add_argument("depths", nargs="*", type=int)
+    p.add_argument("mode", choices=["raw", "context", "files"])
+    p.add_argument("depths", nargs="*")
     p.add_argument("--url", default="http://127.0.0.1:8000")
     p.add_argument("--n", type=int, default=256)
     p.add_argument("--reps", type=int, default=3)
@@ -59,10 +60,14 @@ def main():
     if args.mode == "raw":
         for name, text in PROMPTS.items():
             print(f"{name:6s} {best_rate(args.url, model, text, args.n, args.reps):7.1f} tok/s")
+    elif args.mode == "files":
+        for path in args.depths:
+            rate = stream_rate(args.url, model, open(path).read(), args.n)
+            print(f"file {path}: {rate:7.1f} tok/s", flush=True)
     else:
         import random
         random.seed(0)
-        for depth in args.depths:
+        for depth in (int(d) for d in args.depths):
             ids = [random.randint(1000, 150000) for _ in range(max(depth, 1))]
             rate = best_rate(args.url, model, ids, args.n, args.reps)
             print(f"context {depth:>7d}: {rate:7.1f} tok/s")
