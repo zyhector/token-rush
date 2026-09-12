@@ -48,6 +48,12 @@ uv run python -m tokenrush.serve --port 8000
 ANTHROPIC_BASE_URL=http://127.0.0.1:8000 ANTHROPIC_AUTH_TOKEN=anything claude
 ```
 
+Without cloning, straight from GitHub:
+
+```bash
+uvx --from git+https://github.com/zyhector/token-rush tokenrush-serve --port 8000
+```
+
 `--draft mtp` switches to the shipped MTP head as the draft (the default picks it for Chinese prompts), `--no-spec` / `--draft raw` turns speculation off, `--max-len` sets the context window (256k needs ~30 GB with both drafts). More in [docs/serving.md](docs/serving.md).
 
 ## How
@@ -128,3 +134,7 @@ Every number here comes from one machine in one sitting, 2026-09-12, every rival
 | `tests/` | the differential and protocol tests |
 | `docs/` | baselines, environment, progress, quantization, serving, traps |
 | `results/` | raw logs of every reported run |
+
+## Author
+
+I am an MS in Computer Science student at USC, graduating in June 2027, and I am looking for AI infrastructure roles — inference engines, kernels, serving systems — in the Bay Area, Seattle or Los Angeles. If this is the kind of work your team does, or you know a team it would fit, I would be glad to hear from you on [LinkedIn](https://www.linkedin.com/in/hectorzhu/).
