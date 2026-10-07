@@ -11,14 +11,16 @@ dependencies = [
     "einops",
     "safetensors",
     "huggingface-hub",
-    "ninja",                     # builds the Marlin extension on first import
-    "flash-linear-attention",    # the GDN chunk kernel for prefill
+    "ninja; sys_platform == 'linux'",                   # builds the Marlin extension on first import
+    "flash-linear-attention; sys_platform == 'linux'",  # the GDN chunk kernel for prefill
+    "mlx>=0.32; sys_platform == 'darwin'",              # the Apple Silicon backend, tokenrush/mlx
     "fastapi",
     "uvicorn",
 ]
 
 [project.optional-dependencies]
 bench = ["datasets", "accelerate", "matplotlib", "pytest"]
+mac-bench = ["mlx-lm>=0.32; sys_platform == 'darwin'"]   # the rival and the differential reference on a Mac
 
 [project.scripts]
 tokenrush-run = "tokenrush.run:main"
@@ -32,10 +34,10 @@ build-backend = "hatchling.build"
 packages = ["tokenrush"]
 
 [tool.uv]
-environments = ["sys_platform == 'linux'"]
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu130" }
+torch = { index = "pytorch-cu130", marker = "sys_platform == 'linux'" }
 flash-linear-attention = { git = "https://github.com/fla-org/flash-linear-attention", rev = "516143e31fce09925e6c39ac37148444bad176c4" }
 
 [[tool.uv.index]]

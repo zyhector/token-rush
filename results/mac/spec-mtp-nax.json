@@ -1,0 +1,200 @@
+[
+ {
+  "K": "0",
+  "family": "essay",
+  "prefill_s": 0.1674892921000719,
+  "decode_s": 15.708945999853313,
+  "tok_s": 16.29644662362392,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 61.363070311927004,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "code",
+  "prefill_s": 0.18043499998748302,
+  "decode_s": 15.341537083033472,
+  "tok_s": 16.68672432328282,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 59.9278792305995,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "math",
+  "prefill_s": 0.18484645802527666,
+  "decode_s": 15.433237708173692,
+  "tok_s": 16.587575779022586,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 60.286084797553485,
+  "same_as_raw": 256
+ },
+ {
+  "K": "3",
+  "family": "essay",
+  "prefill_s": 0.17628775024786592,
+  "decode_s": 7.80219804123044,
+  "tok_s": 32.81126660040889,
+  "steps": 98,
+  "tokens_per_step": 2.6122448979591835,
+  "ms_per_step": 79.61426572684123,
+  "same_as_raw": 45
+ },
+ {
+  "K": "3",
+  "family": "code",
+  "prefill_s": 0.1859438749961555,
+  "decode_s": 6.958227792289108,
+  "tok_s": 36.79097719159054,
+  "steps": 86,
+  "tokens_per_step": 2.9767441860465116,
+  "ms_per_step": 80.90962549173382,
+  "same_as_raw": 41
+ },
+ {
+  "K": "3",
+  "family": "math",
+  "prefill_s": 0.20919870771467686,
+  "decode_s": 6.376765416003764,
+  "tok_s": 40.145745264129836,
+  "steps": 77,
+  "tokens_per_step": 3.324675324675325,
+  "ms_per_step": 82.81513527277615,
+  "same_as_raw": 140
+ },
+ {
+  "K": "4",
+  "family": "essay",
+  "prefill_s": 0.18527487479150295,
+  "decode_s": 9.53416833281517,
+  "tok_s": 26.85079506294079,
+  "steps": 87,
+  "tokens_per_step": 2.942528735632184,
+  "ms_per_step": 109.58814175649621,
+  "same_as_raw": 178
+ },
+ {
+  "K": "4",
+  "family": "code",
+  "prefill_s": 0.18739387532696128,
+  "decode_s": 7.990730416961014,
+  "tok_s": 32.037121344579205,
+  "steps": 79,
+  "tokens_per_step": 3.240506329113924,
+  "ms_per_step": 101.14848629064575,
+  "same_as_raw": 41
+ },
+ {
+  "K": "4",
+  "family": "math",
+  "prefill_s": 0.19849691726267338,
+  "decode_s": 6.991451416164637,
+  "tok_s": 36.616145169529936,
+  "steps": 68,
+  "tokens_per_step": 3.764705882352941,
+  "ms_per_step": 102.81546200242113,
+  "same_as_raw": 140
+ },
+ {
+  "K": "5",
+  "family": "essay",
+  "prefill_s": 0.17945145769044757,
+  "decode_s": 10.048187209293246,
+  "tok_s": 25.47723232736287,
+  "steps": 87,
+  "tokens_per_step": 2.942528735632184,
+  "ms_per_step": 115.49640470452007,
+  "same_as_raw": 256
+ },
+ {
+  "K": "5",
+  "family": "code",
+  "prefill_s": 0.2114126249216497,
+  "decode_s": 7.697148667182773,
+  "tok_s": 33.2590691786259,
+  "steps": 71,
+  "tokens_per_step": 3.6056338028169015,
+  "ms_per_step": 108.41054460820807,
+  "same_as_raw": 67
+ },
+ {
+  "K": "5",
+  "family": "math",
+  "prefill_s": 0.23946341685950756,
+  "decode_s": 6.663591457996517,
+  "tok_s": 38.41772137647965,
+  "steps": 60,
+  "tokens_per_step": 4.266666666666667,
+  "ms_per_step": 111.05985763327529,
+  "same_as_raw": 140
+ },
+ {
+  "K": "6",
+  "family": "essay",
+  "prefill_s": 0.24995437497273088,
+  "decode_s": 11.065489958040416,
+  "tok_s": 23.134990042983596,
+  "steps": 86,
+  "tokens_per_step": 2.9767441860465116,
+  "ms_per_step": 128.66848788419088,
+  "same_as_raw": 256
+ },
+ {
+  "K": "6",
+  "family": "code",
+  "prefill_s": 0.29589550010859966,
+  "decode_s": 8.96477249963209,
+  "tok_s": 28.556218243185324,
+  "steps": 72,
+  "tokens_per_step": 3.5555555555555554,
+  "ms_per_step": 124.51072916155681,
+  "same_as_raw": 67
+ },
+ {
+  "K": "6",
+  "family": "math",
+  "prefill_s": 0.2750100423581898,
+  "decode_s": 7.506088416092098,
+  "tok_s": 34.10564675086542,
+  "steps": 57,
+  "tokens_per_step": 4.491228070175438,
+  "ms_per_step": 131.68576168582626,
+  "same_as_raw": 140
+ },
+ {
+  "K": "7",
+  "family": "essay",
+  "prefill_s": 0.26159166591241956,
+  "decode_s": 11.345987209118903,
+  "tok_s": 22.56304324001439,
+  "steps": 87,
+  "tokens_per_step": 2.942528735632184,
+  "ms_per_step": 130.41364608182647,
+  "same_as_raw": 256
+ },
+ {
+  "K": "7",
+  "family": "code",
+  "prefill_s": 0.32407695800065994,
+  "decode_s": 10.052397749852389,
+  "tok_s": 25.46656095096905,
+  "steps": 68,
+  "tokens_per_step": 3.764705882352941,
+  "ms_per_step": 147.82937867429985,
+  "same_as_raw": 67
+ },
+ {
+  "K": "7",
+  "family": "math",
+  "prefill_s": 0.3602820001542568,
+  "decode_s": 8.2389460420236,
+  "tok_s": 31.071935499303606,
+  "steps": 54,
+  "tokens_per_step": 4.7407407407407405,
+  "ms_per_step": 152.57307485228887,
+  "same_as_raw": 140
+ }
+]

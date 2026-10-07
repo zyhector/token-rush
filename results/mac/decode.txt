@@ -1,0 +1,5 @@
+loaded 16.19 GB of weights (13.65 GB streamed per token) in 1.7s
+13.65 GB streamed per token; wall 291.2 GB/s -> ceiling 21.3 tok/s
+ours, eval per step       17.26 tok/s   80.9% of the wall
+ours, pipelined           18.38 tok/s   86.2% of the wall
+mlx-lm 0.32.0             17.19 tok/s   80.6% of the wall   (greedy tokens equal to ours for the first 114)

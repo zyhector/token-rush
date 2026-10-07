@@ -1,0 +1,23 @@
+[
+ {
+  "engine": "llama.cpp-raw",
+  "family": "essay",
+  "ttft_s": 0.145195874851197,
+  "tokens": 256,
+  "decode_tok_s": 16.04156072681416
+ },
+ {
+  "engine": "llama.cpp-raw",
+  "family": "code",
+  "ttft_s": 0.47183462511748075,
+  "tokens": 256,
+  "decode_tok_s": 16.245267481112254
+ },
+ {
+  "engine": "llama.cpp-raw",
+  "family": "math",
+  "ttft_s": 0.40723895793780684,
+  "tokens": 256,
+  "decode_tok_s": 15.917199104808377
+ }
+]

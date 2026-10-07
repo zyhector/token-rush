@@ -18,6 +18,7 @@ import asyncio
 import json
 import os
 import queue
+import sys
 import threading
 import time
 import uuid
@@ -528,7 +529,7 @@ def load_session(args):
 
 
 def main():
-    from .weights import DEFAULT_REPO, DFLASH_REPO
+    from .hub import DEFAULT_REPO, DFLASH_REPO
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--model", default=DEFAULT_REPO, help="packed checkpoint: a Hub repo id or a local directory")
     ap.add_argument("--dflash-path", default=DFLASH_REPO)
@@ -537,7 +538,8 @@ def main():
                     help="auto (default): both drafts resident, the MTP chain for CJK prompts, DFlash2 otherwise")
     ap.add_argument("--backend", default=None, choices=("marlin", "triton", "tinygemm", "dequant"))
     ap.add_argument("--kv", default="fp8", choices=("bf16", "fp8"))
-    ap.add_argument("--max-len", type=int, default=262144, help="the context window (256k needs ~30 GB with both drafts)")
+    ap.add_argument("--max-len", type=int, default=None,
+                    help="the context window; default 256k on CUDA (~30 GB with both drafts), 32k on a Mac")
     ap.add_argument("--chunk", type=int, default=4096)
     ap.add_argument("--think", default="auto", choices=("auto", "on", "off"),
                     help="thinking: auto follows the request (Anthropic `thinking`, OpenAI `reasoning_effort` / chat_template_kwargs)")
@@ -550,7 +552,15 @@ def main():
     ap.add_argument("--served-name", default="token-rush")
     ap.add_argument("--alias", action="append", default=[], help="extra model names to list")
     args = ap.parse_args()
-    session, tok, cfg = load_session(args)
+    if sys.platform == "darwin":                      # Apple Silicon: the MLX backend, tokenrush/mlx
+        from .mlx.serve import load_session as load_mlx
+        # bf16 KV, 64 KB per token: 2.1 GB at 32k (plus ~0.8 GB for the drafts' caches);
+        # --kv and --backend are CUDA options and do not apply
+        args.max_len = args.max_len or 32768
+        session, tok, cfg = load_mlx(args)
+    else:
+        args.max_len = args.max_len or 262144
+        session, tok, cfg = load_session(args)
     import uvicorn
     uvicorn.run(build_app(session, tok, cfg, args), host=args.host, port=args.port, log_level="warning")
 

@@ -1,0 +1,23 @@
+[
+ {
+  "engine": "token-rush/raw",
+  "family": "essay",
+  "ttft_s": 0.077609249856323,
+  "tokens": 256,
+  "decode_tok_s": 15.162734268452079
+ },
+ {
+  "engine": "token-rush/raw",
+  "family": "code",
+  "ttft_s": 0.06876616692170501,
+  "tokens": 256,
+  "decode_tok_s": 15.694581595809584
+ },
+ {
+  "engine": "token-rush/raw",
+  "family": "math",
+  "ttft_s": 0.3822707920335233,
+  "tokens": 256,
+  "decode_tok_s": 15.868618089733795
+ }
+]

@@ -1,0 +1,23 @@
+[
+ {
+  "engine": "vllm-metal#2",
+  "family": "essay",
+  "ttft_s": 0.25123891700059175,
+  "tokens": 256,
+  "decode_tok_s": 15.131333896588503
+ },
+ {
+  "engine": "vllm-metal#2",
+  "family": "code",
+  "ttft_s": 0.5928912498056889,
+  "tokens": 256,
+  "decode_tok_s": 14.357626253638864
+ },
+ {
+  "engine": "vllm-metal#2",
+  "family": "math",
+  "ttft_s": 0.5471810828894377,
+  "tokens": 256,
+  "decode_tok_s": 13.858367676678744
+ }
+]

@@ -1,0 +1,200 @@
+[
+ {
+  "K": "0",
+  "family": "essay",
+  "prefill_s": 0.17703650007024407,
+  "decode_s": 14.898603500332683,
+  "tok_s": 17.182818510089458,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 58.197669923174544,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "code",
+  "prefill_s": 0.17971154069527984,
+  "decode_s": 14.692719125188887,
+  "tok_s": 17.423595851711273,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 57.39343408276909,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "math",
+  "prefill_s": 0.18398862471804023,
+  "decode_s": 14.836497208103538,
+  "tok_s": 17.254746616349276,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 57.955067219154444,
+  "same_as_raw": 256
+ },
+ {
+  "K": "3",
+  "family": "essay",
+  "prefill_s": 0.16803329205140471,
+  "decode_s": 7.72073170915246,
+  "tok_s": 33.157479063354515,
+  "steps": 98,
+  "tokens_per_step": 2.6122448979591835,
+  "ms_per_step": 78.78297662400469,
+  "same_as_raw": 45
+ },
+ {
+  "K": "3",
+  "family": "code",
+  "prefill_s": 0.1797462087124586,
+  "decode_s": 6.70951629197225,
+  "tok_s": 38.154762409072156,
+  "steps": 86,
+  "tokens_per_step": 2.9767441860465116,
+  "ms_per_step": 78.0176313020029,
+  "same_as_raw": 41
+ },
+ {
+  "K": "3",
+  "family": "math",
+  "prefill_s": 0.1848381250165403,
+  "decode_s": 5.979803374968469,
+  "tok_s": 42.810772185523554,
+  "steps": 77,
+  "tokens_per_step": 3.324675324675325,
+  "ms_per_step": 77.6597840904996,
+  "same_as_raw": 140
+ },
+ {
+  "K": "dflash",
+  "family": "essay",
+  "prefill_s": 0.1710232920013368,
+  "decode_s": 10.109192959032953,
+  "tok_s": 25.323485369942826,
+  "steps": 83,
+  "tokens_per_step": 3.0843373493975905,
+  "ms_per_step": 121.7975055305175,
+  "same_as_raw": 256
+ },
+ {
+  "K": "dflash",
+  "family": "code",
+  "prefill_s": 0.18752350006252527,
+  "decode_s": 6.059962125029415,
+  "tok_s": 42.24448845029001,
+  "steps": 58,
+  "tokens_per_step": 4.413793103448276,
+  "ms_per_step": 104.48210560395543,
+  "same_as_raw": 67
+ },
+ {
+  "K": "dflash",
+  "family": "math",
+  "prefill_s": 0.19174508284777403,
+  "decode_s": 5.127377834171057,
+  "tok_s": 49.92805451041771,
+  "steps": 49,
+  "tokens_per_step": 5.224489795918367,
+  "ms_per_step": 104.64036396267463,
+  "same_as_raw": 140
+ },
+ {
+  "K": "0",
+  "family": "essay",
+  "prefill_s": 0.16714024962857366,
+  "decode_s": 15.608012625016272,
+  "tok_s": 16.401831940453924,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 60.96879931646981,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "code",
+  "prefill_s": 0.19934312487021089,
+  "decode_s": 15.345833208877593,
+  "tok_s": 16.682052809742746,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 59.9446609721781,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "math",
+  "prefill_s": 0.19513100013136864,
+  "decode_s": 15.300736249890178,
+  "tok_s": 16.73122102224574,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 59.76850097613351,
+  "same_as_raw": 256
+ },
+ {
+  "K": "3",
+  "family": "essay",
+  "prefill_s": 0.18572066631168127,
+  "decode_s": 9.010202833916992,
+  "tok_s": 28.412234965049006,
+  "steps": 98,
+  "tokens_per_step": 2.6122448979591835,
+  "ms_per_step": 91.94084524405093,
+  "same_as_raw": 45
+ },
+ {
+  "K": "3",
+  "family": "code",
+  "prefill_s": 0.21906266687437892,
+  "decode_s": 8.052579749841243,
+  "tok_s": 31.791054289781737,
+  "steps": 86,
+  "tokens_per_step": 2.9767441860465116,
+  "ms_per_step": 93.63464825396794,
+  "same_as_raw": 41
+ },
+ {
+  "K": "3",
+  "family": "math",
+  "prefill_s": 0.23432662477716804,
+  "decode_s": 7.291148249991238,
+  "tok_s": 35.11106772521155,
+  "steps": 77,
+  "tokens_per_step": 3.324675324675325,
+  "ms_per_step": 94.69023701287323,
+  "same_as_raw": 140
+ },
+ {
+  "K": "dflash",
+  "family": "essay",
+  "prefill_s": 0.21324604097753763,
+  "decode_s": 9.078403207939118,
+  "tok_s": 28.198791586622466,
+  "steps": 83,
+  "tokens_per_step": 3.0843373493975905,
+  "ms_per_step": 109.37835190288094,
+  "same_as_raw": 256
+ },
+ {
+  "K": "dflash",
+  "family": "code",
+  "prefill_s": 0.2383572910912335,
+  "decode_s": 6.420304459054023,
+  "tok_s": 39.87349846610225,
+  "steps": 58,
+  "tokens_per_step": 4.413793103448276,
+  "ms_per_step": 110.69490446644868,
+  "same_as_raw": 67
+ },
+ {
+  "K": "dflash",
+  "family": "math",
+  "prefill_s": 0.246693667024374,
+  "decode_s": 5.463960916269571,
+  "tok_s": 46.85245812021287,
+  "steps": 49,
+  "tokens_per_step": 5.224489795918367,
+  "ms_per_step": 111.50940645448104,
+  "same_as_raw": 140
+ }
+]

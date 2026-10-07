@@ -1,0 +1,23 @@
+[
+ {
+  "engine": "llama.cpp-dflash",
+  "family": "essay",
+  "ttft_s": 0.4227789156138897,
+  "tokens": 256,
+  "decode_tok_s": 9.661532672108477
+ },
+ {
+  "engine": "llama.cpp-dflash",
+  "family": "code",
+  "ttft_s": 0.17013875022530556,
+  "tokens": 256,
+  "decode_tok_s": 7.751316351553075
+ },
+ {
+  "engine": "llama.cpp-dflash",
+  "family": "math",
+  "ttft_s": 0.5495863328687847,
+  "tokens": 256,
+  "decode_tok_s": 9.364003736095293
+ }
+]

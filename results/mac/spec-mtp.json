@@ -1,0 +1,200 @@
+[
+ {
+  "K": "0",
+  "family": "essay",
+  "prefill_s": 0.16595820803195238,
+  "decode_s": 14.926288084127009,
+  "tok_s": 17.150948618781978,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 58.30581282862113,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "code",
+  "prefill_s": 0.18769245827570558,
+  "decode_s": 15.149806541856378,
+  "tok_s": 16.897905547025626,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 59.17893180412648,
+  "same_as_raw": 256
+ },
+ {
+  "K": "0",
+  "family": "math",
+  "prefill_s": 0.1867175828665495,
+  "decode_s": 15.160962499678135,
+  "tok_s": 16.885471486749925,
+  "steps": 256,
+  "tokens_per_step": 1.0,
+  "ms_per_step": 59.222509764367715,
+  "same_as_raw": 256
+ },
+ {
+  "K": "1",
+  "family": "essay",
+  "prefill_s": 0.16825641691684723,
+  "decode_s": 9.339540083892643,
+  "tok_s": 27.410343303896536,
+  "steps": 143,
+  "tokens_per_step": 1.7902097902097902,
+  "ms_per_step": 65.31146911813038,
+  "same_as_raw": 45
+ },
+ {
+  "K": "1",
+  "family": "code",
+  "prefill_s": 0.1805004170164466,
+  "decode_s": 8.896854249760509,
+  "tok_s": 28.774215336492805,
+  "steps": 136,
+  "tokens_per_step": 1.8823529411764706,
+  "ms_per_step": 65.41804595412138,
+  "same_as_raw": 41
+ },
+ {
+  "K": "1",
+  "family": "math",
+  "prefill_s": 0.19272695807740092,
+  "decode_s": 8.76028445828706,
+  "tok_s": 29.222795357727104,
+  "steps": 134,
+  "tokens_per_step": 1.9104477611940298,
+  "ms_per_step": 65.37525715139597,
+  "same_as_raw": 140
+ },
+ {
+  "K": "2",
+  "family": "essay",
+  "prefill_s": 0.17945170914754272,
+  "decode_s": 7.794889333192259,
+  "tok_s": 32.8420313691817,
+  "steps": 108,
+  "tokens_per_step": 2.3703703703703702,
+  "ms_per_step": 72.17490123326166,
+  "same_as_raw": 45
+ },
+ {
+  "K": "2",
+  "family": "code",
+  "prefill_s": 0.19081149995326996,
+  "decode_s": 7.515707791782916,
+  "tok_s": 34.06199483698532,
+  "steps": 101,
+  "tokens_per_step": 2.5346534653465347,
+  "ms_per_step": 74.41294843349421,
+  "same_as_raw": 41
+ },
+ {
+  "K": "2",
+  "family": "math",
+  "prefill_s": 0.20676408289000392,
+  "decode_s": 7.035604707896709,
+  "tok_s": 36.3863535017349,
+  "steps": 93,
+  "tokens_per_step": 2.752688172043011,
+  "ms_per_step": 75.65166352577107,
+  "same_as_raw": 140
+ },
+ {
+  "K": "3",
+  "family": "essay",
+  "prefill_s": 0.18274708278477192,
+  "decode_s": 8.115058457944542,
+  "tok_s": 31.546291542654156,
+  "steps": 98,
+  "tokens_per_step": 2.6122448979591835,
+  "ms_per_step": 82.80671895861778,
+  "same_as_raw": 45
+ },
+ {
+  "K": "3",
+  "family": "code",
+  "prefill_s": 0.19432487478479743,
+  "decode_s": 7.047047207597643,
+  "tok_s": 36.32727189964023,
+  "steps": 86,
+  "tokens_per_step": 2.9767441860465116,
+  "ms_per_step": 81.94240939067026,
+  "same_as_raw": 41
+ },
+ {
+  "K": "3",
+  "family": "math",
+  "prefill_s": 0.2026774580590427,
+  "decode_s": 6.350687667261809,
+  "tok_s": 40.31059523202439,
+  "steps": 77,
+  "tokens_per_step": 3.324675324675325,
+  "ms_per_step": 82.47646321119232,
+  "same_as_raw": 140
+ },
+ {
+  "K": "4",
+  "family": "essay",
+  "prefill_s": 0.18343545775860548,
+  "decode_s": 9.671113916672766,
+  "tok_s": 26.470580556254454,
+  "steps": 95,
+  "tokens_per_step": 2.694736842105263,
+  "ms_per_step": 101.80119912287122,
+  "same_as_raw": 45
+ },
+ {
+  "K": "4",
+  "family": "code",
+  "prefill_s": 0.22240891586989164,
+  "decode_s": 8.63545212522149,
+  "tok_s": 29.64523412182473,
+  "steps": 78,
+  "tokens_per_step": 3.282051282051282,
+  "ms_per_step": 110.7109246823268,
+  "same_as_raw": 41
+ },
+ {
+  "K": "4",
+  "family": "math",
+  "prefill_s": 0.23323004227131605,
+  "decode_s": 7.365955958142877,
+  "tok_s": 34.75448420472818,
+  "steps": 68,
+  "tokens_per_step": 3.764705882352941,
+  "ms_per_step": 108.32288173739525,
+  "same_as_raw": 140
+ },
+ {
+  "K": "dyn",
+  "family": "essay",
+  "prefill_s": 0.20789495902135968,
+  "decode_s": 10.544072624761611,
+  "tok_s": 24.279043696911927,
+  "steps": 97,
+  "tokens_per_step": 2.6391752577319587,
+  "ms_per_step": 108.70177963671765,
+  "same_as_raw": 45
+ },
+ {
+  "K": "dyn",
+  "family": "code",
+  "prefill_s": 0.20362770836800337,
+  "decode_s": 8.632006500381976,
+  "tok_s": 29.657067564612202,
+  "steps": 72,
+  "tokens_per_step": 3.5555555555555554,
+  "ms_per_step": 119.8889791719719,
+  "same_as_raw": 97
+ },
+ {
+  "K": "dyn",
+  "family": "math",
+  "prefill_s": 0.2581850839778781,
+  "decode_s": 8.102150958031416,
+  "tok_s": 31.596547796512603,
+  "steps": 63,
+  "tokens_per_step": 4.063492063492063,
+  "ms_per_step": 128.60557076240343,
+  "same_as_raw": 140
+ }
+]

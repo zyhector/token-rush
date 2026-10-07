@@ -55,6 +55,57 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:8000 ANTHROPIC_AUTH_TOKEN=anything claude
 
 `--draft mtp` switches to the shipped MTP head as the draft (the default picks it for Chinese prompts), `--no-spec` / `--draft raw` turns speculation off, `--max-len` sets the context window (256k needs ~30 GB with both drafts). More in [docs/serving.md](docs/serving.md).
 
+On Apple Silicon the same server runs on MLX, picked automatically on macOS: see [On a Mac](#on-a-mac).
+
+## On a Mac
+
+<div align="center">
+  <img src="https://img.shields.io/badge/Apple%20Silicon-M5%20Pro%2064%20GB-111111?logo=apple&logoColor=white" alt="Apple Silicon">
+  <img src="https://img.shields.io/badge/MLX-0.32-2a78d6" alt="MLX">
+  <img src="https://img.shields.io/badge/macOS-26.4-52514e" alt="macOS">
+  <img src="https://img.shields.io/badge/context-32k-1baf7a" alt="32k context">
+  <img src="https://img.shields.io/badge/tests%2Fmac-24%20passing-1baf7a" alt="tests">
+</div>
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/mac_rivals_dark.svg">
+  <img src="docs/img/mac_rivals.svg" alt="Single-stream decode speed on an M5 Pro: Token Rush with the DFlash2 draft and the MTP chain against raw decode and vllm-metal">
+</picture>
+
+The same engine on a MacBook, through MLX (`tokenrush/mlx/`): the same published checkpoint, the same two drafts, the same OpenAI and Anthropic APIs. One machine, one sitting, every server measured by the same client (`bench/mac/rival_bench.py`), greedy, tokens per second:
+
+| engine, its fastest configuration | essay | code | math |
+|---|---|---|---|
+| **Token Rush** (DFlash2 draft) | **32.0** | **49.2** | **51.1** |
+| Token Rush (MTP chain) | 34.2 | 38.4 | 38.2 |
+| vllm-metal 0.31 (raw; it has no draft that runs on this model) | 16.9 | 17.0 | 16.9 |
+| SGLang, MLX backend | does not run | | |
+| llama.cpp (b11474, unsloth Q4_K_M GGUF) | wrong output | | |
+
+The Mac's wall is 291 GB/s, so raw decode tops out at 21.3 tok/s. Raw, every MLX engine sits near it: ours 18.4 tok/s in process (86.2% of the wall), mlx-lm 17.2, vllm-metal level with us when run interleaved. Past the wall only speculation helps, and here only Token Rush can run it.
+
+```bash
+uv sync --extra mac-bench                     # mlx, CPU torch, mlx-lm for the benches
+uv run python -m tokenrush.serve              # the MLX backend on macOS, 32k context by default
+uv run --extra bench pytest tests/mac -q      # kernels, engine and session on a small random model
+```
+
+What makes it work on this chip:
+
+| | |
+|---|---|
+| **No conversion** | Our int4 g128 packing read as `uint32` is MLX's affine 4-bit layout byte for byte. The GPTQ checkpoint loads with a view, and its quality numbers carry over. |
+| **A verify step on the matrix units** | MLX's int4 matmul costs 2.2-3.6x a decode step at 8 rows. A Metal 4 `matmul2d` kernel on the M5's neural accelerators brings it to 1.45-1.85x. |
+| **GDN with deferred commit** | The verify step never writes the recurrent state; the next step replays the accepted rows. Rejected drafts cost nothing to undo. |
+| **GQA folded into rows** | Six query heads per KV head become rows of one attention call with a causal mask: 3.2x faster multi-row attention at long context. |
+| **Fusion without drift** | Position-free groups go through `mx.compile`, each checked bit-identical to its uncompiled form; the one that changed numerics stays eager. |
+| **Checked against a second implementation** | mlx-lm on the same bytes: KL 2-4e-4, two orders of magnitude below the quantization's own 0.023. |
+
+Measurements, failures and what is not done: [docs/mac.md](docs/mac.md).
+
+
 ## How
 
 <picture>
@@ -127,11 +178,11 @@ Every number here comes from one machine in one sitting, 2026-09-12, every rival
 
 | | |
 |---|---|
-| `tokenrush/` | the engine: `model.py` (the text path), `fused.py` / `ops.py` (Triton kernels), `csrc/` (the Marlin port), `spec.py` / `mtp.py` / `dflash.py` (speculation), `gptq.py` / `quant.py` (quantization), `run.py`, `serve.py` |
+| `tokenrush/` | the engine: `model.py` (the text path), `fused.py` / `ops.py` (Triton kernels), `csrc/` (the Marlin port), `spec.py` / `mtp.py` / `dflash.py` (speculation), `gptq.py` / `quant.py` (quantization), `run.py`, `serve.py`; `mlx/` is the Apple Silicon backend |
 | `bench/` | the measurements: decode, context sweeps, quality, needle, GSM8K |
 | `scripts/` | rival benches, the quantization recipe, table and figure generators |
 | `tests/` | the differential and protocol tests |
-| `docs/` | baselines, environment, progress, quantization, serving, traps |
+| `docs/` | baselines, environment, progress, quantization, serving, traps, mac |
 | `results/` | raw logs of every reported run |
 
 ## Author

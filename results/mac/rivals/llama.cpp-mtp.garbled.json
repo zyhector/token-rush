@@ -1,0 +1,23 @@
+[
+ {
+  "engine": "llama.cpp-mtp",
+  "family": "essay",
+  "ttft_s": 0.42652745824307203,
+  "tokens": 256,
+  "decode_tok_s": 11.220545264278764
+ },
+ {
+  "engine": "llama.cpp-mtp",
+  "family": "code",
+  "ttft_s": 0.44401191594079137,
+  "tokens": 256,
+  "decode_tok_s": 10.105961084415354
+ },
+ {
+  "engine": "llama.cpp-mtp",
+  "family": "math",
+  "ttft_s": 0.44606612529605627,
+  "tokens": 256,
+  "decode_tok_s": 10.029716082171271
+ }
+]

@@ -1,0 +1,3 @@
+ctx   8160: prefill   449 tok/s (18.2 s)  raw  16.6 tok/s (1.00/step, reused 8160) needle found  dflash  34.8 tok/s (3.76/step, reused 8160) needle found
+ctx  32736: prefill   232 tok/s (141.3 s)  raw  10.3 tok/s (1.00/step, reused 32736) needle found  dflash  22.9 tok/s (3.94/step, reused 32736) needle found
+ctx  59968: prefill   245 tok/s (244.8 s)  raw  10.4 tok/s (1.00/step, reused 59968) needle found  dflash  17.3 tok/s (3.12/step, reused 59968) needle found
